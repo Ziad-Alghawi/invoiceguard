@@ -36,6 +36,14 @@ _Coming in R4._
 
 _Coming in R0 (three commands with Docker Compose)._
 
+## Decisions
+
+Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/README.md):
+
+- [ADR-001: Technology stack](docs/decisions/ADR-001-stack.md)
+- [ADR-002: Boundary between deterministic code and LLMs](docs/decisions/ADR-002-code-vs-llm-boundary.md)
+- [ADR-003: Human approval is a hard gate](docs/decisions/ADR-003-approval-hard-gate.md)
+
 ## Roadmap
 
 - R0 Foundation: repo, tooling, CI, Docker Compose
