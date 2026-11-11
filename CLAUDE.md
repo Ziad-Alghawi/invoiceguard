@@ -17,7 +17,7 @@ make dev · make check (ruff, mypy, eslint, prettier) · make test · make e2e �
 - There is no tool that pays, posts or writes to ERP/registry. Do not create one.
 - Write tests with the code (pytest / vitest / playwright). Run make check && make test before committing.
 - No dead code, no commented-out code, no TODO without an issue link, no secrets, config via env.
-- Conventional commits (feat/fix/docs/test/chore/refactor). Author is Ziad only: never add Co-Authored-By or
+- Conventional commits (feat/fix/docs/test/chore/refactor/build/ci). Author is Ziad only: never add Co-Authored-By or
   "Generated with" lines to commits or PRs.
 - Update docs/status.md and CHANGELOG.md when a milestone item is completed; write an ADR in docs/decisions/
   for architectural choices.
