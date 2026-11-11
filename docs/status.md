@@ -1,7 +1,7 @@
 # Status
 
 **Current milestone:** R1 — Working core
-**Last updated:** 2026-11-11
+**Last updated:** 2026-11-12
 
 ## Done
 - R0 — Foundation (complete)
@@ -17,14 +17,20 @@
   - Database layer (ADR-008: sync SQLAlchemy 2 + psycopg 3), Alembic migration with the R1 tables, `/ready` checks the db
   - `make seed`: idempotent German demo suppliers with verified IBANs and purchase orders
   - Invoice upload (`POST /invoices`, type by content, size limit, SHA-256 duplicates → 409, audit event), list and detail
+  - XML readers (R1-3): XRechnung UBL/CII and ZUGFeRD 2.x / Factur-X into EN 16931 terms (`invoice_fields`), hardened
+    XML parsing (XXE blocked), background processing with status flow, audit events and startup recovery; upload
+    returns 202; plain PDFs wait in `awaiting_extraction`
 
 ## Open decisions
 - Demo hosting (where the API runs: cluster or free host) and domain: decide by the end of R1.
 
 ## Next
-- R1: parse XRechnung (UBL/CII) and ZUGFeRD after upload (background task, upload then returns 202 per ADR-007), PDF extraction, KoSIT validation, checks, review queue, CSV export
+- R1: KoSIT validation and checks (VAT math, duplicates, supplier known, IBAN vs registry incl. the
+  `multiple_payee_ibans` warning, PO match), PDF extraction via LLM for `awaiting_extraction`, review queue, CSV export
 
 ## Lessons learned
 - Docker Compose v5 on Windows builds through Bake: run Compose from the folder that holds the compose file when build contexts are outside it.
 - Generate tool baselines that store file paths (detect-secrets) on Linux, so paths use `/` and match in CI and pre-commit.
 - On Windows use `127.0.0.1`, not `localhost`, in database URLs: `localhost` tries IPv6 first and stalls.
+- Libraries can parse untrusted input on your behalf: factur-x parses PDF attachments with lxml's defaults before our
+  hardened parser sees them, so check what a dependency does with hostile input, not only what it returns.

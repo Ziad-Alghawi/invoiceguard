@@ -20,7 +20,13 @@ _Coming in R5 (diagram). Monorepo layout: `apps/`, `services/`, `packages/`, `in
 
 ## How it works
 
-_Coming in R1._
+1. **Upload** (`POST /invoices`): the file is stored, the API answers `202` at once and processes it in the
+   background ([ADR-007](docs/decisions/ADR-007-background-execution.md)).
+2. **Read** by deterministic code, not an LLM ([ADR-002](docs/decisions/ADR-002-code-vs-llm-boundary.md),
+   [ADR-005](docs/decisions/ADR-005-zugferd-xrechnung-reader.md)): XRechnung (UBL and CII) and ZUGFeRD 2.x /
+   Factur-X are read into EN 16931 business terms (BT-1 invoice number, BT-84 payee IBAN, totals, lines).
+   PDFs without embedded XML wait for LLM extraction (next step).
+3. Checks, review queue and export follow in R1.
 
 ## Safety design
 
@@ -48,7 +54,8 @@ make seed       # German demo suppliers, verified bank accounts and purchase ord
 Open http://localhost:3000: the page shows `API: ok`. Upload an e-invoice (XML or PDF) to the API:
 
 ```sh
-curl -F "file=@rechnung.xml" http://localhost:8000/invoices      # 201 with the invoice, 409 if already uploaded
+curl -F "file=@apps/api/tests/fixtures/ubl_xrechnung.xml" http://localhost:8000/invoices   # 202, 409 if already uploaded
+curl http://localhost:8000/invoices/<id>                         # status: received → processing → ready
 curl http://localhost:8000/invoices                              # newest first
 ```
 
@@ -88,7 +95,9 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
 
 ## Limitations
 
-_Coming in R1._
+- ZUGFeRD 1.0 (superseded in 2019) and UBL credit notes are not read; they end in `failed` with a reason.
+- Only the first payee IBAN is stored when an invoice names several; the case is flagged for the IBAN check.
+- Background processing runs inside the API process (ADR-007): one API instance only, no automatic retries.
 
 ## Deutsch
 

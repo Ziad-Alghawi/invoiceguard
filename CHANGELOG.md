@@ -25,8 +25,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `POST /invoices`: upload of XML or PDF invoices with type detection from the content, size limit (`INVOICEGUARD_MAX_UPLOAD_BYTES`), content-addressed storage on a volume, SHA-256 duplicate detection (`409` with the existing id) and an audit event.
 - `GET /invoices` (newest first, `limit`/`offset`) and `GET /invoices/{id}`.
 - API tests against a real PostgreSQL (Compose db locally, service container in CI), including migration up/down and a models-vs-migrations check; the CI smoke test now seeds and uploads.
+- E-invoice reader (`apps/api` `parsing/`, ADR-005): XRechnung UBL and CII and ZUGFeRD 2.x / Factur-X (XML embedded in
+  PDF, extracted with `factur-x`) read by an own `lxml` parser into a typed model with the R1 business terms, stored
+  per BT code in `invoice_fields` (line terms with `line_no`).
+- Hardened XML parsing: no entity expansion, no DTD loading, no network, any DOCTYPE rejected; XXE and billion-laughs
+  attack files in the tests.
+- Background processing (ADR-007): `received → processing → ready / awaiting_extraction / failed` with a
+  `status_reason`, an audit event per status change, idempotent steps, and startup recovery of unfinished invoices.
+- Migration 0002: status `awaiting_extraction` (PDF without embedded XML, waits for LLM extraction) and
+  `invoices.status_reason`.
+- Several different payee IBANs on one invoice: the first is stored, a warning is logged and recorded in the audit event.
+- Test samples (made-up data) for CII, UBL, ZUGFeRD 2.x PDF, ZUGFeRD 1.0, broken XML, XXE and billion laughs, and a
+  differential test against `factur-x`'s own parser.
+- Dependencies `factur-x`, `lxml` and `pypdf`, pinned to exact versions.
 
 ### Changed
 - `GET /ready` checks the database and returns `503` when it is unreachable.
 - The api container applies migrations on start, waits for a healthy `db` and stores uploads in the `uploads` volume.
 - uvicorn starts the app through the `create_app` factory (`--factory`), so importing the module does not read settings.
+- `POST /invoices` returns `202 Accepted` (was `201`) and schedules processing; invoice responses include `status_reason`.
+- The CI smoke test uploads a sample XRechnung, expects `202` and polls until the invoice is `ready`.
