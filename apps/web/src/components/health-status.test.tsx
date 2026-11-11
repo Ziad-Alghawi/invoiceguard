@@ -2,9 +2,12 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { HealthStatus } from "@/components/health-status";
-import { checkApiHealth } from "@/lib/health";
+import { checkApiHealth, getApiUrl } from "@/lib/health";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllEnvs();
+});
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -22,6 +25,15 @@ describe("HealthStatus", () => {
   it("shows unreachable when the API is down", () => {
     render(<HealthStatus status="unreachable" />);
     expect(screen.getByRole("status").textContent).toBe("API: unreachable");
+  });
+});
+
+describe("getApiUrl", () => {
+  it("reads API_URL on every call", () => {
+    vi.stubEnv("API_URL", "http://staging.test");
+    expect(getApiUrl()).toBe("http://staging.test");
+    vi.stubEnv("API_URL", "http://prod.test");
+    expect(getApiUrl()).toBe("http://prod.test");
   });
 });
 

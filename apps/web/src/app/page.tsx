@@ -2,11 +2,11 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { HealthStatus } from "@/components/health-status";
-import { checkApiHealth } from "@/lib/health";
+import { checkApiHealth, getApiUrl } from "@/lib/health";
 
 async function ApiHealth() {
   await connection();
-  const status = await checkApiHealth(process.env.NEXT_PUBLIC_API_URL);
+  const status = await checkApiHealth(getApiUrl());
   return <HealthStatus status={status} />;
 }
 
