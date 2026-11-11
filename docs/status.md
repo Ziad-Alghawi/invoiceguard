@@ -12,6 +12,11 @@
   - Dockerfiles (multi-stage, non-root), Docker Compose (api + web + db) with healthchecks
   - Makefile (`dev`, `down`, `check`, `test`, `eval`), pre-commit with detect-secrets
   - CI (api, web, compose smoke test) green, PR template, README "Run locally"
+- R1 — Working core (in progress)
+  - Week-1 decisions: ADR-004 (model router: LiteLLM), ADR-005 (ZUGFeRD/XRechnung reader: factur-x + own lxml parser, after a spike), ADR-006 (demo auth: seeded users), ADR-007 (background execution: BackgroundTasks + status column)
+
+## Open decisions
+- Demo hosting (where the API runs: cluster or free host) and domain: decide by the end of R1.
 
 ## Next
 - R1: upload and parse XRechnung (UBL/CII) and ZUGFeRD, PDF extraction, KoSIT validation, checks, review queue, CSV export
