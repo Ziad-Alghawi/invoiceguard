@@ -1,6 +1,7 @@
 # InvoiceGuard — instructions for Claude Code
 
-Read `docs/PLAN.md` (sections 3, 4, 5, 11) and `docs/status.md` before any task.
+docs/PLAN.md is a private local file; read it if present. Public architecture docs go in docs/ (coming in R5).
+Read `docs/status.md` before any task, and PLAN.md sections 3, 4, 5 and 11 when present.
 
 ## Stack
 Python 3.12 (uv, FastAPI, LangGraph, Pydantic v2, SQLAlchemy 2, Alembic, PostgreSQL 16 + pgvector),
