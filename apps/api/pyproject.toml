@@ -37,6 +37,7 @@ warn_required_dynamic_aliases = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--strict-markers --cov=invoiceguard_api --cov-report=term-missing"
+filterwarnings = ["error"]
 
 [tool.coverage.run]
 branch = true
@@ -47,7 +48,7 @@ show_missing = true
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.1",
+    "httpx2>=2.16.0",
     "mypy>=2.4.1",
     "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
