@@ -8,3 +8,4 @@ htmlcov/
 tests/
 Dockerfile
 .dockerignore
+data/

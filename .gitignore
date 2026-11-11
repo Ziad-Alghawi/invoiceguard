@@ -43,3 +43,6 @@ test-results/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Uploaded invoices when the api runs outside Docker
+apps/api/data/

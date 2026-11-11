@@ -1,12 +1,19 @@
 """Application settings, read from environment variables prefixed with INVOICEGUARD_."""
 
 from functools import lru_cache
-from typing import Literal
+from pathlib import Path
+from typing import Annotated, Literal
 
+from pydantic import Field, PostgresDsn, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["dev", "test", "prod"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
+
+# Only the psycopg 3 driver is installed, so the URL must name it explicitly.
+DatabaseUrl = Annotated[PostgresDsn, UrlConstraints(allowed_schemes=["postgresql+psycopg"])]
+
+MIB = 1024 * 1024
 
 
 class Settings(BaseSettings):
@@ -14,6 +21,9 @@ class Settings(BaseSettings):
 
     env: Environment = "dev"
     log_level: LogLevel = "INFO"
+    database_url: DatabaseUrl
+    storage_dir: Path = Path("data/uploads")
+    max_upload_bytes: int = Field(default=10 * MIB, gt=0)
 
 
 @lru_cache

@@ -5,7 +5,11 @@ COMPOSE = cd infra && docker compose --env-file ../.env
 API = cd apps/api &&
 WEB = cd apps/web &&
 
-.PHONY: dev down check test eval
+# The api tests need INVOICEGUARD_TEST_DATABASE_URL; read it from the root .env when there is one.
+-include .env
+export INVOICEGUARD_TEST_DATABASE_URL
+
+.PHONY: dev down seed check test eval
 
 dev: ## Build and start api + web + db, wait until all are healthy
 ifeq ($(wildcard .env),)
@@ -13,6 +17,9 @@ ifeq ($(wildcard .env),)
 endif
 	$(COMPOSE) up --build --detach --wait
 	@echo "web: http://localhost:3000  api: http://localhost:8000/health"
+
+seed: ## Load the German demo master data into the running stack (safe to run again)
+	$(COMPOSE) exec api invoiceguard-seed
 
 down: ## Stop and remove the containers (the database volume is kept)
 	$(COMPOSE) down
@@ -25,7 +32,7 @@ check: ## Lint, format check and type check (api + web)
 	$(WEB) pnpm typecheck
 	$(WEB) pnpm format:check
 
-test: ## Unit tests (api + web)
+test: ## Tests (api + web); the api tests need the db running (make dev)
 	$(API) uv run pytest
 	$(WEB) pnpm test
 

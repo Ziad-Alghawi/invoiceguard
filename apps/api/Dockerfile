@@ -22,17 +22,23 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev --no-editable
 
 
-# Run: only the virtual environment, as a non-root user.
+# Run: the virtual environment and the migrations, as a non-root user.
 FROM python:3.12-slim AS run
 
-RUN groupadd --system app && useradd --system --gid app --no-create-home app
+# A named volume mounted on /data/uploads takes over this owner, so the app user can write uploads.
+RUN groupadd --system app && useradd --system --gid app --no-create-home app \
+    && mkdir -p /data/uploads && chown app:app /data/uploads
 
+WORKDIR /app
 COPY --from=build --chown=app:app /app/.venv /app/.venv
+COPY alembic.ini ./
+COPY migrations ./migrations
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    INVOICEGUARD_STORAGE_DIR=/data/uploads
 
 USER app
 EXPOSE 8000
-CMD ["uvicorn", "invoiceguard_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "--factory", "invoiceguard_api.main:create_app", "--host", "0.0.0.0", "--port", "8000"]
