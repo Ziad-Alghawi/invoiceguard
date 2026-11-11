@@ -21,7 +21,7 @@ jobs:
         working-directory: apps/api
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           version: "0.13.6"
           enable-cache: true
@@ -64,9 +64,11 @@ jobs:
       - name: Build images and start api, web, db (waits for healthy)
         run: make dev
       - name: API /health returns ok
-        run: curl --fail --silent --show-error http://localhost:8000/health | grep '"status":"ok"'
+        run: |
+          curl --fail --silent --show-error http://localhost:8000/health | grep '"status":"ok"'
       - name: Web page shows API ok
-        run: curl --fail --silent --show-error http://localhost:3000 | grep -E 'API: (<!-- -->)?ok'
+        run: |
+          curl --fail --silent --show-error http://localhost:3000 | grep -E 'API: (<!-- -->)?ok'
       - name: Container logs
         if: failure()
         working-directory: infra
