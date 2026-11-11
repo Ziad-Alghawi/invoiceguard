@@ -6,9 +6,11 @@
 ## Done
 - Monorepo skeleton with purpose READMEs, licence, README skeleton, CLAUDE.md, CHANGELOG, editor/git/env config
 - ADR-001 (stack), ADR-002 (code vs LLM boundary), ADR-003 (approval as hard gate)
+- `apps/api`: uv, FastAPI, `/health` + `/ready`, ruff, mypy, pytest
+- `apps/web`: pnpm, Next.js, Tailwind, shadcn/ui, eslint, prettier, vitest; home page shows API health
 
 ## Next
-- Tooling: uv, ruff, mypy, pytest, pnpm, eslint/prettier, pre-commit, Makefile
+- Tooling: pre-commit, Makefile
 - Docker Compose (api + web + db), CI skeleton green
 
 ## Lessons learned
