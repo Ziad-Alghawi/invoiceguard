@@ -7,11 +7,15 @@ Deployment and operations config: Docker Compose (dev), Helm chart, Argo CD mani
 | Service | Image | Host port | Healthcheck |
 | --- | --- | --- | --- |
 | `db` | `pgvector/pgvector:pg16` | `127.0.0.1:5432` | `pg_isready` |
-| `api` | built from `apps/api` | `127.0.0.1:8000` | `GET /health` |
+| `api` | built from `apps/api` | `127.0.0.1:8000` | `GET /health` (starts after `db` is healthy) |
 | `web` | built from `apps/web` | `127.0.0.1:3000` | `GET /` (starts after `api` is healthy) |
 
 Configuration comes from the root `.env` (copy `.env.example`). Inside the Compose network the web container calls
-the API at `http://api:8000`. Database data is kept in the `db-data` volume.
+the API at `http://api:8000`, and the API reaches PostgreSQL at `db:5432` with a URL built from the `POSTGRES_*`
+values. The api container applies pending Alembic migrations before it starts serving. Database data is kept in the
+`db-data` volume, uploaded invoice files in the `uploads` volume (mounted at `/data/uploads`).
+
+`make seed` loads the demo master data into the running stack (`docker compose exec api invoiceguard-seed`).
 
 Use `make dev` / `make down` from the repo root. Without make:
 

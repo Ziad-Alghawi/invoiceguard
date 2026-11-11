@@ -24,9 +24,22 @@ services:
 
   api:
     build: ../apps/api
+    # Apply pending migrations, then serve. In Kubernetes (R4) migrations become a separate Job.
+    command:
+      - sh
+      - -c
+      - alembic upgrade head && exec uvicorn --factory invoiceguard_api.main:create_app --host 0.0.0.0 --port 8000
     environment:
       INVOICEGUARD_ENV: ${INVOICEGUARD_ENV:-dev}
       INVOICEGUARD_LOG_LEVEL: ${INVOICEGUARD_LOG_LEVEL:-INFO}
+      # Address of the db service on the Compose network; credentials from the root .env.
+      INVOICEGUARD_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      INVOICEGUARD_MAX_UPLOAD_BYTES: ${INVOICEGUARD_MAX_UPLOAD_BYTES:-10485760}
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     healthcheck:
@@ -63,3 +76,4 @@ services:
 
 volumes:
   db-data:
+  uploads:

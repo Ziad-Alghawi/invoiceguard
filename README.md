@@ -41,10 +41,18 @@ Requires Docker and GNU make (on Windows: `scoop install make` or `winget instal
 ```sh
 git clone https://github.com/Ziad-Alghawi/invoiceguard.git && cd invoiceguard
 cp .env.example .env
-make dev        # api + web + db, waits until all are healthy
+make dev        # api + web + db, applies database migrations, waits until all are healthy
+make seed       # German demo suppliers, verified bank accounts and purchase orders (safe to rerun)
 ```
 
-Open http://localhost:3000: the page shows `API: ok`. `make down` stops the stack.
+Open http://localhost:3000: the page shows `API: ok`. Upload an e-invoice (XML or PDF) to the API:
+
+```sh
+curl -F "file=@rechnung.xml" http://localhost:8000/invoices      # 201 with the invoice, 409 if already uploaded
+curl http://localhost:8000/invoices                              # newest first
+```
+
+The API docs are at http://localhost:8000/docs. `make down` stops the stack (data is kept in volumes).
 
 For development without Docker you also need [uv](https://docs.astral.sh/uv/) and Node.js 24 with pnpm
 (see [apps/api](apps/api/README.md) and [apps/web](apps/web/README.md)):
@@ -52,7 +60,7 @@ For development without Docker you also need [uv](https://docs.astral.sh/uv/) an
 | Command | What it runs |
 | --- | --- |
 | `make check` | ruff, ruff format, mypy, eslint, tsc, prettier |
-| `make test` | pytest, vitest |
+| `make test` | pytest (against a `_test` database in the running db container), vitest |
 | `make eval` | evaluation harness (R3) |
 | `uvx pre-commit install` | git hooks: ruff, prettier, whitespace, large files, detect-secrets |
 
@@ -67,6 +75,7 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
 - [ADR-005: Reading ZUGFeRD and XRechnung with factur-x and an own lxml parser](docs/decisions/ADR-005-zugferd-xrechnung-reader.md)
 - [ADR-006: Demo authentication with seeded email/password users](docs/decisions/ADR-006-demo-auth.md)
 - [ADR-007: Background execution with FastAPI BackgroundTasks and a status column](docs/decisions/ADR-007-background-execution.md)
+- [ADR-008: Synchronous SQLAlchemy 2 with psycopg 3](docs/decisions/ADR-008-sync-database-access.md)
 
 ## Roadmap
 
