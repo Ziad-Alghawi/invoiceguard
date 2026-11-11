@@ -8,3 +8,7 @@ New ADRs start from the [template](ADR-000-template.md).
 | [ADR-001](ADR-001-stack.md) | Technology stack | Accepted |
 | [ADR-002](ADR-002-code-vs-llm-boundary.md) | Boundary between deterministic code and LLMs | Accepted |
 | [ADR-003](ADR-003-approval-hard-gate.md) | Human approval is a hard gate | Accepted |
+| [ADR-004](ADR-004-model-router.md) | Model router with LiteLLM | Accepted |
+| [ADR-005](ADR-005-zugferd-xrechnung-reader.md) | Reading ZUGFeRD and XRechnung with factur-x and an own lxml parser | Accepted |
+| [ADR-006](ADR-006-demo-auth.md) | Demo authentication with seeded email/password users | Accepted |
+| [ADR-007](ADR-007-background-execution.md) | Background execution with FastAPI BackgroundTasks and a status column | Accepted |

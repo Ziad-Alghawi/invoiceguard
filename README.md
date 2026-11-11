@@ -63,6 +63,10 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
 - [ADR-001: Technology stack](docs/decisions/ADR-001-stack.md)
 - [ADR-002: Boundary between deterministic code and LLMs](docs/decisions/ADR-002-code-vs-llm-boundary.md)
 - [ADR-003: Human approval is a hard gate](docs/decisions/ADR-003-approval-hard-gate.md)
+- [ADR-004: Model router with LiteLLM](docs/decisions/ADR-004-model-router.md)
+- [ADR-005: Reading ZUGFeRD and XRechnung with factur-x and an own lxml parser](docs/decisions/ADR-005-zugferd-xrechnung-reader.md)
+- [ADR-006: Demo authentication with seeded email/password users](docs/decisions/ADR-006-demo-auth.md)
+- [ADR-007: Background execution with FastAPI BackgroundTasks and a status column](docs/decisions/ADR-007-background-execution.md)
 
 ## Roadmap
 
