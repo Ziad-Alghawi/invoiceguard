@@ -39,3 +39,10 @@ pnpm format:check   # prettier (pnpm format to fix)
 pnpm test           # vitest (pnpm test:watch while developing)
 pnpm build
 ```
+
+## Docker
+
+The [Dockerfile](Dockerfile) builds with `output: "standalone"` and copies only the standalone server and static
+assets into a `node:24-alpine` image that runs as the non-root `node` user on port 3000. `API_URL` is not needed at
+build time; pass it when the container starts. The whole stack (api + web + db) starts with `make dev` from the repo
+root; see [infra](../../infra/README.md).

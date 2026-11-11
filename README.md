@@ -1,8 +1,10 @@
 # InvoiceGuard
 
+[![CI](https://github.com/Ziad-Alghawi/invoiceguard/actions/workflows/ci.yml/badge.svg)](https://github.com/Ziad-Alghawi/invoiceguard/actions/workflows/ci.yml)
+
 Agentic platform for incoming supplier invoices (XRechnung, ZUGFeRD, PDF): it reads them, checks them against rules and master data, catches fraud and prompt-injection attacks, prepares the booking, and lets a human approve. The agent can never pay or post anything on its own.
 
-> Status: R0 (foundation) in progress. Sections below are filled as each release lands.
+> Status: R0 (foundation) done, R1 (working core) next. Sections below are filled as each release lands.
 
 ## Problem
 
@@ -34,7 +36,25 @@ _Coming in R4._
 
 ## Run locally
 
-_Coming in R0 (three commands with Docker Compose)._
+Requires Docker and GNU make (on Windows: `scoop install make` or `winget install ezwinports.make`).
+
+```sh
+git clone https://github.com/Ziad-Alghawi/invoiceguard.git && cd invoiceguard
+cp .env.example .env
+make dev        # api + web + db, waits until all are healthy
+```
+
+Open http://localhost:3000: the page shows `API: ok`. `make down` stops the stack.
+
+For development without Docker you also need [uv](https://docs.astral.sh/uv/) and Node.js 24 with pnpm
+(see [apps/api](apps/api/README.md) and [apps/web](apps/web/README.md)):
+
+| Command | What it runs |
+| --- | --- |
+| `make check` | ruff, ruff format, mypy, eslint, tsc, prettier |
+| `make test` | pytest, vitest |
+| `make eval` | evaluation harness (R3) |
+| `uvx pre-commit install` | git hooks: ruff, prettier, whitespace, large files, detect-secrets |
 
 ## Decisions
 
