@@ -1,6 +1,9 @@
 # Private planning document (kept local)
 docs/PLAN.md
 
+# Private problem journal (kept local)
+docs/private/
+
 # Environment and secrets
 .env
 .env.*

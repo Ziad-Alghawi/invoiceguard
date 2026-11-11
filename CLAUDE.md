@@ -22,3 +22,5 @@ make dev · make check (ruff, mypy, eslint, prettier) · make test · make e2e �
 - Update docs/status.md and CHANGELOG.md when a milestone item is completed; write an ADR in docs/decisions/
   for architectural choices.
 - Prefer boring, standard, well-documented solutions. If unsure, ask one short question instead of guessing.
+- When we hit a non-trivial problem (error, wrong assumption, tricky decision), append an entry to
+  docs/private/journal.md in the same format. Never commit that file.
