@@ -1,8 +1,11 @@
 """Background processing of uploaded invoices (ADR-007): received → processing → final status.
 
+Steps: read the XML, validate it with KoSIT (ADR-009), store the fields, run the checks; any
+failed check ends in `blocked`, otherwise `ready`. A PDF without XML waits for extraction.
+
 Plain sync functions: FastAPI runs them in its thread pool (ADR-008). Every step is safe to run
-twice: claiming is a conditional update, and the fields are replaced in the same transaction
-that sets the final status. Each status change writes an audit event.
+twice: claiming is a conditional update, and fields and check results are replaced in the same
+transaction that sets the final status. Each status change writes an audit event.
 """
 
 import logging
@@ -12,6 +15,14 @@ from typing import Any
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
+from invoiceguard_api.checks import (
+    KositValidator,
+    final_status,
+    load_context,
+    replace_results,
+    run_checks,
+    summarise,
+)
 from invoiceguard_api.models import (
     AuditEvent,
     FieldSource,
@@ -19,7 +30,13 @@ from invoiceguard_api.models import (
     InvoiceField,
     InvoiceStatus,
 )
-from invoiceguard_api.parsing import NoEmbeddedXml, ParsedInvoice, ParseError, parse_invoice
+from invoiceguard_api.parsing import (
+    NoEmbeddedXml,
+    ParsedInvoice,
+    ParseError,
+    invoice_xml,
+    read_invoice_xml,
+)
 from invoiceguard_api.parsing.fields import to_field_rows
 from invoiceguard_api.storage import FileStorage
 
@@ -95,30 +112,48 @@ def _replace_fields(session: Session, invoice_id: uuid.UUID, parsed: ParsedInvoi
     )
 
 
-def _run(session: Session, storage: FileStorage, invoice: Invoice) -> None:
+def _run(
+    session: Session, storage: FileStorage, validator: KositValidator, invoice: Invoice
+) -> None:
     try:
-        parsed = parse_invoice(storage.read(invoice.storage_path), invoice.source_type)
+        xml = invoice_xml(storage.read(invoice.storage_path), invoice.source_type)
+        parsed = read_invoice_xml(xml)
     except NoEmbeddedXml:
         _finish(session, invoice, InvoiceStatus.AWAITING_EXTRACTION, AWAITING_EXTRACTION_REASON)
         return
     except ParseError as error:
         _finish(session, invoice, InvoiceStatus.FAILED, str(error))
         return
+    # Before any write, so the call (up to the validator timeout) holds no row locks.
+    validation = validator.validate(xml)
     _replace_fields(session, invoice.id, parsed)
+    results = run_checks(load_context(session, invoice.id, parsed, validation))
+    replace_results(session, invoice.id, results)
+    summary = summarise(results)
+    status = final_status(results)
+    reason = (
+        None
+        if status is InvoiceStatus.READY
+        else "Failed checks: " + ", ".join(summary["failed_checks"]) + "."
+    )
     _finish(
         session,
         invoice,
-        InvoiceStatus.READY,
-        None,
+        status,
+        reason,
         syntax=parsed.syntax,
         warnings=list(parsed.warnings),
+        checks=summary,
     )
 
 
 def process_invoice(
-    session_factory: sessionmaker[Session], storage: FileStorage, invoice_id: uuid.UUID
+    session_factory: sessionmaker[Session],
+    storage: FileStorage,
+    validator: KositValidator,
+    invoice_id: uuid.UUID,
 ) -> None:
-    """Parse one invoice and store its fields; any error in the work ends in status `failed`.
+    """Parse and check one invoice; any error in the work ends in status `failed`.
 
     If the database itself fails, the invoice stays `processing` and startup recovery resumes it.
     """
@@ -128,14 +163,16 @@ def process_invoice(
             logger.info("Invoice %s is not waiting for processing; skipped", invoice_id)
             return
         try:
-            _run(session, storage, invoice)
+            _run(session, storage, validator, invoice)
         except Exception:
             logger.exception("Processing invoice %s failed", invoice_id)
             session.rollback()
             _finish(session, invoice, InvoiceStatus.FAILED, INTERNAL_ERROR_REASON)
 
 
-def recover_unfinished(session_factory: sessionmaker[Session], storage: FileStorage) -> None:
+def recover_unfinished(
+    session_factory: sessionmaker[Session], storage: FileStorage, validator: KositValidator
+) -> None:
     """On startup: reset invoices a restart left in `processing`, then process all `received`.
 
     Assumes one API process (ADR-007); with several, this would take over another's work.
@@ -161,4 +198,4 @@ def recover_unfinished(session_factory: sessionmaker[Session], storage: FileStor
     if pending:
         logger.info("Resuming %d unfinished invoice(s) after startup", len(pending))
     for invoice_id in pending:
-        process_invoice(session_factory, storage, invoice_id)
+        process_invoice(session_factory, storage, validator, invoice_id)

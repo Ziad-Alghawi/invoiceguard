@@ -22,7 +22,14 @@ from sqlalchemy.orm import Session
 
 from invoiceguard_api.db import DbSession
 from invoiceguard_api.filetype import safe_filename, source_type_for
-from invoiceguard_api.models import AuditEvent, Invoice, InvoiceStatus, SourceType
+from invoiceguard_api.models import (
+    AuditEvent,
+    Check,
+    CheckStatus,
+    Invoice,
+    InvoiceStatus,
+    SourceType,
+)
 from invoiceguard_api.processing import process_invoice
 from invoiceguard_api.storage import FileStorage
 
@@ -44,6 +51,25 @@ class InvoiceOut(BaseModel):
     sha256: str
     size_bytes: int
     created_at: datetime
+
+
+class CheckOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    type: str
+    status: CheckStatus
+    message: str
+    evidence: dict[str, Any]
+    created_at: datetime
+
+
+class InvoiceDetailOut(InvoiceOut):
+    # Worst first: failed, warning, skipped, passed.
+    checks: list[CheckOut]
+
+
+# The order a reviewer reads check results in.
+SEVERITY_ORDER = (CheckStatus.FAILED, CheckStatus.WARNING, CheckStatus.SKIPPED, CheckStatus.PASSED)
 
 
 class ErrorOut(BaseModel):
@@ -152,7 +178,11 @@ def upload_invoice(
 
     session.refresh(invoice)
     background_tasks.add_task(
-        process_invoice, request.app.state.session_factory, storage, invoice.id
+        process_invoice,
+        request.app.state.session_factory,
+        storage,
+        request.app.state.validator,
+        invoice.id,
     )
     response.headers["Location"] = str(request.url_for("get_invoice", invoice_id=invoice.id))
     return InvoiceOut.model_validate(invoice)
@@ -178,8 +208,16 @@ def list_invoices(
     "/{invoice_id}",
     responses={status.HTTP_404_NOT_FOUND: {"model": ErrorOut, "description": "Unknown invoice"}},
 )
-def get_invoice(invoice_id: uuid.UUID, session: DbSession) -> InvoiceOut:
+def get_invoice(invoice_id: uuid.UUID, session: DbSession) -> InvoiceDetailOut:
+    """The invoice with its check results (empty until processing has run the checks)."""
     invoice = session.get(Invoice, invoice_id)
     if invoice is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Invoice not found.")
-    return InvoiceOut.model_validate(invoice)
+    checks = session.scalars(select(Check).where(Check.invoice_id == invoice_id)).all()
+    ordered = sorted(checks, key=lambda check: (SEVERITY_ORDER.index(check.status), check.type))
+    return InvoiceDetailOut.model_validate(
+        {
+            **InvoiceOut.model_validate(invoice).model_dump(),
+            "checks": [CheckOut.model_validate(check) for check in ordered],
+        }
+    )

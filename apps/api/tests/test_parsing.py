@@ -15,6 +15,7 @@ from invoiceguard_api.parsing import (
     ParsedInvoice,
     ParsedLine,
     UnsupportedFormat,
+    VatBreakdown,
     parse_invoice,
     safe_xml,
 )
@@ -41,6 +42,10 @@ def test_reads_xrechnung_cii(samples: dict[str, bytes]) -> None:
         buyer_name=BUYER,
         buyer_vat_id=BUYER_VAT_ID,
         payee_iban="DE17123456780000000001",
+        order_reference="PO-2026-0001",
+        line_total=Decimal("366.50"),
+        allowance_total=None,
+        charge_total=None,
         net_total=Decimal("366.50"),
         tax_total=Decimal("69.64"),
         gross_total=Decimal("436.14"),
@@ -65,6 +70,14 @@ def test_reads_xrechnung_cii(samples: dict[str, bytes]) -> None:
                 vat_rate=Decimal("19"),
             ),
         ),
+        vat_breakdown=(
+            VatBreakdown(
+                category_code="S",
+                rate=Decimal("19"),
+                taxable_amount=Decimal("366.50"),
+                tax_amount=Decimal("69.64"),
+            ),
+        ),
     )
 
 
@@ -83,6 +96,16 @@ def test_reads_xrechnung_ubl(samples: dict[str, bytes]) -> None:
         ("1", "C62", Decimal("3747.00")),
         ("2", "HUR", Decimal("570.00")),
     ]
+    assert invoice.order_reference == "PO-2026-0005"
+    assert invoice.line_total == Decimal("4317.00")
+    assert invoice.vat_breakdown == (
+        VatBreakdown(
+            category_code="S",
+            rate=Decimal("19"),
+            taxable_amount=Decimal("4317.00"),
+            tax_amount=Decimal("820.23"),
+        ),
+    )
     assert invoice.warnings == ()
 
 
@@ -97,6 +120,10 @@ def test_reads_zugferd2_pdf_without_payee_iban(samples: dict[str, bytes]) -> Non
     assert invoice.buyer_vat_id is None
     assert invoice.gross_total == Decimal("266.97")
     assert [line.vat_rate for line in invoice.lines] == [Decimal("7")]
+    assert invoice.order_reference == "PO-2026-0010"
+    assert [(group.rate, group.tax_amount) for group in invoice.vat_breakdown] == [
+        (Decimal("7"), Decimal("17.47"))
+    ]
 
 
 @pytest.mark.parametrize(
@@ -293,6 +320,32 @@ def test_missing_optional_terms_are_none(samples: dict[str, bytes]) -> None:
     assert (invoice.due_date, invoice.tax_total) == (None, None)
 
 
+def test_reads_document_allowances_and_charges(samples: dict[str, bytes]) -> None:
+    xml = samples["ubl_xrechnung"].replace(
+        b'<cbc:TaxExclusiveAmount currencyID="EUR">',
+        b'<cbc:AllowanceTotalAmount currencyID="EUR">17.00</cbc:AllowanceTotalAmount>'
+        b'<cbc:ChargeTotalAmount currencyID="EUR">5.00</cbc:ChargeTotalAmount>'
+        b'<cbc:TaxExclusiveAmount currencyID="EUR">',
+    )
+
+    invoice = parse_invoice(xml, SourceType.XML)
+
+    assert (invoice.allowance_total, invoice.charge_total) == (Decimal("17.00"), Decimal("5.00"))
+
+
+def test_vat_breakdown_without_rate_has_rate_none(samples: dict[str, bytes]) -> None:
+    xml = samples["cii_xrechnung"].replace(
+        b"<ram:BasisAmount>366.50</ram:BasisAmount>\n"
+        b"        <ram:CategoryCode>S</ram:CategoryCode>\n"
+        b"        <ram:RateApplicablePercent>19</ram:RateApplicablePercent>",
+        b"<ram:BasisAmount>366.50</ram:BasisAmount><ram:CategoryCode>O</ram:CategoryCode>",
+    )
+
+    (group,) = parse_invoice(xml, SourceType.XML).vat_breakdown
+
+    assert (group.category_code, group.rate) == ("O", None)
+
+
 # --- Business-term rows ----------------------------------------------------------------------
 
 
@@ -305,7 +358,10 @@ def test_field_rows_use_bt_codes_and_line_numbers(samples: dict[str, bytes]) -> 
     assert FieldRow("BT-109", None, "366.50") in rows
     assert FieldRow("BT-131", 2, "117.50") in rows
     assert FieldRow("BT-153", 1, "Kopierpapier A4, 80 g/m², Karton à 2.500 Blatt") in rows
-    assert len(rows) == 14 + 2 * 7
+    assert FieldRow("BT-13", None, "PO-2026-0001") in rows
+    assert FieldRow("BT-106", None, "366.50") in rows
+    # 16 document terms (no BT-107/BT-108 allowances or charges) and 7 per line.
+    assert len(rows) == 16 + 2 * 7
     assert len({(row.code, row.line_no) for row in rows}) == len(rows)
 
 

@@ -5,13 +5,15 @@ COMPOSE = cd infra && docker compose --env-file ../.env
 API = cd apps/api &&
 WEB = cd apps/web &&
 
-# The api tests need INVOICEGUARD_TEST_DATABASE_URL; read it from the root .env when there is one.
+# The api tests need INVOICEGUARD_TEST_DATABASE_URL (and INVOICEGUARD_TEST_VALIDATOR_URL for the
+# KoSIT tests); read them from the root .env when there is one.
 -include .env
 export INVOICEGUARD_TEST_DATABASE_URL
+export INVOICEGUARD_TEST_VALIDATOR_URL
 
 .PHONY: dev down seed check test eval
 
-dev: ## Build and start api + web + db, wait until all are healthy
+dev: ## Build and start api + web + db + validator, wait until all are healthy
 ifeq ($(wildcard .env),)
 	$(error .env not found: run "cp .env.example .env" first)
 endif
@@ -32,7 +34,7 @@ check: ## Lint, format check and type check (api + web)
 	$(WEB) pnpm typecheck
 	$(WEB) pnpm format:check
 
-test: ## Tests (api + web); the api tests need the db running (make dev)
+test: ## Tests (api + web); the api tests need the db and validator running (make dev)
 	$(API) uv run pytest
 	$(WEB) pnpm test
 

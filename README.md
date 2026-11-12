@@ -4,7 +4,7 @@
 
 Agentic platform for incoming supplier invoices (XRechnung, ZUGFeRD, PDF): it reads them, checks them against rules and master data, catches fraud and prompt-injection attacks, prepares the booking, and lets a human approve. The agent can never pay or post anything on its own.
 
-> Status: R0 (foundation) done, R1 (working core) next. Sections below are filled as each release lands.
+> Status: R0 (foundation) done, R1 (working core) in progress. Sections below are filled as each release lands.
 
 ## Problem
 
@@ -26,7 +26,21 @@ _Coming in R5 (diagram). Monorepo layout: `apps/`, `services/`, `packages/`, `in
    [ADR-005](docs/decisions/ADR-005-zugferd-xrechnung-reader.md)): XRechnung (UBL and CII) and ZUGFeRD 2.x /
    Factur-X are read into EN 16931 business terms (BT-1 invoice number, BT-84 payee IBAN, totals, lines).
    PDFs without embedded XML wait for LLM extraction (next step).
-3. Checks, review queue and export follow in R1.
+3. **Check** with deterministic rules, each stored with a status (`passed`, `warning`, `failed`, `skipped`), a message
+   and its evidence:
+
+   | Check | Fails (blocks) when | Warns when |
+   | --- | --- | --- |
+   | `kosit`: official KoSIT validator, XRechnung 3.0.2 ([ADR-009](docs/decisions/ADR-009-kosit-validator-service.md)) | the validator rejects the XML (rule codes as evidence) | no XRechnung scenario fits (for example ZUGFeRD BASIC); `skipped` if the validator is down |
+   | `vat_math` | lines, net, tax per rate and gross do not add up (±0.01) | |
+   | `duplicate` | same seller and invoice number as a stored invoice | same seller, same gross amount, issue date within 7 days |
+   | `supplier_known` | | the seller VAT ID is not in the supplier master data |
+   | `iban` | invalid IBAN, or not one of the supplier's verified IBANs (possible fraud) | supplier unknown; `no_payee_iban` (direct debit) and `multiple_payee_ibans` are separate warnings |
+   | `po_match` | order of another supplier; more charged than ordered (total, price, quantity, extra lines) | no or unknown order reference; less charged (partial delivery) |
+
+   Any failed check ends in **`blocked`**, otherwise **`ready`** for review. `GET /invoices/{id}` returns the results,
+   worst first.
+4. Review queue and export follow in R1.
 
 ## Safety design
 
@@ -47,7 +61,7 @@ Requires Docker and GNU make (on Windows: `scoop install make` or `winget instal
 ```sh
 git clone https://github.com/Ziad-Alghawi/invoiceguard.git && cd invoiceguard
 cp .env.example .env
-make dev        # api + web + db, applies database migrations, waits until all are healthy
+make dev        # api + web + db + KoSIT validator, applies migrations, waits until all are healthy
 make seed       # German demo suppliers, verified bank accounts and purchase orders (safe to rerun)
 ```
 
@@ -55,8 +69,9 @@ Open http://localhost:3000: the page shows `API: ok`. Upload an e-invoice (XML o
 
 ```sh
 curl -F "file=@apps/api/tests/fixtures/ubl_xrechnung.xml" http://localhost:8000/invoices   # 202, 409 if already uploaded
-curl http://localhost:8000/invoices/<id>                         # status: received → processing → ready
-curl http://localhost:8000/invoices                              # newest first
+curl http://localhost:8000/invoices/<id>    # status received → processing → ready, with the check results
+curl -F "file=@apps/api/tests/fixtures/ubl_fraud_iban.xml" http://localhost:8000/invoices  # changed IBAN → blocked
+curl http://localhost:8000/invoices         # newest first
 ```
 
 The API docs are at http://localhost:8000/docs. `make down` stops the stack (data is kept in volumes).
@@ -67,7 +82,7 @@ For development without Docker you also need [uv](https://docs.astral.sh/uv/) an
 | Command | What it runs |
 | --- | --- |
 | `make check` | ruff, ruff format, mypy, eslint, tsc, prettier |
-| `make test` | pytest (against a `_test` database in the running db container), vitest |
+| `make test` | pytest (against a `_test` database and the validator in the running stack), vitest |
 | `make eval` | evaluation harness (R3) |
 | `uvx pre-commit install` | git hooks: ruff, prettier, whitespace, large files, detect-secrets |
 
@@ -83,6 +98,7 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
 - [ADR-006: Demo authentication with seeded email/password users](docs/decisions/ADR-006-demo-auth.md)
 - [ADR-007: Background execution with FastAPI BackgroundTasks and a status column](docs/decisions/ADR-007-background-execution.md)
 - [ADR-008: Synchronous SQLAlchemy 2 with psycopg 3](docs/decisions/ADR-008-sync-database-access.md)
+- [ADR-009: KoSIT validator as its own service, called over HTTP](docs/decisions/ADR-009-kosit-validator-service.md)
 
 ## Roadmap
 
@@ -96,8 +112,16 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
 ## Limitations
 
 - ZUGFeRD 1.0 (superseded in 2019) and UBL credit notes are not read; they end in `failed` with a reason.
-- Only the first payee IBAN is stored when an invoice names several; the case is flagged for the IBAN check.
-- Background processing runs inside the API process (ADR-007): one API instance only, no automatic retries.
+- Only the first payee IBAN is stored and checked when an invoice names several; the others are flagged as a
+  `multiple_payee_ibans` warning, not compared with the registry.
+- PO matching pairs invoice lines with order lines **by position** (first with first). A supplier who reorders or
+  splits lines gets false differences. Matching by item ID (BT-155/BT-156) or the order line reference (BT-132) is
+  the planned fix.
+- The duplicate check can miss a duplicate when two copies are processed at the same moment (each sees no other
+  stored invoice yet). Unlikely at demo load; a unique constraint or a lock per seller would close it.
+- The KoSIT configuration covers XRechnung and plain EN 16931; other ZUGFeRD profiles get a "not validated" warning.
+- Background processing runs inside the API process (ADR-007): one API instance only, no automatic retries
+  (an invoice checked while the validator was down keeps its `skipped` KoSIT result).
 
 ## Deutsch
 

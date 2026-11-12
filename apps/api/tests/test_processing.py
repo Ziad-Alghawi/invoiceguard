@@ -1,16 +1,22 @@
 import hashlib
+import threading
+import time
 import uuid
+from collections import Counter
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from invoiceguard_api import main, processing
+from invoiceguard_api.checks import KositValidator
+from invoiceguard_api.checks.model import Validation
 from invoiceguard_api.db import make_session_factory
 from invoiceguard_api.main import create_app
 from invoiceguard_api.models import (
     AuditEvent,
+    Check,
     FieldSource,
     Invoice,
     InvoiceField,
@@ -20,6 +26,9 @@ from invoiceguard_api.models import (
 from invoiceguard_api.processing import process_invoice, recover_unfinished
 from invoiceguard_api.settings import Settings
 from invoiceguard_api.storage import FileStorage
+
+# Without a validator URL the KoSIT check is skipped; the other checks run as usual.
+NO_VALIDATOR = KositValidator(None, 1.0)
 
 
 @pytest.fixture
@@ -102,7 +111,7 @@ def test_each_sample_ends_in_the_expected_status(
 ) -> None:
     invoice_id = add_invoice(session_factory, storage, samples[sample], source_type)
 
-    process_invoice(session_factory, storage, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
 
     invoice = load(db_session, invoice_id)
     assert invoice.status is status
@@ -125,7 +134,7 @@ def test_ready_invoice_stores_business_terms(
 ) -> None:
     invoice_id = add_invoice(session_factory, storage, samples["cii_xrechnung"], SourceType.XML)
 
-    process_invoice(session_factory, storage, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
 
     stored = fields(db_session, invoice_id)
     assert stored[("BT-1", None)] == "RE-2026-10417"
@@ -151,7 +160,7 @@ def test_ready_event_records_syntax_and_warnings(
     )
     invoice_id = add_invoice(session_factory, storage, xml, SourceType.XML)
 
-    process_invoice(session_factory, storage, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
 
     event = db_session.scalars(
         select(AuditEvent).where(AuditEvent.entity_id == str(invoice_id)).order_by(AuditEvent.id)
@@ -163,6 +172,14 @@ def test_ready_event_records_syntax_and_warnings(
         "reason": None,
         "syntax": "ubl",
         "warnings": ["multiple_payee_ibans: 2 found, stored the first"],
+        # Unseeded database: supplier and order unknown (warnings), no validator (skipped).
+        "checks": {
+            "passed": 2,
+            "warning": 4,
+            "failed": 0,
+            "skipped": 1,
+            "failed_checks": [],
+        },
     }
 
 
@@ -173,11 +190,11 @@ def test_processing_twice_is_harmless(
     samples: dict[str, bytes],
 ) -> None:
     invoice_id = add_invoice(session_factory, storage, samples["ubl_xrechnung"], SourceType.XML)
-    process_invoice(session_factory, storage, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
     first = fields(db_session, invoice_id)
 
     # A finished invoice is not claimed again.
-    process_invoice(session_factory, storage, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
     assert len(status_changes(db_session, invoice_id)) == 2
 
     # A re-run (for example after a reset) replaces the fields instead of adding duplicates.
@@ -186,7 +203,7 @@ def test_processing_twice_is_harmless(
         assert invoice is not None
         invoice.status = InvoiceStatus.RECEIVED
         session.commit()
-    process_invoice(session_factory, storage, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
 
     assert fields(db_session, invoice_id) == first
     assert load(db_session, invoice_id).status is InvoiceStatus.READY
@@ -195,7 +212,7 @@ def test_processing_twice_is_harmless(
 def test_unknown_invoice_id_is_skipped(
     session_factory: sessionmaker[Session], storage: FileStorage, db_session: Session
 ) -> None:
-    process_invoice(session_factory, storage, uuid.uuid4())
+    process_invoice(session_factory, storage, NO_VALIDATOR, uuid.uuid4())
 
     assert db_session.scalars(select(AuditEvent)).all() == []
 
@@ -213,9 +230,9 @@ def test_unexpected_error_ends_in_failed(
     def explode(content: bytes, source_type: SourceType) -> None:
         raise RuntimeError("disk on fire")
 
-    monkeypatch.setattr(processing, "parse_invoice", explode)
+    monkeypatch.setattr(processing, "invoice_xml", explode)
 
-    process_invoice(session_factory, storage, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
 
     invoice = load(db_session, invoice_id)
     assert invoice.status is InvoiceStatus.FAILED
@@ -239,7 +256,7 @@ def test_recovery_resumes_received_and_interrupted_invoices(
         session_factory, storage, samples["plain_pdf"], SourceType.PDF, InvoiceStatus.FAILED
     )
 
-    recover_unfinished(session_factory, storage)
+    recover_unfinished(session_factory, storage, NO_VALIDATOR)
 
     assert load(db_session, interrupted).status is InvoiceStatus.READY
     assert status_changes(db_session, interrupted) == [
@@ -286,3 +303,109 @@ def test_app_starts_even_if_recovery_fails(
 
     # create_app configures JSON logging to stdout, which replaces pytest's log capture.
     assert "Could not resume unfinished invoices" in capsys.readouterr().out
+
+
+# --- Atomic claim: one invoice is processed once, even by two workers at the same moment -------
+
+
+class SlowValidator(KositValidator):
+    """Counts validations and takes a while, so the winner is still busy when the loser claims."""
+
+    def __init__(self) -> None:
+        super().__init__(None, 1.0)
+        self.calls = 0
+        self._lock = threading.Lock()
+
+    def validate(self, xml: bytes) -> Validation:
+        with self._lock:
+            self.calls += 1
+        time.sleep(0.2)
+        return super().validate(xml)
+
+
+def _check_types(db_session: Session, invoice_id: uuid.UUID) -> Counter[str]:
+    rows = db_session.scalars(select(Check.type).where(Check.invoice_id == invoice_id))
+    return Counter(rows)
+
+
+def test_claim_waits_for_a_concurrent_claim_and_then_skips(
+    session_factory: sessionmaker[Session],
+    storage: FileStorage,
+    engine: Engine,
+    db_session: Session,
+    samples: dict[str, bytes],
+) -> None:
+    """The claim is one conditional UPDATE. PostgreSQL locks the row for the first one; a second
+    UPDATE waits for that lock, re-reads the row after the commit (READ COMMITTED), finds it no
+    longer `received` and matches nothing. Here the first claim is held open on purpose."""
+    invoice_id = add_invoice(session_factory, storage, samples["ubl_xrechnung"], SourceType.XML)
+    validator = SlowValidator()
+
+    with engine.connect() as other_worker:
+        transaction = other_worker.begin()
+        claimed = other_worker.execute(
+            update(Invoice)
+            .where(Invoice.id == invoice_id, Invoice.status == InvoiceStatus.RECEIVED)
+            .values(status=InvoiceStatus.PROCESSING)
+        )
+        assert claimed.rowcount == 1
+
+        worker = threading.Thread(
+            target=process_invoice, args=(session_factory, storage, validator, invoice_id)
+        )
+        worker.start()
+        worker.join(timeout=0.5)
+        assert worker.is_alive(), "the second claim must wait for the first one's row lock"
+
+        transaction.commit()
+        worker.join(timeout=10)
+        assert not worker.is_alive()
+
+    # The waiting worker matched no row: it did no work and wrote nothing.
+    assert validator.calls == 0
+    assert status_changes(db_session, invoice_id) == []
+    assert fields(db_session, invoice_id) == {}
+    assert _check_types(db_session, invoice_id) == Counter()
+    assert load(db_session, invoice_id).status is InvoiceStatus.PROCESSING
+
+
+@pytest.mark.usefixtures("seeded")
+@pytest.mark.parametrize("attempt", range(5))
+def test_two_simultaneous_runs_process_the_invoice_once(
+    session_factory: sessionmaker[Session],
+    storage: FileStorage,
+    db_session: Session,
+    samples: dict[str, bytes],
+    attempt: int,
+) -> None:
+    """Startup recovery and the upload's own task picking up the same invoice at once."""
+    invoice_id = add_invoice(session_factory, storage, samples["ubl_xrechnung"], SourceType.XML)
+    validator = SlowValidator()
+    start = threading.Barrier(2)
+    errors: list[BaseException] = []
+
+    def run() -> None:
+        try:
+            start.wait(timeout=5)
+            process_invoice(session_factory, storage, validator, invoice_id)
+        except BaseException as error:
+            errors.append(error)
+
+    workers = [threading.Thread(target=run) for _ in range(2)]
+    for worker in workers:
+        worker.start()
+    for worker in workers:
+        worker.join(timeout=10)
+
+    assert errors == []
+    assert validator.calls == 1
+    assert load(db_session, invoice_id).status is InvoiceStatus.READY
+    assert status_changes(db_session, invoice_id) == [
+        ("received", "processing"),
+        ("processing", "ready"),
+    ]
+    assert _check_types(db_session, invoice_id) == Counter(
+        ["kosit", "vat_math", "duplicate", "supplier_known", "iban", "po_match"]
+    )
+    rows = db_session.scalars(select(InvoiceField).where(InvoiceField.invoice_id == invoice_id))
+    assert len(rows.all()) == len(fields(db_session, invoice_id))

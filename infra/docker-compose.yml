@@ -1,4 +1,4 @@
-# Local development stack: api + web + db.
+# Local development stack: api + web + db + validator (KoSIT, ADR-009).
 # Run from the repo root with `make dev`, which passes the root .env:
 #   docker compose --env-file .env -f infra/docker-compose.yml up --build --wait
 
@@ -35,6 +35,10 @@ services:
       # Address of the db service on the Compose network; credentials from the root .env.
       INVOICEGUARD_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       INVOICEGUARD_MAX_UPLOAD_BYTES: ${INVOICEGUARD_MAX_UPLOAD_BYTES:-10485760}
+      # Address of the validator service on the Compose network. The api does not wait for it:
+      # while it is down, the KoSIT check is skipped and the other checks still run.
+      INVOICEGUARD_VALIDATOR_URL: http://validator:8080/
+      INVOICEGUARD_VALIDATOR_TIMEOUT_SECONDS: ${INVOICEGUARD_VALIDATOR_TIMEOUT_SECONDS:-20}
     volumes:
       - uploads:/data/uploads
     depends_on:
@@ -52,6 +56,12 @@ services:
       timeout: 3s
       retries: 10
       start_period: 5s
+
+  validator:
+    # Official KoSIT validator with the XRechnung configuration; healthcheck in the Dockerfile.
+    build: ../services/validator
+    ports:
+      - "127.0.0.1:${VALIDATOR_PORT:-8081}:8080"
 
   web:
     build: ../apps/web

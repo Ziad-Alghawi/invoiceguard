@@ -53,6 +53,9 @@ warn_required_dynamic_aliases = true
 testpaths = ["tests"]
 addopts = "--strict-markers --cov=invoiceguard_api --cov-report=term-missing"
 filterwarnings = ["error"]
+markers = [
+    "kosit: needs a running KoSIT validator (INVOICEGUARD_TEST_VALIDATOR_URL); skipped without it",
+]
 
 [tool.coverage.run]
 branch = true

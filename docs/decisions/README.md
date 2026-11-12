@@ -13,3 +13,4 @@ New ADRs start from the [template](ADR-000-template.md).
 | [ADR-006](ADR-006-demo-auth.md) | Demo authentication with seeded email/password users | Accepted |
 | [ADR-007](ADR-007-background-execution.md) | Background execution with FastAPI BackgroundTasks and a status column | Accepted |
 | [ADR-008](ADR-008-sync-database-access.md) | Synchronous SQLAlchemy 2 with psycopg 3 | Accepted |
+| [ADR-009](ADR-009-kosit-validator-service.md) | KoSIT validator as its own service, called over HTTP | Accepted |

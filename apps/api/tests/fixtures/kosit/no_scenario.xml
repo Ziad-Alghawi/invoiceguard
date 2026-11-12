@@ -1,0 +1,4 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Recorded from KoSIT validator 1.6.3 with the XRechnung 3.0.2 configuration (2026-08-31);
+     HTML explanation and scenario details removed. -->
+<rep:report xmlns:rep="http://www.xoev.de/de/validator/varl/1" varlVersion="1.0.0" valid="false"><rep:engine><rep:name>KoSIT Validator 1.6.3</rep:name></rep:engine><rep:timestamp>2026-11-12T01:09:02.415Z</rep:timestamp><rep:documentIdentification><rep:documentHash><rep:hashAlgorithm>SHA-256</rep:hashAlgorithm><rep:hashValue>Xy8DjdUld7tzAHuukI7WkBl8YU1fsOP0g6/gWfvQ+qw=</rep:hashValue></rep:documentHash><rep:documentReference>supplied_instance_3</rep:documentReference></rep:documentIdentification><rep:noScenarioMatched><rep:validationStepResult id="val-xml" valid="true"/></rep:noScenarioMatched><rep:assessment><rep:reject/></rep:assessment></rep:report>

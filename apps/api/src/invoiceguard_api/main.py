@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from starlette.concurrency import run_in_threadpool
 
 from invoiceguard_api.body_limit import ContentLengthLimitMiddleware
+from invoiceguard_api.checks import KositValidator
 from invoiceguard_api.db import make_engine, make_session_factory
 from invoiceguard_api.health import router as health_router
 from invoiceguard_api.invoices import router as invoices_router
@@ -34,10 +35,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     engine = make_engine(str(settings.database_url))
     session_factory = make_session_factory(engine)
     storage = FileStorage(settings.storage_dir)
+    validator = KositValidator(
+        None if settings.validator_url is None else str(settings.validator_url),
+        settings.validator_timeout_seconds,
+    )
 
     def recover() -> None:
         try:
-            recover_unfinished(session_factory, storage)
+            recover_unfinished(session_factory, storage, validator)
         except Exception:
             # The API must still start (for example while the database is down); /ready reports it.
             logger.exception("Could not resume unfinished invoices on startup")
@@ -55,6 +60,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.engine = engine
     app.state.session_factory = session_factory
     app.state.storage = storage
+    app.state.validator = validator
     app.add_middleware(
         ContentLengthLimitMiddleware,
         max_bytes=settings.max_upload_bytes + MULTIPART_OVERHEAD_BYTES,
