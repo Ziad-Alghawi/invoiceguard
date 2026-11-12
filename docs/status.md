@@ -40,15 +40,17 @@
       (the invoice states none), every other value equal to the clean PDF; the model lowered some confidences
       (0.95 to 0.98 instead of 1.0).
     - Thinking level: output was about twice the input, about half of it thinking, so extraction now runs with
-      `INVOICEGUARD_EXTRACTION_REASONING_EFFORT=low` (ADR-010). Cost, latency and accuracy at `low` are not
-      measured yet.
+      `INVOICEGUARD_EXTRACTION_REASONING_EFFORT=low` (ADR-010). Rerun at `low`, same 4 PDFs: **mean $0.0067 and
+      10.3 s per invoice** (-53 % and -55 %; range $0.0055 to $0.0084 and 8.7 to 11.8 s; 1,182 to 1,847 output
+      tokens; total $0.0267). **71 of 72 terms correct**: the Rabatte PDF prints two different order numbers (the
+      field "Bestellung : 2013-471331", which the XML has, and a note "Rechnung gemäß Bestellung Nr. 2018-471331");
+      `low` took the note with confidence 0.9, the default level took the field. IBANs and totals were correct in
+      both runs, and the injection was again not followed. `low` stays the default; R3 decides on more data.
 
 ## Open decisions
 - Demo hosting (where the API runs: cluster or free host) and domain: decide by the end of R1.
 
 ## Next
-- R1-5 follow-up: rerun `scripts/extract_pdfs.py` on the 4 samples at thinking level `low` and record the numbers
-  here (4 calls)
 - R1: review queue, CSV export
 
 ## Known limitations
@@ -62,6 +64,8 @@
 - An invoice processed while the validator was down keeps a `skipped` KoSIT result; there is no automatic re-run.
   The same holds for an LLM extraction that failed on quota or a timeout: it stays `failed` (no retry action yet).
 - LLM confidence is self-reported, not calibrated; R3 measures field accuracy and how well confidence predicts errors.
+  It does not flag conflicts: a PDF that prints two different order numbers got 0.9 for the wrong one. R3 adds eval
+  cases with conflicting values (and may add a prompt rule to lower the confidence on a conflict).
 - No per-invoice or per-day LLM cost cap yet (planned with the agent in R2); the cost is logged per call.
 - A PDF the model cannot read a required term from (invoice number, date, totals) ends in `failed`, not in review.
 

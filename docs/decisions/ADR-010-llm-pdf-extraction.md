@@ -70,8 +70,11 @@ strict schema; convert the reply into `ParsedInvoice` and run the normal checks.
   deterministic checks (`vat_math`, `iban`, `low_confidence`, `po_match`) catch the slips that move money,
   and the model's confidence stays self-reported either way. `minimal` would be lower still, but the
   pinned price table marks Gemini 3.8 Flash as not supporting it (LiteLLM then sends `low`), and Gemini 3
-  cannot turn thinking off. Going back to more thinking is a config change; R3 measures field accuracy
-  per level on the eval set and sets the default from data.
+  cannot turn thinking off. Measured on the same 4 PDFs, `low` halved cost and latency ($0.0141 to
+  $0.0067 and 22.8 to 10.3 s per invoice) and misread 1 of 72 terms: of two different order numbers
+  printed on one PDF it took the one in a free-text note, with confidence 0.9; IBANs and totals stayed
+  correct. Going back to more thinking is a config change; R3 measures field accuracy per level on the
+  eval set and sets the default from data.
 - **Flow (ADR-007):** the same background task that finds no XML moves the invoice to
   `awaiting_extraction` and then claims it again (`awaiting_extraction → processing`, a conditional
   update), extracts, stores the fields with `source=llm`, runs the checks and ends in `ready`, `blocked`
@@ -91,8 +94,8 @@ strict schema; convert the reply into `ParsedInvoice` and run the normal checks.
   layout; ADR-002 rejected it.
 - **One confidence per line term:** the most detail, at several times the output tokens per line.
 - **Tool calling instead of a response schema:** the same result with more variance between providers.
-- **Default thinking level:** the most careful reading, at about twice the output tokens of the reply
-  itself; kept as a setting (`high`) instead of the default.
+- **Default thinking level:** the most careful reading (no misread on the 4 sample PDFs), at about twice
+  the cost and latency of `low`; kept as a setting (`high`) instead of the default.
 - **Token log-probabilities as confidence:** not offered uniformly across providers and LiteLLM; the
   model's own confidence is simpler, with its limits stated below.
 
