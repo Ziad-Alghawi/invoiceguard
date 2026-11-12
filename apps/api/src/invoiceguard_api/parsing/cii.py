@@ -8,7 +8,7 @@ from decimal import Decimal
 
 from lxml import etree
 
-from invoiceguard_api.parsing.model import ParsedInvoice, ParsedLine
+from invoiceguard_api.parsing.model import ParsedInvoice, ParsedLine, VatBreakdown
 from invoiceguard_api.parsing.values import ValueReader, cii_date, first_payee_iban, to_decimal
 
 RSM = "urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
@@ -38,6 +38,15 @@ def _tax_total(root: etree._Element, currency: str) -> Decimal | None:
         if amount.get("currencyID", currency) == currency and amount.text:
             return to_decimal(amount.text.strip(), "BT-110")
     return None
+
+
+def _vat_breakdown(node: etree._Element) -> VatBreakdown:
+    return VatBreakdown(
+        category_code=_read.required_text(node, "ram:CategoryCode", "BT-118"),
+        rate=_read.decimal(node, "ram:RateApplicablePercent", "BT-119"),
+        taxable_amount=_read.required_decimal(node, "ram:BasisAmount", "BT-116"),
+        tax_amount=_read.required_decimal(node, "ram:CalculatedAmount", "BT-117"),
+    )
 
 
 def _line(node: etree._Element) -> ParsedLine:
@@ -98,10 +107,20 @@ def read(root: etree._Element) -> ParsedInvoice:
         buyer_name=_read.required_text(root, f"{_BUYER}/ram:Name", "BT-44"),
         buyer_vat_id=_read.text(root, f"{_BUYER}/{_VAT_ID}"),
         payee_iban=payee_iban,
+        order_reference=_read.text(
+            root, f"{_AGREEMENT}/ram:BuyerOrderReferencedDocument/ram:IssuerAssignedID"
+        ),
+        line_total=_read.decimal(root, f"{_TOTALS}/ram:LineTotalAmount", "BT-106"),
+        allowance_total=_read.decimal(root, f"{_TOTALS}/ram:AllowanceTotalAmount", "BT-107"),
+        charge_total=_read.decimal(root, f"{_TOTALS}/ram:ChargeTotalAmount", "BT-108"),
         net_total=_read.required_decimal(root, f"{_TOTALS}/ram:TaxBasisTotalAmount", "BT-109"),
         tax_total=_tax_total(root, currency),
         gross_total=_read.required_decimal(root, f"{_TOTALS}/ram:GrandTotalAmount", "BT-112"),
         amount_due=_read.required_decimal(root, f"{_TOTALS}/ram:DuePayableAmount", "BT-115"),
         lines=tuple(_line(line) for line in lines),
+        vat_breakdown=tuple(
+            _vat_breakdown(group)
+            for group in _read.nodes(root, f"{_SETTLEMENT}/ram:ApplicableTradeTax")
+        ),
         warnings=warnings,
     )

@@ -21,7 +21,28 @@ PARTY_TERMS = {
     "BT-44": ("BG-7", "name"),
     "BT-48": ("BG-7", "vat_identifier"),
 }
-AMOUNT_TERMS = {"BT-109", "BT-110", "BT-112", "BT-115", "BT-129", "BT-131", "BT-146", "BT-152"}
+AMOUNT_TERMS = {
+    "BT-106",
+    "BT-107",
+    "BT-108",
+    "BT-109",
+    "BT-110",
+    "BT-112",
+    "BT-115",
+    "BT-116",
+    "BT-117",
+    "BT-119",
+    "BT-129",
+    "BT-131",
+    "BT-146",
+    "BT-152",
+}
+VAT_BREAKDOWN_TERMS = {
+    "category_code": "BT-118",
+    "rate": "BT-119",
+    "taxable_amount": "BT-116",
+    "tax_amount": "BT-117",
+}
 
 
 def _normalise(code: str, value: Any) -> Any:
@@ -57,3 +78,10 @@ def test_agrees_with_facturx_parser(samples: dict[str, bytes], sample: str) -> N
         for name, code in LINE_TERMS.items():
             expected = reference_line.get(code)
             assert _normalise(code, getattr(line, name)) == _normalise(code, expected), code
+
+    reference_groups = reference.get("BG-23", [])
+    assert len(ours.vat_breakdown) == len(reference_groups)
+    for group, reference_group in zip(ours.vat_breakdown, reference_groups, strict=True):
+        for name, code in VAT_BREAKDOWN_TERMS.items():
+            expected = reference_group.get(code)
+            assert _normalise(code, getattr(group, name)) == _normalise(code, expected), code

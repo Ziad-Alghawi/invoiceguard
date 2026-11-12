@@ -37,6 +37,18 @@ class ParsedLine(BaseModel):
     vat_rate: Decimal | None
 
 
+class VatBreakdown(BaseModel):
+    """One VAT breakdown group (BG-23): the taxable amount and tax for one category and rate."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    category_code: str
+    # None for categories without a rate in the file (for example "O", not subject to VAT).
+    rate: Decimal | None
+    taxable_amount: Decimal
+    tax_amount: Decimal
+
+
 class ParsedInvoice(BaseModel):
     """The EN 16931 business terms R1 needs; `fields.py` maps each one to its BT code."""
 
@@ -54,10 +66,16 @@ class ParsedInvoice(BaseModel):
     buyer_vat_id: str | None
     # None is a valid case (direct debit, card payment), not an error: see ADR-005.
     payee_iban: str | None
+    order_reference: str | None
+    # BT-106, BT-107, BT-108: sum of line net amounts, document allowances and charges.
+    line_total: Decimal | None
+    allowance_total: Decimal | None
+    charge_total: Decimal | None
     net_total: Decimal
     tax_total: Decimal | None
     gross_total: Decimal
     amount_due: Decimal
     lines: tuple[ParsedLine, ...]
+    vat_breakdown: tuple[VatBreakdown, ...]
     # Things a later check should look at, for example several payee IBANs.
     warnings: tuple[str, ...] = ()

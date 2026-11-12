@@ -12,6 +12,7 @@ from invoiceguard_api.parsing.model import (
     ParsedLine,
     ParseError,
     UnsupportedFormat,
+    VatBreakdown,
 )
 from invoiceguard_api.parsing.pdf import extract_xml
 from invoiceguard_api.parsing.safe_xml import parse_xml
@@ -27,13 +28,25 @@ __all__ = [
     "ParsedInvoice",
     "ParsedLine",
     "UnsupportedFormat",
+    "VatBreakdown",
+    "invoice_xml",
     "parse_invoice",
+    "read_invoice_xml",
 ]
 
 
 def parse_invoice(content: bytes, source_type: SourceType) -> ParsedInvoice:
     """Read an uploaded file; raises ParseError subclasses or NoEmbeddedXml (plain PDF)."""
-    xml = extract_xml(content) if source_type is SourceType.PDF else content
+    return read_invoice_xml(invoice_xml(content, source_type))
+
+
+def invoice_xml(content: bytes, source_type: SourceType) -> bytes:
+    """The e-invoice XML of an uploaded file: the file itself, or the XML embedded in a PDF."""
+    return extract_xml(content) if source_type is SourceType.PDF else content
+
+
+def read_invoice_xml(xml: bytes) -> ParsedInvoice:
+    """Read e-invoice XML (CII or UBL); raises ParseError subclasses."""
     root = parse_xml(xml)
     if root.tag == cii.ROOT_TAG:
         return cii.read(root)

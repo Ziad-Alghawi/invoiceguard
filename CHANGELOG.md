@@ -38,6 +38,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Test samples (made-up data) for CII, UBL, ZUGFeRD 2.x PDF, ZUGFeRD 1.0, broken XML, XXE and billion laughs, and a
   differential test against `factur-x`'s own parser.
 - Dependencies `factur-x`, `lxml` and `pypdf`, pinned to exact versions.
+- Invoice checks (`apps/api` `checks/`): pure functions over a context loaded once from the database and the
+  validator, each result stored in `checks` with status (`passed`, `warning`, `failed`, `skipped`), message and
+  JSON evidence; a re-run replaces the old results.
+  - `kosit`: official KoSIT validation, XRechnung 3.0.2 rules.
+  - `vat_math`: lines, totals and tax per rate, Decimal, ±0.01.
+  - `duplicate`: same seller and invoice number → failed; same amount and close date → warning.
+  - `supplier_known`.
+  - `iban`: ISO 13616 checksum, verified registry IBAN, a changed IBAN → failed; plus `no_payee_iban` and
+    `multiple_payee_ibans` warnings.
+  - `po_match`: order of the same supplier, totals and lines within tolerance, with the differences.
+- After parsing, any failed check sets the invoice to `blocked`, otherwise `ready`. The final audit event carries a
+  summary of the checks, and `status_reason` names the failed ones.
+- `GET /invoices/{id}` includes the check results, worst first.
+- KoSIT validator service (`services/validator`, ADR-009): official validator 1.6.3 with the XRechnung configuration
+  v2026-08-31, in its HTTP daemon mode, non-root. The jar and the configuration zip are pinned by SHA-256 and the
+  base images by digest. The service is in Docker Compose (`validator`, port 8081). The API calls it with a timeout
+  (`INVOICEGUARD_VALIDATOR_URL`, `INVOICEGUARD_VALIDATOR_TIMEOUT_SECONDS`); when the validator is down, the KoSIT
+  check is `skipped`.
+- Reader: BT-13 (order reference), BT-106/BT-107/BT-108 (line total, allowances, charges) and the VAT breakdown
+  (BG-23) for UBL and CII, cross-checked against `factur-x`.
+- Migration 0003: `checks.message`.
+- Test sample `ubl_fraud_iban.xml` (changed payee IBAN), recorded KoSIT reports, unit tests for every check, and
+  end-to-end tests for `ready` and `blocked`. Tests marked `kosit` run against the real validator; CI runs them on the
+  Compose service.
+- The CI smoke test checks that a clean invoice ends `ready` with every check passed (KoSIT included) and that the
+  fraud sample ends `blocked` with the IBAN evidence.
 
 ### Changed
 - `GET /ready` checks the database and returns `503` when it is unreachable.
@@ -45,3 +71,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - uvicorn starts the app through the `create_app` factory (`--factory`), so importing the module does not read settings.
 - `POST /invoices` returns `202 Accepted` (was `201`) and schedules processing; invoice responses include `status_reason`.
 - The CI smoke test uploads a sample XRechnung, expects `202` and polls until the invoice is `ready`.
+- Processed invoices end in `ready` or `blocked` depending on the checks (before: `ready` once read).
+- Tests read an invoice after upload by polling until processing has finished, as the UI does.

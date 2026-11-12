@@ -7,6 +7,7 @@ from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from invoiceguard_api import main, processing
+from invoiceguard_api.checks import KositValidator
 from invoiceguard_api.db import make_session_factory
 from invoiceguard_api.main import create_app
 from invoiceguard_api.models import (
@@ -20,6 +21,9 @@ from invoiceguard_api.models import (
 from invoiceguard_api.processing import process_invoice, recover_unfinished
 from invoiceguard_api.settings import Settings
 from invoiceguard_api.storage import FileStorage
+
+# Without a validator URL the KoSIT check is skipped; the other checks run as usual.
+NO_VALIDATOR = KositValidator(None, 1.0)
 
 
 @pytest.fixture
@@ -102,7 +106,7 @@ def test_each_sample_ends_in_the_expected_status(
 ) -> None:
     invoice_id = add_invoice(session_factory, storage, samples[sample], source_type)
 
-    process_invoice(session_factory, storage, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
 
     invoice = load(db_session, invoice_id)
     assert invoice.status is status
@@ -125,7 +129,7 @@ def test_ready_invoice_stores_business_terms(
 ) -> None:
     invoice_id = add_invoice(session_factory, storage, samples["cii_xrechnung"], SourceType.XML)
 
-    process_invoice(session_factory, storage, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
 
     stored = fields(db_session, invoice_id)
     assert stored[("BT-1", None)] == "RE-2026-10417"
@@ -151,7 +155,7 @@ def test_ready_event_records_syntax_and_warnings(
     )
     invoice_id = add_invoice(session_factory, storage, xml, SourceType.XML)
 
-    process_invoice(session_factory, storage, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
 
     event = db_session.scalars(
         select(AuditEvent).where(AuditEvent.entity_id == str(invoice_id)).order_by(AuditEvent.id)
@@ -163,6 +167,14 @@ def test_ready_event_records_syntax_and_warnings(
         "reason": None,
         "syntax": "ubl",
         "warnings": ["multiple_payee_ibans: 2 found, stored the first"],
+        # Unseeded database: supplier and order unknown (warnings), no validator (skipped).
+        "checks": {
+            "passed": 2,
+            "warning": 4,
+            "failed": 0,
+            "skipped": 1,
+            "failed_checks": [],
+        },
     }
 
 
@@ -173,11 +185,11 @@ def test_processing_twice_is_harmless(
     samples: dict[str, bytes],
 ) -> None:
     invoice_id = add_invoice(session_factory, storage, samples["ubl_xrechnung"], SourceType.XML)
-    process_invoice(session_factory, storage, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
     first = fields(db_session, invoice_id)
 
     # A finished invoice is not claimed again.
-    process_invoice(session_factory, storage, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
     assert len(status_changes(db_session, invoice_id)) == 2
 
     # A re-run (for example after a reset) replaces the fields instead of adding duplicates.
@@ -186,7 +198,7 @@ def test_processing_twice_is_harmless(
         assert invoice is not None
         invoice.status = InvoiceStatus.RECEIVED
         session.commit()
-    process_invoice(session_factory, storage, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
 
     assert fields(db_session, invoice_id) == first
     assert load(db_session, invoice_id).status is InvoiceStatus.READY
@@ -195,7 +207,7 @@ def test_processing_twice_is_harmless(
 def test_unknown_invoice_id_is_skipped(
     session_factory: sessionmaker[Session], storage: FileStorage, db_session: Session
 ) -> None:
-    process_invoice(session_factory, storage, uuid.uuid4())
+    process_invoice(session_factory, storage, NO_VALIDATOR, uuid.uuid4())
 
     assert db_session.scalars(select(AuditEvent)).all() == []
 
@@ -213,9 +225,9 @@ def test_unexpected_error_ends_in_failed(
     def explode(content: bytes, source_type: SourceType) -> None:
         raise RuntimeError("disk on fire")
 
-    monkeypatch.setattr(processing, "parse_invoice", explode)
+    monkeypatch.setattr(processing, "invoice_xml", explode)
 
-    process_invoice(session_factory, storage, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
 
     invoice = load(db_session, invoice_id)
     assert invoice.status is InvoiceStatus.FAILED
@@ -239,7 +251,7 @@ def test_recovery_resumes_received_and_interrupted_invoices(
         session_factory, storage, samples["plain_pdf"], SourceType.PDF, InvoiceStatus.FAILED
     )
 
-    recover_unfinished(session_factory, storage)
+    recover_unfinished(session_factory, storage, NO_VALIDATOR)
 
     assert load(db_session, interrupted).status is InvoiceStatus.READY
     assert status_changes(db_session, interrupted) == [

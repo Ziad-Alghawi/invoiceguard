@@ -216,6 +216,8 @@ class Check(Base):
     invoice_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"))
     type: Mapped[str] = mapped_column(String(50))
     status: Mapped[CheckStatus] = mapped_column(_str_enum(CheckStatus, "check_status"))
+    # One sentence for the reviewer, for example why the IBAN check failed.
+    message: Mapped[str] = mapped_column(Text)
     evidence: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = _created_at()
 

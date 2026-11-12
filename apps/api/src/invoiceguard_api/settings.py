@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, PostgresDsn, UrlConstraints
+from pydantic import AnyHttpUrl, Field, PostgresDsn, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["dev", "test", "prod"]
@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     database_url: DatabaseUrl
     storage_dir: Path = Path("data/uploads")
     max_upload_bytes: int = Field(default=10 * MIB, gt=0)
+    # KoSIT validator service (ADR-009). Unset: the KoSIT check is skipped, nothing else changes.
+    validator_url: AnyHttpUrl | None = None
+    validator_timeout_seconds: float = Field(default=20.0, gt=0)
 
 
 @lru_cache

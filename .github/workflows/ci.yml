@@ -76,8 +76,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.13.6"
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+      - name: Install the api test dependencies (for the KoSIT tests)
+        working-directory: apps/api
+        run: uv sync --locked
       - run: cp .env.example .env
-      - name: Build images and start api, web, db (waits for healthy)
+      - name: Build images and start api, web, db, validator (waits for healthy)
         run: make dev
       - name: API /health returns ok
         run: |
@@ -90,22 +98,28 @@ jobs:
           curl --fail --silent --show-error http://localhost:8000/ready | grep '"status":"ready"'
       - name: Seed demo data twice (idempotent)
         run: make seed && make seed
-      - name: Upload an XRechnung returns 202 and reaches ready; the same file again 409
+      - name: KoSIT tests against the validator service
+        working-directory: apps/api
+        env:
+          INVOICEGUARD_TEST_VALIDATOR_URL: http://localhost:8081/
+        run: uv run pytest -m kosit --no-cov
+      - name: Clean XRechnung ends ready with all checks passed (KoSIT included); the same file again 409
         run: |
           invoice=apps/api/tests/fixtures/ubl_xrechnung.xml
-          code=$(curl --silent --show-error --output upload.json --write-out '%{http_code}' -F file=@$invoice http://localhost:8000/invoices)
-          test "$code" = 202
-          id=$(jq -r .id upload.json)
-          for attempt in $(seq 1 30); do
-            status=$(curl --fail --silent --show-error http://localhost:8000/invoices/$id | jq -r .status)
-            echo "attempt $attempt: $status"
-            case "$status" in
-              received|processing) sleep 1 ;;
-              *) break ;;
-            esac
-          done
-          test "$status" = ready
+          .github/scripts/upload-and-wait.sh "$invoice" > clean.json
+          jq . clean.json
+          test "$(jq -r .status clean.json)" = ready
+          test "$(jq -r '[.checks[] | select(.status != "passed")] | length' clean.json)" = 0
+          test "$(jq -r '.checks[] | select(.type == "kosit") | .status' clean.json)" = passed
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' -F file=@$invoice http://localhost:8000/invoices)" = 409
+      - name: Changed IBAN (fraud sample) ends blocked with the registry evidence
+        run: |
+          .github/scripts/upload-and-wait.sh apps/api/tests/fixtures/ubl_fraud_iban.xml > fraud.json
+          jq . fraud.json
+          test "$(jq -r .status fraud.json)" = blocked
+          test "$(jq -r '.checks[0].type + "=" + .checks[0].status' fraud.json)" = iban=failed
+          test "$(jq -r '.checks[0].evidence.invoice_iban' fraud.json)" = DE58876543210000000099
+          test "$(jq -r '.checks[0].evidence.verified_ibans[0].iban' fraud.json)" = DE60123456780000000003
       - name: Container logs
         if: failure()
         working-directory: infra

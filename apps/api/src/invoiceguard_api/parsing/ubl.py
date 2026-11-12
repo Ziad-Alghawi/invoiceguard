@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from lxml import etree
 
-from invoiceguard_api.parsing.model import ParsedInvoice, ParsedLine
+from invoiceguard_api.parsing.model import ParsedInvoice, ParsedLine, VatBreakdown
 from invoiceguard_api.parsing.values import ValueReader, first_payee_iban, iso_date, to_decimal
 
 INVOICE_NS = "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
@@ -34,6 +34,15 @@ def _tax_total(root: etree._Element, currency: str) -> Decimal | None:
         if amount.get("currencyID", currency) == currency and amount.text:
             return to_decimal(amount.text.strip(), "BT-110")
     return None
+
+
+def _vat_breakdown(node: etree._Element) -> VatBreakdown:
+    return VatBreakdown(
+        category_code=_read.required_text(node, "cac:TaxCategory/cbc:ID", "BT-118"),
+        rate=_read.decimal(node, "cac:TaxCategory/cbc:Percent", "BT-119"),
+        taxable_amount=_read.required_decimal(node, "cbc:TaxableAmount", "BT-116"),
+        tax_amount=_read.required_decimal(node, "cbc:TaxAmount", "BT-117"),
+    )
 
 
 def _line(node: etree._Element) -> ParsedLine:
@@ -67,10 +76,18 @@ def read(root: etree._Element) -> ParsedInvoice:
         buyer_name=_read.required_text(root, f"{_BUYER}/{_NAME}", "BT-44"),
         buyer_vat_id=_read.text(root, f"{_BUYER}/{_VAT_ID}"),
         payee_iban=payee_iban,
+        order_reference=_read.text(root, "cac:OrderReference/cbc:ID"),
+        line_total=_read.decimal(root, f"{_TOTALS}/cbc:LineExtensionAmount", "BT-106"),
+        allowance_total=_read.decimal(root, f"{_TOTALS}/cbc:AllowanceTotalAmount", "BT-107"),
+        charge_total=_read.decimal(root, f"{_TOTALS}/cbc:ChargeTotalAmount", "BT-108"),
         net_total=_read.required_decimal(root, f"{_TOTALS}/cbc:TaxExclusiveAmount", "BT-109"),
         tax_total=_tax_total(root, currency),
         gross_total=_read.required_decimal(root, f"{_TOTALS}/cbc:TaxInclusiveAmount", "BT-112"),
         amount_due=_read.required_decimal(root, f"{_TOTALS}/cbc:PayableAmount", "BT-115"),
         lines=tuple(_line(line) for line in _read.nodes(root, "cac:InvoiceLine")),
+        # Only the TaxTotal in the invoice currency has the breakdown (BG-23).
+        vat_breakdown=tuple(
+            _vat_breakdown(group) for group in _read.nodes(root, "cac:TaxTotal/cac:TaxSubtotal")
+        ),
         warnings=warnings,
     )

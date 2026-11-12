@@ -3,8 +3,10 @@ container in CI), in a separate database that is created and migrated once per t
 
 import io
 import os
+import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from alembic import command
@@ -20,6 +22,7 @@ from sqlalchemy.orm import Session
 from invoiceguard_api.db import make_engine, make_session_factory
 from invoiceguard_api.main import create_app
 from invoiceguard_api.models import Base
+from invoiceguard_api.seed import seed_demo_data
 from invoiceguard_api.settings import Settings
 
 TEST_DATABASE_URL_ENV = "INVOICEGUARD_TEST_DATABASE_URL"
@@ -88,6 +91,13 @@ def db_session(engine: Engine) -> Iterator[Session]:
 
 
 @pytest.fixture
+def seeded(db_session: Session) -> None:
+    """The German demo suppliers, verified IBANs and purchase orders (`make seed`)."""
+    seed_demo_data(db_session)
+    db_session.commit()
+
+
+@pytest.fixture
 def settings(database_url: str, tmp_path: Path) -> Settings:
     return Settings(
         env="test",
@@ -103,6 +113,32 @@ def client(settings: Settings, engine: Engine) -> Iterator[TestClient]:
     """App client on the test database; requesting `engine` empties the tables afterwards."""
     with TestClient(create_app(settings)) as test_client:
         yield test_client
+
+
+# Processing a sample takes milliseconds; this is only a ceiling for a stuck test.
+PROCESSING_TIMEOUT_SECONDS = 10.0
+FinishedInvoice = Callable[[str], dict[str, Any]]
+
+
+@pytest.fixture
+def finished(client: TestClient) -> FinishedInvoice:
+    """GET an invoice URL until processing has finished, as the UI polls it (ADR-007).
+
+    Usually the upload's background task has finished before the response returns. But startup
+    recovery runs on another thread and may claim a fresh upload first; the background task then
+    skips it, and the invoice is still `processing` when the response arrives.
+    """
+
+    def get(url: str) -> dict[str, Any]:
+        deadline = time.monotonic() + PROCESSING_TIMEOUT_SECONDS
+        while True:
+            detail: dict[str, Any] = client.get(url).json()
+            if detail["status"] not in {"received", "processing"}:
+                return detail
+            assert time.monotonic() < deadline, f"still {detail['status']}: {url}"
+            time.sleep(0.02)
+
+    return get
 
 
 def _pdf(attachment: tuple[str, bytes] | None = None) -> bytes:

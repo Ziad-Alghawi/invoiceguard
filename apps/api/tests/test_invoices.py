@@ -1,6 +1,8 @@
 import hashlib
 import uuid
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import httpx2
 import pytest
@@ -13,6 +15,7 @@ from invoiceguard_api.models import AuditEvent, Invoice, InvoiceStatus
 from invoiceguard_api.settings import Settings
 
 XML = b'<?xml version="1.0" encoding="UTF-8"?>\n<Invoice xmlns="urn:oasis:ubl"/>\n'
+FinishedInvoice = Callable[[str], dict[str, Any]]
 PDF = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n1 0 obj\n<<>>\nendobj\n%%EOF\n"
 
 
@@ -180,16 +183,14 @@ def test_list_is_empty_without_invoices(client: TestClient) -> None:
     assert client.get("/invoices").json() == []
 
 
-def test_detail_returns_the_invoice(client: TestClient) -> None:
+def test_detail_returns_the_invoice(client: TestClient, finished: FinishedInvoice) -> None:
     created = upload(client, "rechnung.xml", XML).json()
 
-    response = client.get(f"/invoices/{created['id']}")
-
-    assert response.status_code == 200
     # Processing has run meanwhile: everything but the status is unchanged.
-    detail = response.json()
+    detail = finished(f"/invoices/{created['id']}")
     assert detail.pop("status") == "failed"
     assert "Unknown invoice format" in detail.pop("status_reason")
+    assert detail.pop("checks") == []
     created.pop("status")
     created.pop("status_reason")
     assert detail == created
@@ -206,6 +207,7 @@ def test_detail_returns_the_invoice(client: TestClient) -> None:
 )
 def test_upload_returns_202_then_processing_sets_the_status(
     client: TestClient,
+    finished: FinishedInvoice,
     samples: dict[str, bytes],
     sample: str,
     filename: str,
@@ -215,7 +217,7 @@ def test_upload_returns_202_then_processing_sets_the_status(
     response = upload(client, filename, samples[sample])
 
     assert response.status_code == 202
-    detail = client.get(response.headers["location"]).json()
+    detail = finished(response.headers["location"])
     assert detail["status"] == status.value
     if reason is None:
         assert detail["status_reason"] is None
