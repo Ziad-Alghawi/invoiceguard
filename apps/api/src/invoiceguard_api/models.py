@@ -62,6 +62,16 @@ class FieldSource(enum.StrEnum):
     LLM = "llm"
 
 
+class ModelCallStatus(enum.StrEnum):
+    OK = "ok"
+    # The reply was not valid JSON or broke the schema.
+    INVALID_OUTPUT = "invalid_output"
+    # The price table has no price for the model: an error, never zero cost (ADR-004).
+    PRICE_UNKNOWN = "price_unknown"
+    # The call itself failed (quota, key, timeout, provider error).
+    ERROR = "error"
+
+
 class CheckStatus(enum.StrEnum):
     PASSED = "passed"
     WARNING = "warning"
@@ -129,6 +139,8 @@ class InvoiceField(Base):
     source: Mapped[FieldSource] = mapped_column(_str_enum(FieldSource, "field_source"))
     # Null for values read from XML; 0..1 for LLM extraction.
     confidence: Mapped[Decimal | None] = mapped_column(Numeric(4, 3))
+    # LLM extraction only: where the value is printed, {"page": 1, "snippet": "..."}.
+    evidence: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = _created_at()
 
     invoice: Mapped[Invoice] = relationship(back_populates="fields")
@@ -240,3 +252,39 @@ class AuditEvent(Base):
     details: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
     __table_args__ = (Index("ix_audit_events_entity", "entity_type", "entity_id"),)
+
+
+class ModelCall(Base):
+    """One LLM call with its tokens, cost and latency (ADR-004), also when it failed.
+
+    Append-only like `audit_events`: the identity id gives the order of calls.
+    """
+
+    __tablename__ = "model_calls"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    # Null for calls not made for one invoice; kept when an invoice is deleted, for cost totals.
+    invoice_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("invoices.id", ondelete="SET NULL")
+    )
+    # Which LLM step made the call (ADR-002), for example "extraction".
+    purpose: Mapped[str] = mapped_column(String(50))
+    # The LiteLLM model string, for example gemini/gemini-3.8-flash.
+    model: Mapped[str] = mapped_column(String(100))
+    status: Mapped[ModelCallStatus] = mapped_column(_str_enum(ModelCallStatus, "model_call_status"))
+    # Null when the call failed before the provider reported usage.
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    # US dollars, as LiteLLM's price table; null when no price is known or the call failed.
+    cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 6))
+    latency_ms: Mapped[int] = mapped_column(Integer)
+    # Why the call did not succeed; never the document text.
+    error: Mapped[str | None] = mapped_column(Text)
+    # When the call started.
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_model_calls_invoice_id", "invoice_id"),
+        # For the per-day cost total and cap.
+        Index("ix_model_calls_at", "at"),
+    )

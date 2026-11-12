@@ -23,13 +23,17 @@
   - Checks (R1-4): KoSIT validator service (ADR-009, pinned jar and configuration), VAT math, duplicates, supplier
     known, IBAN vs registry (changed IBAN → `blocked`, `no_payee_iban` and `multiple_payee_ibans` warnings), PO
     match; any failed check → `blocked`, else `ready`; results with evidence in `GET /invoices/{id}`
+  - LLM extraction (R1-5, ADR-010): plain PDFs go to Gemini Flash through our `LLMClient` (LiteLLM 1.108.1 pinned,
+    bundled price table); strict schema with value, confidence and evidence per field (one per line and VAT row),
+    one retry on invalid output; fields stored with `source=llm`; `low_confidence` check (IBAN or totals → blocked);
+    every call logged in `model_calls` with tokens, cost and latency, unknown price → `failed`; cost per invoice in
+    `GET /invoices/{id}`; injection test with a hostile PDF; recorded replies in CI, manual script for real runs
 
 ## Open decisions
 - Demo hosting (where the API runs: cluster or free host) and domain: decide by the end of R1.
 
 ## Next
-- R1: PDF extraction via LLM for `awaiting_extraction` (then run the checks on the extracted fields), review queue,
-  CSV export
+- R1: review queue, CSV export
 
 ## Known limitations
 - Duplicate check race: two copies of the same invoice processed at the same moment can both pass, because each
@@ -40,6 +44,10 @@
 - Only the first payee IBAN is compared with the registry; further ones only raise `multiple_payee_ibans`.
 - The KoSIT XRechnung configuration does not validate other ZUGFeRD profiles (warning "not validated").
 - An invoice processed while the validator was down keeps a `skipped` KoSIT result; there is no automatic re-run.
+  The same holds for an LLM extraction that failed on quota or a timeout: it stays `failed` (no retry action yet).
+- LLM confidence is self-reported, not calibrated; R3 measures field accuracy and how well confidence predicts errors.
+- No per-invoice or per-day LLM cost cap yet (planned with the agent in R2); the cost is logged per call.
+- A PDF the model cannot read a required term from (invoice number, date, totals) ends in `failed`, not in review.
 
 ## Lessons learned
 - Docker Compose v5 on Windows builds through Bake: run Compose from the folder that holds the compose file when build contexts are outside it.
@@ -50,3 +58,8 @@
   like a client does, not assume the request's own task did the work.
 - Libraries can parse untrusted input on your behalf: factur-x parses PDF attachments with lxml's defaults before our
   hardened parser sees them, so check what a dependency does with hostile input, not only what it returns.
+- Pinning a package does not pin data it downloads at runtime: LiteLLM fetched its price table from GitHub on import
+  until `LITELLM_LOCAL_MODEL_COST_MAP=True`.
+- Timestamps do not order events (PostgreSQL `now()` is per transaction, Windows clocks tick in ~15 ms); append-only
+  logs get an identity id.
+- With an LLM configured, `awaiting_extraction` is a passing state: clients and tests poll through it.

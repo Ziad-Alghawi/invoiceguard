@@ -97,7 +97,7 @@ def check(context: CheckContext) -> CheckResult:
             for message in shown
         ],
     }
-    if validation.outcome == "unavailable":
+    if validation.outcome in ("unavailable", "not_applicable"):
         reason = validation.reason or NOT_CONFIGURED
         return CheckResult(CHECK_TYPE, CheckStatus.SKIPPED, reason, {"reason": reason})
     if validation.outcome == "no_scenario":

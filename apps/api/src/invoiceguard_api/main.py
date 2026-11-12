@@ -15,8 +15,10 @@ from starlette.concurrency import run_in_threadpool
 from invoiceguard_api.body_limit import ContentLengthLimitMiddleware
 from invoiceguard_api.checks import KositValidator
 from invoiceguard_api.db import make_engine, make_session_factory
+from invoiceguard_api.extraction import PdfExtractor
 from invoiceguard_api.health import router as health_router
 from invoiceguard_api.invoices import router as invoices_router
+from invoiceguard_api.llm import LLMClient
 from invoiceguard_api.logging import configure_logging
 from invoiceguard_api.processing import recover_unfinished
 from invoiceguard_api.settings import Settings, get_settings
@@ -28,7 +30,25 @@ logger = logging.getLogger(__name__)
 MULTIPART_OVERHEAD_BYTES = 64 * 1024
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def make_extractor(settings: Settings, llm_client: LLMClient | None) -> PdfExtractor | None:
+    """The PDF extractor, or None without an API key: plain PDFs then wait (ADR-010)."""
+    if llm_client is None:
+        if settings.llm_api_key is None:
+            logger.info("LLM extraction is off: INVOICEGUARD_LLM_API_KEY is not set")
+            return None
+        # Imported here: LiteLLM takes seconds to import and is not needed without a key.
+        from invoiceguard_api.llm.litellm_client import LiteLLMClient
+
+        llm_client = LiteLLMClient(
+            settings.llm_api_key.get_secret_value(), settings.llm_timeout_seconds
+        )
+    return PdfExtractor(
+        llm_client, settings.extraction_model, settings.extraction_confidence_threshold
+    )
+
+
+def create_app(settings: Settings | None = None, llm_client: LLMClient | None = None) -> FastAPI:
+    """`llm_client` replaces the LiteLLM client, for tests with recorded model replies."""
     settings = settings or get_settings()
     configure_logging(settings.log_level)
     # The engine connects lazily, so creating the app does not need a running database.
@@ -39,10 +59,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         None if settings.validator_url is None else str(settings.validator_url),
         settings.validator_timeout_seconds,
     )
+    extractor = make_extractor(settings, llm_client)
 
     def recover() -> None:
         try:
-            recover_unfinished(session_factory, storage, validator)
+            recover_unfinished(session_factory, storage, validator, extractor)
         except Exception:
             # The API must still start (for example while the database is down); /ready reports it.
             logger.exception("Could not resume unfinished invoices on startup")
@@ -61,6 +82,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.session_factory = session_factory
     app.state.storage = storage
     app.state.validator = validator
+    app.state.extractor = extractor
     app.add_middleware(
         ContentLengthLimitMiddleware,
         max_bytes=settings.max_upload_bytes + MULTIPART_OVERHEAD_BYTES,

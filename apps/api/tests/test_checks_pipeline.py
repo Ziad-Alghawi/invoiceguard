@@ -168,6 +168,7 @@ def test_rerun_replaces_the_check_results(
         app.state.session_factory,  # type: ignore[attr-defined]
         app.state.storage,  # type: ignore[attr-defined]
         app.state.validator,  # type: ignore[attr-defined]
+        app.state.extractor,  # type: ignore[attr-defined]
         invoice_id,
     )
 
@@ -212,7 +213,7 @@ def _store(db_session: Session, xml: bytes, sha: str, status: InvoiceStatus) -> 
     )
     db_session.add(invoice)
     db_session.flush()
-    processing._replace_fields(db_session, invoice.id, parsed)
+    db_session.add_all(processing._xml_fields(invoice.id, parsed))
     db_session.commit()
     return invoice.id
 

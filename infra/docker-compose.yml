@@ -39,6 +39,11 @@ services:
       # while it is down, the KoSIT check is skipped and the other checks still run.
       INVOICEGUARD_VALIDATOR_URL: http://validator:8080/
       INVOICEGUARD_VALIDATOR_TIMEOUT_SECONDS: ${INVOICEGUARD_VALIDATOR_TIMEOUT_SECONDS:-20}
+      # LLM extraction (ADR-010); an empty key turns it off and plain PDFs wait.
+      INVOICEGUARD_LLM_API_KEY: ${INVOICEGUARD_LLM_API_KEY:-}
+      INVOICEGUARD_EXTRACTION_MODEL: ${INVOICEGUARD_EXTRACTION_MODEL:-}
+      INVOICEGUARD_LLM_TIMEOUT_SECONDS: ${INVOICEGUARD_LLM_TIMEOUT_SECONDS:-}
+      INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD: ${INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD:-}
     volumes:
       - uploads:/data/uploads
     depends_on:

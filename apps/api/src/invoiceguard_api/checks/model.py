@@ -10,6 +10,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Literal
 
+from invoiceguard_api.extraction.model import FieldConfidence
 from invoiceguard_api.models import CheckStatus
 from invoiceguard_api.parsing import ParsedInvoice
 
@@ -82,10 +83,11 @@ class ValidationMessage:
 class Validation:
     """What the KoSIT validator said about the invoice XML (ADR-009)."""
 
-    outcome: Literal["accepted", "rejected", "no_scenario", "unavailable"]
+    # "not_applicable": there is no XML to validate (fields extracted from a PDF by an LLM).
+    outcome: Literal["accepted", "rejected", "no_scenario", "unavailable", "not_applicable"]
     scenario: str | None = None
     messages: tuple[ValidationMessage, ...] = ()
-    # Why there is no result, when `outcome` is "unavailable".
+    # Why there is no result, when `outcome` is "unavailable" or "not_applicable".
     reason: str | None = None
 
 
@@ -96,3 +98,6 @@ class CheckContext:
     supplier: KnownSupplier | None
     order: Order | None
     other_invoices: tuple[OtherInvoice, ...]
+    # LLM extraction only (ADR-010); empty for invoices read from XML.
+    confidences: tuple[FieldConfidence, ...] = ()
+    confidence_threshold: Decimal = Decimal(1)

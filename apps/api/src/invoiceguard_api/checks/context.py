@@ -17,6 +17,7 @@ from invoiceguard_api.checks.model import (
     VerifiedIban,
 )
 from invoiceguard_api.checks.supplier import normalise_vat_id
+from invoiceguard_api.extraction.model import Extraction
 from invoiceguard_api.models import Invoice, InvoiceField, PurchaseOrder, Supplier
 from invoiceguard_api.parsing import ParsedInvoice
 
@@ -122,12 +123,20 @@ def _other_invoices(
 
 
 def load_context(
-    session: Session, invoice_id: uuid.UUID, parsed: ParsedInvoice, validation: Validation
+    session: Session,
+    invoice_id: uuid.UUID,
+    parsed: ParsedInvoice,
+    validation: Validation,
+    extraction: Extraction | None = None,
+    confidence_threshold: Decimal = Decimal(1),
 ) -> CheckContext:
+    """The context for one invoice; `extraction` only for fields extracted by an LLM."""
     return CheckContext(
         invoice=parsed,
         validation=validation,
         supplier=_supplier(session, parsed.seller_vat_id),
         order=_order(session, parsed.order_reference),
         other_invoices=_other_invoices(session, invoice_id, parsed),
+        confidences=() if extraction is None else extraction.confidences,
+        confidence_threshold=confidence_threshold,
     )

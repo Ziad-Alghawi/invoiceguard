@@ -3,6 +3,7 @@
 import hashlib
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated, Any, BinaryIO
 
 from fastapi import (
@@ -16,7 +17,7 @@ from fastapi import (
     status,
 )
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -28,6 +29,7 @@ from invoiceguard_api.models import (
     CheckStatus,
     Invoice,
     InvoiceStatus,
+    ModelCall,
     SourceType,
 )
 from invoiceguard_api.processing import process_invoice
@@ -66,6 +68,10 @@ class CheckOut(BaseModel):
 class InvoiceDetailOut(InvoiceOut):
     # Worst first: failed, warning, skipped, passed.
     checks: list[CheckOut]
+    # LLM calls made for this invoice and their total cost in US dollars (ADR-004). A call
+    # without a known price adds nothing here; it fails the invoice instead.
+    llm_calls: int
+    llm_cost_usd: Decimal
 
 
 # The order a reviewer reads check results in.
@@ -182,6 +188,7 @@ def upload_invoice(
         request.app.state.session_factory,
         storage,
         request.app.state.validator,
+        request.app.state.extractor,
         invoice.id,
     )
     response.headers["Location"] = str(request.url_for("get_invoice", invoice_id=invoice.id))
@@ -215,9 +222,16 @@ def get_invoice(invoice_id: uuid.UUID, session: DbSession) -> InvoiceDetailOut:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Invoice not found.")
     checks = session.scalars(select(Check).where(Check.invoice_id == invoice_id)).all()
     ordered = sorted(checks, key=lambda check: (SEVERITY_ORDER.index(check.status), check.type))
+    calls, cost = session.execute(
+        select(func.count(ModelCall.id), func.coalesce(func.sum(ModelCall.cost_usd), 0)).where(
+            ModelCall.invoice_id == invoice_id
+        )
+    ).one()
     return InvoiceDetailOut.model_validate(
         {
             **InvoiceOut.model_validate(invoice).model_dump(),
             "checks": [CheckOut.model_validate(check) for check in ordered],
+            "llm_calls": calls,
+            "llm_cost_usd": cost,
         }
     )

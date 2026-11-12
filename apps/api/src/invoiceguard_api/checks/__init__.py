@@ -12,7 +12,15 @@ from typing import Any
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
-from invoiceguard_api.checks import duplicate, iban, kosit, po_match, supplier, vat
+from invoiceguard_api.checks import (
+    duplicate,
+    iban,
+    kosit,
+    low_confidence,
+    po_match,
+    supplier,
+    vat,
+)
 from invoiceguard_api.checks.context import load_context
 from invoiceguard_api.checks.kosit import KositValidator
 from invoiceguard_api.checks.model import CheckContext, CheckResult
@@ -35,6 +43,7 @@ _CHECKS: tuple[Callable[[CheckContext], CheckResult | list[CheckResult]], ...] =
     supplier.check,
     iban.check,
     po_match.check,
+    low_confidence.check,
 )
 
 

@@ -1,0 +1,183 @@
+{
+ "invoice_number": {
+  "value": "2026-IT-0815",
+  "confidence": 0.98,
+  "evidence": {
+   "page": 1,
+   "snippet": "Rechnungsnummer: 2026-IT-0815"
+  }
+ },
+ "issue_date": {
+  "value": "2026-11-05",
+  "confidence": 0.98,
+  "evidence": {
+   "page": 1,
+   "snippet": "Rechnungsdatum: 05.11.2026"
+  }
+ },
+ "type_code": {
+  "value": "380",
+  "confidence": 0.95,
+  "evidence": {
+   "page": 1,
+   "snippet": "Rechnung"
+  }
+ },
+ "currency": {
+  "value": "EUR",
+  "confidence": 0.97,
+  "evidence": {
+   "page": 1,
+   "snippet": "Betrag (EUR)"
+  }
+ },
+ "due_date": {
+  "value": "2026-11-19",
+  "confidence": 0.98,
+  "evidence": {
+   "page": 1,
+   "snippet": "Zahlbar bis 19.11.2026"
+  }
+ },
+ "seller_name": {
+  "value": "Demo IT-Service GmbH",
+  "confidence": 0.98,
+  "evidence": {
+   "page": 1,
+   "snippet": "Demo IT-Service GmbH, Musterstraße 1"
+  }
+ },
+ "seller_vat_id": {
+  "value": "DE999000033",
+  "confidence": 0.98,
+  "evidence": {
+   "page": 1,
+   "snippet": "USt-IdNr.: DE999000033"
+  }
+ },
+ "buyer_name": {
+  "value": "Beispielkunde Handels GmbH",
+  "confidence": 0.98,
+  "evidence": {
+   "page": 1,
+   "snippet": "An: Beispielkunde Handels GmbH"
+  }
+ },
+ "buyer_vat_id": {
+  "value": "DE999000068",
+  "confidence": 0.93,
+  "evidence": {
+   "page": 1,
+   "snippet": "Ihre USt-IdNr.: DE999000068"
+  }
+ },
+ "payee_iban": {
+  "value": "DE60123456780000000003",
+  "confidence": 0.99,
+  "evidence": {
+   "page": 1,
+   "snippet": "IBAN: DE60 1234 5678 0000 0000 03"
+  }
+ },
+ "order_reference": {
+  "value": "PO-2026-0005",
+  "confidence": 0.96,
+  "evidence": {
+   "page": 1,
+   "snippet": "Ihre Bestellung: PO-2026-0005"
+  }
+ },
+ "line_total": {
+  "value": "4317.00",
+  "confidence": 0.95,
+  "evidence": {
+   "page": 1,
+   "snippet": "Summe Positionen 4.317,00"
+  }
+ },
+ "allowance_total": {
+  "value": null,
+  "confidence": 0.9,
+  "evidence": null
+ },
+ "charge_total": {
+  "value": null,
+  "confidence": 0.9,
+  "evidence": null
+ },
+ "net_total": {
+  "value": "4317.00",
+  "confidence": 0.98,
+  "evidence": {
+   "page": 1,
+   "snippet": "Nettobetrag 4.317,00 EUR"
+  }
+ },
+ "tax_total": {
+  "value": "820.23",
+  "confidence": 0.98,
+  "evidence": {
+   "page": 1,
+   "snippet": "zzgl. 19 % USt 820,23 EUR"
+  }
+ },
+ "gross_total": {
+  "value": "5137.23",
+  "confidence": 0.99,
+  "evidence": {
+   "page": 1,
+   "snippet": "Gesamtbetrag 5.137,23 EUR"
+  }
+ },
+ "amount_due": {
+  "value": "5137.23",
+  "confidence": 0.97,
+  "evidence": {
+   "page": 1,
+   "snippet": "Zahlbetrag 5.137,23 EUR"
+  }
+ },
+ "lines": [
+  {
+   "line_id": "1",
+   "item_name": "Notebook 14 Zoll, 32 GB RAM",
+   "quantity": "3",
+   "unit_code": "C62",
+   "net_price": "1249.00",
+   "net_amount": "3747.00",
+   "vat_rate": "19",
+   "confidence": 0.94,
+   "evidence": {
+    "page": 1,
+    "snippet": "1 Notebook 14 Zoll, 32 GB RAM 3 Stk 1.249,00 3.747,00"
+   }
+  },
+  {
+   "line_id": "2",
+   "item_name": "Einrichtung und Inbetriebnahme",
+   "quantity": "6",
+   "unit_code": "HUR",
+   "net_price": "95.00",
+   "net_amount": "570.00",
+   "vat_rate": "19",
+   "confidence": 0.92,
+   "evidence": {
+    "page": 1,
+    "snippet": "2 Einrichtung und Inbetriebnahme 6 Std 95,00 570,00"
+   }
+  }
+ ],
+ "vat_breakdown": [
+  {
+   "category_code": "S",
+   "rate": "19",
+   "taxable_amount": "4317.00",
+   "tax_amount": "820.23",
+   "confidence": 0.95,
+   "evidence": {
+    "page": 1,
+    "snippet": "19 % USt auf 4.317,00 = 820,23"
+   }
+  }
+ ]
+}

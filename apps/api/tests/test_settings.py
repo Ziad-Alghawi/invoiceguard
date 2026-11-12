@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 from pydantic import ValidationError
 
@@ -52,4 +54,37 @@ def test_max_upload_bytes_must_be_positive(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setenv("INVOICEGUARD_MAX_UPLOAD_BYTES", "0")
 
     with pytest.raises(ValidationError, match="max_upload_bytes"):
+        Settings()
+
+
+def test_llm_settings_default_to_extraction_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("INVOICEGUARD_DATABASE_URL", DB_URL)
+    # Docker Compose passes an unset variable as an empty string.
+    monkeypatch.setenv("INVOICEGUARD_LLM_API_KEY", "")
+
+    settings = Settings()
+
+    assert settings.llm_api_key is None
+    assert settings.extraction_model == "gemini/gemini-3.8-flash"
+    assert settings.extraction_confidence_threshold == Decimal("0.8")
+
+
+def test_llm_api_key_is_not_shown(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("INVOICEGUARD_DATABASE_URL", DB_URL)
+    monkeypatch.setenv("INVOICEGUARD_LLM_API_KEY", "test-key-not-real")  # pragma: allowlist secret
+
+    settings = Settings()
+
+    assert settings.llm_api_key is not None
+    assert "test-key-not-real" not in repr(settings)
+
+
+@pytest.mark.parametrize("threshold", ["-0.1", "1.1"])
+def test_confidence_threshold_is_between_0_and_1(
+    monkeypatch: pytest.MonkeyPatch, threshold: str
+) -> None:
+    monkeypatch.setenv("INVOICEGUARD_DATABASE_URL", DB_URL)
+    monkeypatch.setenv("INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD", threshold)
+
+    with pytest.raises(ValidationError, match="extraction_confidence_threshold"):
         Settings()

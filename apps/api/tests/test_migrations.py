@@ -7,7 +7,7 @@ from sqlalchemy import Engine, inspect
 
 from invoiceguard_api.models import Base
 
-R1_TABLES = {
+TABLES = {
     "invoices",
     "invoice_fields",
     "suppliers",
@@ -16,6 +16,7 @@ R1_TABLES = {
     "purchase_order_lines",
     "checks",
     "audit_events",
+    "model_calls",
 }
 
 
@@ -30,9 +31,9 @@ def table_names(engine: Engine) -> set[str]:
     return set(inspect(engine).get_table_names()) - {"alembic_version"}
 
 
-def test_head_creates_exactly_the_r1_tables(engine: Engine) -> None:
-    assert table_names(engine) == R1_TABLES
-    assert set(Base.metadata.tables) == R1_TABLES
+def test_head_creates_exactly_the_model_tables(engine: Engine) -> None:
+    assert table_names(engine) == TABLES
+    assert set(Base.metadata.tables) == TABLES
 
 
 def test_downgrade_to_base_and_upgrade_again(engine: Engine, migrated: Config) -> None:
@@ -40,7 +41,7 @@ def test_downgrade_to_base_and_upgrade_again(engine: Engine, migrated: Config) -
     assert table_names(engine) == set()
 
     command.upgrade(migrated, "head")
-    assert table_names(engine) == R1_TABLES
+    assert table_names(engine) == TABLES
 
 
 def test_models_match_the_migrations(alembic_cfg: Config) -> None:
