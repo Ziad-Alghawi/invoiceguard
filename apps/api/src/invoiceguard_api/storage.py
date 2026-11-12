@@ -27,3 +27,6 @@ class FileStorage:
             Path(tmp_name).unlink(missing_ok=True)
             raise
         return str(relative)
+
+    def read(self, relative: str) -> bytes:
+        return (self.root / relative).read_bytes()

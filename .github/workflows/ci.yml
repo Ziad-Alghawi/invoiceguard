@@ -90,11 +90,22 @@ jobs:
           curl --fail --silent --show-error http://localhost:8000/ready | grep '"status":"ready"'
       - name: Seed demo data twice (idempotent)
         run: make seed && make seed
-      - name: Upload an XML invoice returns 201, the same file again 409
+      - name: Upload an XRechnung returns 202 and reaches ready; the same file again 409
         run: |
-          printf '<?xml version="1.0" encoding="UTF-8"?>\n<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"/>\n' > rechnung.xml
-          test "$(curl --silent --output /dev/null --write-out '%{http_code}' -F file=@rechnung.xml http://localhost:8000/invoices)" = 201
-          test "$(curl --silent --output /dev/null --write-out '%{http_code}' -F file=@rechnung.xml http://localhost:8000/invoices)" = 409
+          invoice=apps/api/tests/fixtures/ubl_xrechnung.xml
+          code=$(curl --silent --show-error --output upload.json --write-out '%{http_code}' -F file=@$invoice http://localhost:8000/invoices)
+          test "$code" = 202
+          id=$(jq -r .id upload.json)
+          for attempt in $(seq 1 30); do
+            status=$(curl --fail --silent --show-error http://localhost:8000/invoices/$id | jq -r .status)
+            echo "attempt $attempt: $status"
+            case "$status" in
+              received|processing) sleep 1 ;;
+              *) break ;;
+            esac
+          done
+          test "$status" = ready
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' -F file=@$invoice http://localhost:8000/invoices)" = 409
       - name: Container logs
         if: failure()
         working-directory: infra

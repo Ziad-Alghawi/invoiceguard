@@ -1,11 +1,20 @@
-"""Invoice upload, list and detail. Parsing and checks are added in later steps."""
+"""Invoice upload, list and detail. Upload schedules background processing (ADR-007)."""
 
 import hashlib
 import uuid
 from datetime import datetime
 from typing import Annotated, Any, BinaryIO
 
-from fastapi import APIRouter, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -14,6 +23,7 @@ from sqlalchemy.orm import Session
 from invoiceguard_api.db import DbSession
 from invoiceguard_api.filetype import safe_filename, source_type_for
 from invoiceguard_api.models import AuditEvent, Invoice, InvoiceStatus, SourceType
+from invoiceguard_api.processing import process_invoice
 from invoiceguard_api.storage import FileStorage
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -28,6 +38,7 @@ class InvoiceOut(BaseModel):
 
     id: uuid.UUID
     status: InvoiceStatus
+    status_reason: str | None
     source_type: SourceType
     original_filename: str
     sha256: str
@@ -72,7 +83,7 @@ def _find_by_sha256(session: Session, sha256: str) -> uuid.UUID | None:
 
 @router.post(
     "",
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_202_ACCEPTED,
     responses={
         status.HTTP_409_CONFLICT: {"model": DuplicateOut, "description": "Same file uploaded"},
         status.HTTP_413_CONTENT_TOO_LARGE: {"model": ErrorOut, "description": "File too large"},
@@ -80,9 +91,17 @@ def _find_by_sha256(session: Session, sha256: str) -> uuid.UUID | None:
     },
 )
 def upload_invoice(
-    file: UploadFile, session: DbSession, request: Request, response: Response
+    file: UploadFile,
+    session: DbSession,
+    request: Request,
+    response: Response,
+    background_tasks: BackgroundTasks,
 ) -> InvoiceOut:
-    """Store an XRechnung/ZUGFeRD XML or PDF file and register it with status `received`."""
+    """Store an XRechnung/ZUGFeRD XML or PDF file with status `received` and process it later.
+
+    Poll `GET /invoices/{id}` (the Location header) until the status is no longer `received` or
+    `processing`.
+    """
     content = _read_limited(file.file, request.app.state.settings.max_upload_bytes)
     filename = safe_filename(file.filename or "")
     source_type = source_type_for(filename, content)
@@ -132,6 +151,9 @@ def upload_invoice(
         raise _duplicate(existing_id) from None
 
     session.refresh(invoice)
+    background_tasks.add_task(
+        process_invoice, request.app.state.session_factory, storage, invoice.id
+    )
     response.headers["Location"] = str(request.url_for("get_invoice", invoice_id=invoice.id))
     return InvoiceOut.model_validate(invoice)
 

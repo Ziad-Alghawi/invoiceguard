@@ -45,6 +45,8 @@ class InvoiceStatus(enum.StrEnum):
 
     RECEIVED = "received"
     PROCESSING = "processing"
+    # A PDF without embedded XML, waiting for LLM extraction (R1-5).
+    AWAITING_EXTRACTION = "awaiting_extraction"
     READY = "ready"
     BLOCKED = "blocked"
     FAILED = "failed"
@@ -94,6 +96,8 @@ class Invoice(Base):
     status: Mapped[InvoiceStatus] = mapped_column(
         _str_enum(InvoiceStatus, "invoice_status"), default=InvoiceStatus.RECEIVED
     )
+    # Why the invoice is in its status, for example the parse error of a `failed` invoice.
+    status_reason: Mapped[str | None] = mapped_column(Text)
     source_type: Mapped[SourceType] = mapped_column(_str_enum(SourceType, "source_type"))
     original_filename: Mapped[str] = mapped_column(String(255))
     sha256: Mapped[str] = mapped_column(String(64), unique=True)

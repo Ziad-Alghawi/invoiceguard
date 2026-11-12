@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Made-up, truncated XRechnung UBL: not well-formed (the file was cut off during transfer). -->
+<ubl:Invoice xmlns:ubl="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+    xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:ID>2026-CUT-001</cbc:ID>
+  <cbc:IssueDate>2026-11-05</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>380

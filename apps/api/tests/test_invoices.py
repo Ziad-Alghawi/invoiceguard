@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from invoiceguard_api import invoices
-from invoiceguard_api.models import AuditEvent, Invoice
+from invoiceguard_api.models import AuditEvent, Invoice, InvoiceStatus
 from invoiceguard_api.settings import Settings
 
 XML = b'<?xml version="1.0" encoding="UTF-8"?>\n<Invoice xmlns="urn:oasis:ubl"/>\n'
@@ -26,10 +26,12 @@ def test_upload_xml_creates_received_invoice(
 ) -> None:
     response = upload(client, "rechnung.xml", XML)
 
-    assert response.status_code == 201
+    assert response.status_code == 202
     body = response.json()
     sha256 = hashlib.sha256(XML).hexdigest()
+    # The response reflects the state before the background task ran.
     assert body["status"] == "received"
+    assert body["status_reason"] is None
     assert body["source_type"] == "xml"
     assert body["original_filename"] == "rechnung.xml"
     assert body["sha256"] == sha256
@@ -45,7 +47,9 @@ def test_upload_xml_creates_received_invoice(
 def test_upload_writes_audit_event(client: TestClient, db_session: Session) -> None:
     invoice_id = upload(client, "rechnung.pdf", PDF).json()["id"]
 
-    event = db_session.scalars(select(AuditEvent)).one()
+    event = db_session.scalars(
+        select(AuditEvent).where(AuditEvent.action == "invoice.received")
+    ).one()
     assert event.actor == "anonymous"
     assert event.action == "invoice.received"
     assert (event.entity_type, event.entity_id) == ("invoice", invoice_id)
@@ -60,7 +64,7 @@ def test_upload_writes_audit_event(client: TestClient, db_session: Session) -> N
 def test_upload_pdf_strips_client_path(client: TestClient) -> None:
     response = upload(client, "..\\..\\scans\\rechnung.pdf", PDF)
 
-    assert response.status_code == 201
+    assert response.status_code == 202
     assert response.json()["source_type"] == "pdf"
     assert response.json()["original_filename"] == "rechnung.pdf"
 
@@ -97,7 +101,7 @@ def test_file_over_the_limit_is_rejected_with_413(
 def test_file_exactly_at_the_limit_is_accepted(client: TestClient, settings: Settings) -> None:
     content = PDF + b"0" * (settings.max_upload_bytes - len(PDF))
 
-    assert upload(client, "rechnung.pdf", content).status_code == 201
+    assert upload(client, "rechnung.pdf", content).status_code == 202
 
 
 def test_huge_request_is_rejected_before_the_body_is_read(client: TestClient) -> None:
@@ -117,7 +121,8 @@ def test_same_file_again_returns_409_with_existing_id(
     assert response.status_code == 409
     assert response.json()["detail"]["invoice_id"] == first["id"]
     assert db_session.scalar(select(func.count()).select_from(Invoice)) == 1
-    assert db_session.scalar(select(func.count()).select_from(AuditEvent)) == 1
+    received = select(func.count()).where(AuditEvent.action == "invoice.received")
+    assert db_session.scalar(received) == 1
 
 
 def test_parallel_duplicate_caught_by_unique_index_returns_409(
@@ -181,7 +186,41 @@ def test_detail_returns_the_invoice(client: TestClient) -> None:
     response = client.get(f"/invoices/{created['id']}")
 
     assert response.status_code == 200
-    assert response.json() == created
+    # Processing has run meanwhile: everything but the status is unchanged.
+    detail = response.json()
+    assert detail.pop("status") == "failed"
+    assert "Unknown invoice format" in detail.pop("status_reason")
+    created.pop("status")
+    created.pop("status_reason")
+    assert detail == created
+
+
+@pytest.mark.parametrize(
+    ("sample", "filename", "status", "reason"),
+    [
+        ("ubl_xrechnung", "rechnung.xml", InvoiceStatus.READY, None),
+        ("zugferd2_pdf", "rechnung.pdf", InvoiceStatus.READY, None),
+        ("plain_pdf", "scan.pdf", InvoiceStatus.AWAITING_EXTRACTION, "LLM extraction"),
+        ("zugferd1", "alt.xml", InvoiceStatus.FAILED, "ZUGFeRD 1.0"),
+    ],
+)
+def test_upload_returns_202_then_processing_sets_the_status(
+    client: TestClient,
+    samples: dict[str, bytes],
+    sample: str,
+    filename: str,
+    status: InvoiceStatus,
+    reason: str | None,
+) -> None:
+    response = upload(client, filename, samples[sample])
+
+    assert response.status_code == 202
+    detail = client.get(response.headers["location"]).json()
+    assert detail["status"] == status.value
+    if reason is None:
+        assert detail["status_reason"] is None
+    else:
+        assert reason in detail["status_reason"]
 
 
 def test_detail_of_unknown_invoice_is_404(client: TestClient) -> None:

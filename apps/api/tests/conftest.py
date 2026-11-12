@@ -1,15 +1,18 @@
 """Test fixtures. Database tests run against a real PostgreSQL (the Compose db locally, a service
 container in CI), in a separate database that is created and migrated once per test session."""
 
+import io
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
 from alembic import command
 from alembic.config import Config
+from facturx import generate_from_binary
 from fastapi.testclient import TestClient
 from pydantic import PostgresDsn
+from pypdf import PdfWriter
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
@@ -21,7 +24,10 @@ from invoiceguard_api.settings import Settings
 
 TEST_DATABASE_URL_ENV = "INVOICEGUARD_TEST_DATABASE_URL"
 API_DIR = Path(__file__).resolve().parents[1]
-TEST_MAX_UPLOAD_BYTES = 4096
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+# Larger than every sample invoice, far below the 200 kB request in the body-limit test.
+TEST_MAX_UPLOAD_BYTES = 32 * 1024
+A4_POINTS = (595, 842)
 
 
 def alembic_config(database_url: str) -> Config:
@@ -97,3 +103,33 @@ def client(settings: Settings, engine: Engine) -> Iterator[TestClient]:
     """App client on the test database; requesting `engine` empties the tables afterwards."""
     with TestClient(create_app(settings)) as test_client:
         yield test_client
+
+
+def _pdf(attachment: tuple[str, bytes] | None = None) -> bytes:
+    writer = PdfWriter()
+    writer.add_blank_page(*A4_POINTS)
+    if attachment is not None:
+        writer.add_attachment(*attachment)
+    buffer = io.BytesIO()
+    writer.write(buffer)
+    return buffer.getvalue()
+
+
+@pytest.fixture(scope="session")
+def samples() -> dict[str, bytes]:
+    """The sample invoices by kind. All data is made up; PDFs are built here, not committed."""
+    xml = {path.stem: path.read_bytes() for path in FIXTURES.glob("*.xml")}
+    return {
+        **xml,
+        # factur-x attaches the XML and writes the Factur-X metadata, as invoicing software does.
+        "zugferd2_pdf": generate_from_binary(_pdf(), xml["zugferd2_basic"], check_xsd=False),
+        # ZUGFeRD 1.0 used the attachment name ZUGFeRD-invoice.xml.
+        "zugferd1_pdf": _pdf(("ZUGFeRD-invoice.xml", xml["zugferd1"])),
+        "plain_pdf": _pdf(),
+    }
+
+
+@pytest.fixture
+def pdf_with_attachment() -> Callable[[str, bytes], bytes]:
+    """Builds a blank PDF with one attached file, for hostile or unusual attachments."""
+    return lambda filename, content: _pdf((filename, content))

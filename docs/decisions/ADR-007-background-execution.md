@@ -53,3 +53,11 @@ when one of these is measured:
 - There are no automatic retries; a `failed` invoice is retried by a user action.
 - The status column and the idempotent steps carry over unchanged if a worker is added later; only who
   picks up `received` invoices changes.
+
+## Amendment (2026-11-12)
+
+- New status `awaiting_extraction`: a PDF without embedded e-invoice XML waits there for LLM extraction (R1-5).
+  It is not `received`, so startup recovery does not pick it up again on every restart.
+- New column `invoices.status_reason`: why an invoice is in its status (for example the parse error of a `failed`
+  invoice), shown to the user. Internal errors get a generic reason; the details go to the logs.
+- Startup recovery runs in the thread pool after the app has started, so the API answers while it works.
