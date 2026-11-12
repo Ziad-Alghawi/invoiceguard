@@ -191,6 +191,7 @@ def test_detail_returns_the_invoice(client: TestClient, finished: FinishedInvoic
     assert detail.pop("status") == "failed"
     assert "Unknown invoice format" in detail.pop("status_reason")
     assert detail.pop("checks") == []
+    assert (detail.pop("llm_calls"), detail.pop("llm_cost_usd")) == (0, "0")
     created.pop("status")
     created.pop("status_reason")
     assert detail == created

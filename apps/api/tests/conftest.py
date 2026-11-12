@@ -25,6 +25,12 @@ from invoiceguard_api.models import Base
 from invoiceguard_api.seed import seed_demo_data
 from invoiceguard_api.settings import Settings
 
+# Whatever imports LiteLLM first, it must use its bundled price table and never download one
+# (ADR-004), and must not load the developer's .env (with a real API key) into the environment;
+# the app sets both in llm/litellm_client.py, which test_litellm_client.py checks.
+os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
+
 TEST_DATABASE_URL_ENV = "INVOICEGUARD_TEST_DATABASE_URL"
 API_DIR = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -105,6 +111,8 @@ def settings(database_url: str, tmp_path: Path) -> Settings:
         database_url=PostgresDsn(database_url),
         storage_dir=tmp_path / "uploads",
         max_upload_bytes=TEST_MAX_UPLOAD_BYTES,
+        # Never a real key from the environment: tests use the fake client (tests/fakes.py).
+        llm_api_key=None,
     )
 
 
@@ -120,6 +128,19 @@ PROCESSING_TIMEOUT_SECONDS = 10.0
 FinishedInvoice = Callable[[str], dict[str, Any]]
 
 
+def poll_until_done(
+    client: TestClient, url: str, waiting: frozenset[str] = frozenset({"received", "processing"})
+) -> dict[str, Any]:
+    """GET an invoice URL until its status is not in `waiting`, as the UI polls it (ADR-007)."""
+    deadline = time.monotonic() + PROCESSING_TIMEOUT_SECONDS
+    while True:
+        detail: dict[str, Any] = client.get(url).json()
+        if detail["status"] not in waiting:
+            return detail
+        assert time.monotonic() < deadline, f"still {detail['status']}: {url}"
+        time.sleep(0.02)
+
+
 @pytest.fixture
 def finished(client: TestClient) -> FinishedInvoice:
     """GET an invoice URL until processing has finished, as the UI polls it (ADR-007).
@@ -130,13 +151,7 @@ def finished(client: TestClient) -> FinishedInvoice:
     """
 
     def get(url: str) -> dict[str, Any]:
-        deadline = time.monotonic() + PROCESSING_TIMEOUT_SECONDS
-        while True:
-            detail: dict[str, Any] = client.get(url).json()
-            if detail["status"] not in {"received", "processing"}:
-                return detail
-            assert time.monotonic() < deadline, f"still {detail['status']}: {url}"
-            time.sleep(0.02)
+        return poll_until_done(client, url)
 
     return get
 
@@ -151,6 +166,53 @@ def _pdf(attachment: tuple[str, bytes] | None = None) -> bytes:
     return buffer.getvalue()
 
 
+def _pdf_string(text: str) -> bytes:
+    escaped = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    return b"(" + escaped.encode("latin-1") + b")"
+
+
+def text_pdf(lines: list[str]) -> bytes:
+    """A one-page PDF with a real text layer (Helvetica), written by hand: pypdf has no text API.
+
+    Like an invoice printed to PDF by an office program, without e-invoice XML.
+    """
+    shown = b" ".join(_pdf_string(line) + b" '" for line in lines)
+    content = b"BT /F1 11 Tf 50 790 Td 15 TL " + shown + b" ET"
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %d %d] " % A4_POINTS
+        + b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+        b"<< /Length %d >>\nstream\n" % len(content) + content + b"\nendstream",
+    ]
+    pdf = b"%PDF-1.7\n"
+    offsets = []
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(pdf))
+        pdf += b"%d 0 obj\n" % number + body + b"\nendobj\n"
+    xref = len(pdf)
+    pdf += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1)
+    pdf += b"".join(b"%010d 00000 n \n" % offset for offset in offsets)
+    pdf += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (
+        len(objects) + 1,
+        xref,
+    )
+    return pdf
+
+
+# The printed text of ubl_xrechnung.xml, as a plain PDF invoice would show it.
+INVOICE_TEXT = [
+    "Demo IT-Service GmbH, Musterstrasse 1, 10115 Berlin, USt-IdNr.: DE999000033",
+    "An: Beispielkunde Handels GmbH, USt-IdNr.: DE999000068",
+    "Rechnung Nr. 2026-IT-0815 vom 05.11.2026, Ihre Bestellung: PO-2026-0005",
+    "1  Notebook 14 Zoll, 32 GB RAM      3 Stk   1.249,00   3.747,00",
+    "2  Einrichtung und Inbetriebnahme   6 Std      95,00     570,00",
+    "Nettobetrag 4.317,00 EUR   zzgl. 19 % USt 820,23 EUR   Gesamtbetrag 5.137,23 EUR",
+    "Zahlbar bis 19.11.2026 auf IBAN DE60 1234 5678 0000 0000 03",
+]
+
+
 @pytest.fixture(scope="session")
 def samples() -> dict[str, bytes]:
     """The sample invoices by kind. All data is made up; PDFs are built here, not committed."""
@@ -162,6 +224,7 @@ def samples() -> dict[str, bytes]:
         # ZUGFeRD 1.0 used the attachment name ZUGFeRD-invoice.xml.
         "zugferd1_pdf": _pdf(("ZUGFeRD-invoice.xml", xml["zugferd1"])),
         "plain_pdf": _pdf(),
+        "text_pdf": text_pdf(INVOICE_TEXT),
     }
 
 

@@ -25,7 +25,10 @@ _Coming in R5 (diagram). Monorepo layout: `apps/`, `services/`, `packages/`, `in
 2. **Read** by deterministic code, not an LLM ([ADR-002](docs/decisions/ADR-002-code-vs-llm-boundary.md),
    [ADR-005](docs/decisions/ADR-005-zugferd-xrechnung-reader.md)): XRechnung (UBL and CII) and ZUGFeRD 2.x /
    Factur-X are read into EN 16931 business terms (BT-1 invoice number, BT-84 payee IBAN, totals, lines).
-   PDFs without embedded XML wait for LLM extraction (next step).
+   **PDFs without embedded XML** are the one place an LLM reads ([ADR-010](docs/decisions/ADR-010-llm-pdf-extraction.md)):
+   Gemini Flash gets the PDF and must answer in a strict schema, with a confidence and evidence (page and printed
+   text) per field. The PDF is treated as untrusted data, and the result goes through the same checks. Every model
+   call is logged with tokens, cost and latency; `GET /invoices/{id}` shows the cost per invoice.
 3. **Check** with deterministic rules, each stored with a status (`passed`, `warning`, `failed`, `skipped`), a message
    and its evidence:
 
@@ -37,6 +40,7 @@ _Coming in R5 (diagram). Monorepo layout: `apps/`, `services/`, `packages/`, `in
    | `supplier_known` | | the seller VAT ID is not in the supplier master data |
    | `iban` | invalid IBAN, or not one of the supplier's verified IBANs (possible fraud) | supplier unknown; `no_payee_iban` (direct debit) and `multiple_payee_ibans` are separate warnings |
    | `po_match` | order of another supplier; more charged than ordered (total, price, quantity, extra lines) | no or unknown order reference; less charged (partial delivery) |
+   | `low_confidence` (LLM-extracted only) | the payee IBAN or a total was extracted below the confidence threshold | any other field below the threshold |
 
    Any failed check ends in **`blocked`**, otherwise **`ready`** for review. `GET /invoices/{id}` returns the results,
    worst first.
@@ -74,6 +78,10 @@ curl -F "file=@apps/api/tests/fixtures/ubl_fraud_iban.xml" http://localhost:8000
 curl http://localhost:8000/invoices         # newest first
 ```
 
+To extract plain PDFs, put a Gemini API key (Google AI Studio) into `INVOICEGUARD_LLM_API_KEY` in `.env` and run
+`make dev` again. Without a key, plain PDFs wait in `awaiting_extraction`. The free tier may use what you send to
+improve Google's models: send only made-up or public sample invoices.
+
 The API docs are at http://localhost:8000/docs. `make down` stops the stack (data is kept in volumes).
 
 For development without Docker you also need [uv](https://docs.astral.sh/uv/) and Node.js 24 with pnpm
@@ -99,6 +107,7 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
 - [ADR-007: Background execution with FastAPI BackgroundTasks and a status column](docs/decisions/ADR-007-background-execution.md)
 - [ADR-008: Synchronous SQLAlchemy 2 with psycopg 3](docs/decisions/ADR-008-sync-database-access.md)
 - [ADR-009: KoSIT validator as its own service, called over HTTP](docs/decisions/ADR-009-kosit-validator-service.md)
+- [ADR-010: LLM extraction of plain PDF invoices](docs/decisions/ADR-010-llm-pdf-extraction.md)
 
 ## Roadmap
 
@@ -121,7 +130,11 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
   stored invoice yet). Unlikely at demo load; a unique constraint or a lock per seller would close it.
 - The KoSIT configuration covers XRechnung and plain EN 16931; other ZUGFeRD profiles get a "not validated" warning.
 - Background processing runs inside the API process (ADR-007): one API instance only, no automatic retries
-  (an invoice checked while the validator was down keeps its `skipped` KoSIT result).
+  (an invoice checked while the validator was down keeps its `skipped` KoSIT result, and an extraction that hit the
+  LLM quota stays `failed`).
+- LLM extraction: the model's confidence is self-reported, not calibrated (R3 measures it); a PDF without a
+  readable total or invoice number ends in `failed`; the Gemini free tier is for sample data only; there is no
+  per-invoice or per-day cost cap yet (R2).
 
 ## Deutsch
 

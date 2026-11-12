@@ -6,7 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-Syntax = Literal["cii", "ubl"]
+# "pdf": extracted from a plain PDF by an LLM (ADR-010), not read from XML.
+Syntax = Literal["cii", "ubl", "pdf"]
 
 
 class ParseError(Exception):
@@ -22,7 +23,7 @@ class InvalidInvoice(ParseError):
 
 
 class NoEmbeddedXml(Exception):
-    """A PDF without an e-invoice attachment; it needs LLM extraction instead (R1-5)."""
+    """A PDF without an e-invoice attachment; it needs LLM extraction instead (ADR-010)."""
 
 
 class ParsedLine(BaseModel):

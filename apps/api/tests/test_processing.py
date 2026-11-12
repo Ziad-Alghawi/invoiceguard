@@ -111,7 +111,7 @@ def test_each_sample_ends_in_the_expected_status(
 ) -> None:
     invoice_id = add_invoice(session_factory, storage, samples[sample], source_type)
 
-    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, None, invoice_id)
 
     invoice = load(db_session, invoice_id)
     assert invoice.status is status
@@ -134,7 +134,7 @@ def test_ready_invoice_stores_business_terms(
 ) -> None:
     invoice_id = add_invoice(session_factory, storage, samples["cii_xrechnung"], SourceType.XML)
 
-    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, None, invoice_id)
 
     stored = fields(db_session, invoice_id)
     assert stored[("BT-1", None)] == "RE-2026-10417"
@@ -160,7 +160,7 @@ def test_ready_event_records_syntax_and_warnings(
     )
     invoice_id = add_invoice(session_factory, storage, xml, SourceType.XML)
 
-    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, None, invoice_id)
 
     event = db_session.scalars(
         select(AuditEvent).where(AuditEvent.entity_id == str(invoice_id)).order_by(AuditEvent.id)
@@ -190,11 +190,11 @@ def test_processing_twice_is_harmless(
     samples: dict[str, bytes],
 ) -> None:
     invoice_id = add_invoice(session_factory, storage, samples["ubl_xrechnung"], SourceType.XML)
-    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, None, invoice_id)
     first = fields(db_session, invoice_id)
 
     # A finished invoice is not claimed again.
-    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, None, invoice_id)
     assert len(status_changes(db_session, invoice_id)) == 2
 
     # A re-run (for example after a reset) replaces the fields instead of adding duplicates.
@@ -203,7 +203,7 @@ def test_processing_twice_is_harmless(
         assert invoice is not None
         invoice.status = InvoiceStatus.RECEIVED
         session.commit()
-    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, None, invoice_id)
 
     assert fields(db_session, invoice_id) == first
     assert load(db_session, invoice_id).status is InvoiceStatus.READY
@@ -212,7 +212,7 @@ def test_processing_twice_is_harmless(
 def test_unknown_invoice_id_is_skipped(
     session_factory: sessionmaker[Session], storage: FileStorage, db_session: Session
 ) -> None:
-    process_invoice(session_factory, storage, NO_VALIDATOR, uuid.uuid4())
+    process_invoice(session_factory, storage, NO_VALIDATOR, None, uuid.uuid4())
 
     assert db_session.scalars(select(AuditEvent)).all() == []
 
@@ -232,7 +232,7 @@ def test_unexpected_error_ends_in_failed(
 
     monkeypatch.setattr(processing, "invoice_xml", explode)
 
-    process_invoice(session_factory, storage, NO_VALIDATOR, invoice_id)
+    process_invoice(session_factory, storage, NO_VALIDATOR, None, invoice_id)
 
     invoice = load(db_session, invoice_id)
     assert invoice.status is InvoiceStatus.FAILED
@@ -256,7 +256,7 @@ def test_recovery_resumes_received_and_interrupted_invoices(
         session_factory, storage, samples["plain_pdf"], SourceType.PDF, InvoiceStatus.FAILED
     )
 
-    recover_unfinished(session_factory, storage, NO_VALIDATOR)
+    recover_unfinished(session_factory, storage, NO_VALIDATOR, None)
 
     assert load(db_session, interrupted).status is InvoiceStatus.READY
     assert status_changes(db_session, interrupted) == [
@@ -293,7 +293,7 @@ def test_app_starts_even_if_recovery_fails(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    def broken(session_factory: sessionmaker[Session], storage: FileStorage) -> None:
+    def broken(*_: object) -> None:
         raise RuntimeError("database unavailable")
 
     monkeypatch.setattr(main, "recover_unfinished", broken)
@@ -351,7 +351,7 @@ def test_claim_waits_for_a_concurrent_claim_and_then_skips(
         assert claimed.rowcount == 1
 
         worker = threading.Thread(
-            target=process_invoice, args=(session_factory, storage, validator, invoice_id)
+            target=process_invoice, args=(session_factory, storage, validator, None, invoice_id)
         )
         worker.start()
         worker.join(timeout=0.5)
@@ -387,7 +387,7 @@ def test_two_simultaneous_runs_process_the_invoice_once(
     def run() -> None:
         try:
             start.wait(timeout=5)
-            process_invoice(session_factory, storage, validator, invoice_id)
+            process_invoice(session_factory, storage, validator, None, invoice_id)
         except BaseException as error:
             errors.append(error)
 

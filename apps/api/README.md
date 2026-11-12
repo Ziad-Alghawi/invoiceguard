@@ -21,7 +21,7 @@ Logs are JSON, one object per line. OpenAPI docs: http://localhost:8000/docs.
 | `GET /ready` | Readiness: the database answers (`503` with `{"status": "unavailable"}` if not). |
 | `POST /invoices` | Multipart upload (`file`) of an XRechnung/ZUGFeRD XML or PDF. Stores the file, creates the invoice with status `received`, writes an audit event, schedules processing and returns `202` with a `Location` header. |
 | `GET /invoices` | Invoices, newest first (`limit` 1-200, default 50; `offset`). |
-| `GET /invoices/{id}` | One invoice with its `status`, `status_reason` and `checks` (type, status, message, evidence; worst first), or `404`. Poll this after an upload. |
+| `GET /invoices/{id}` | One invoice with its `status`, `status_reason` and `checks` (type, status, message, evidence; worst first), and `llm_calls` / `llm_cost_usd` (LLM calls for this invoice and their cost in USD), or `404`. Poll this after an upload while the status is `received` or `processing`, and also `awaiting_extraction` when LLM extraction is configured (then it is only a step before extraction). |
 
 Upload rules:
 
@@ -40,16 +40,47 @@ validates the XML with KoSIT, stores the fields and runs the checks:
 ```
 received → processing → ready                  read and checked; no check failed (warnings are fine)
                       → blocked                at least one check failed; `status_reason` names them
-                      → awaiting_extraction    PDF without embedded XML: waits for LLM extraction (R1-5), no checks yet
+                      → awaiting_extraction    PDF without embedded XML: LLM extraction follows (below); without an
+                                               API key it waits here with a reason
                       → failed                 unsupported or broken file; `status_reason` says why
+
+awaiting_extraction → processing → ready / blocked / failed     LLM extraction, then the same checks
 ```
 
 - Every status change writes an `invoice.status_changed` audit event (actor `system`, `from`, `to`, `reason`). The
   final one also has a `checks` summary (count per status and the failed check types).
 - Steps are safe to run twice: claiming is a conditional update, and fields and check results are replaced in the
   same transaction that sets the final status. An error anywhere rolls all of it back and ends in `failed`.
-- On startup, invoices left in `processing` are reset to `received`, and all `received` invoices are processed again.
-  This assumes one API process (ADR-007).
+- On startup, invoices left in `processing` are reset to `received`, and all `received` invoices are processed again;
+  with an API key, all `awaiting_extraction` invoices are extracted. This assumes one API process (ADR-007).
+
+## LLM extraction
+Plain PDFs (no embedded e-invoice XML) are read by an LLM, the one LLM step in R1
+([ADR-010](../../docs/decisions/ADR-010-llm-pdf-extraction.md), [ADR-002](../../docs/decisions/ADR-002-code-vs-llm-boundary.md)).
+
+- [llm/](src/invoiceguard_api/llm/): our `LLMClient` protocol; `litellm_client.py` is the only module that imports
+  LiteLLM ([ADR-004](../../docs/decisions/ADR-004-model-router.md), pinned to 1.108.1, its bundled price table only).
+- [extraction/](src/invoiceguard_api/extraction/): the PDF goes to the model as a file part between
+  `<<<UNTRUSTED_DOCUMENT>>>` markers in the user message; the system prompt is a constant that says the document is
+  data, never instructions. The reply must match a strict JSON schema (`extra="forbid"`): per term a value,
+  confidence (0-1) and evidence (page, snippet); one confidence and evidence per line and per VAT row. It is
+  converted into the same `ParsedInvoice` the XML readers produce. An invalid reply gets one retry with the error
+  locations, then the invoice is `failed`.
+- Fields are stored in `invoice_fields` with `source=llm`, `confidence` and `evidence`. The `low_confidence` check
+  warns on fields below `INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD` and fails (blocks) on a low-confidence payee
+  IBAN or total. KoSIT is `skipped` (no XML).
+- Every call is a row in `model_calls` (status `ok`, `invalid_output`, `price_unknown`, `error`; tokens, cost in USD,
+  latency), committed before the checks run. A model without a known price fails the extraction.
+  `GET /invoices/{id}` returns `llm_calls` and `llm_cost_usd`.
+- Tests never call a model: `tests/fakes.py` replays recorded replies, and the LiteLLM adapter is tested with
+  LiteLLM's `mock_response`. A prompt-injection test uploads a PDF whose text tells the model to change the IBAN.
+
+Manual run with a real key (prints fields, confidence, evidence, cost and time per PDF; compares with
+`<name>.expected.json` next to a PDF when present; stores nothing):
+
+```sh
+uv run --env-file ../../.env python scripts/extract_pdfs.py data/llm-samples/*.pdf
+```
 
 ## Checks
 [checks/](src/invoiceguard_api/checks/) holds one pure function per check. `context.py` loads what they need once
@@ -66,6 +97,7 @@ checks themselves are unit-tested without a database or network. Each result has
 | `iban` | Payee IBAN with invalid ISO 13616 check digits → `failed`; one of the supplier's verified IBANs → `passed`; any other IBAN → `failed` (possible bank-detail fraud, evidence lists the verified IBANs); supplier unknown or without verified accounts → `warning` |
 | `no_payee_iban` | Instead of `iban` when BT-84 is absent (direct debit, card): `warning`, not a mismatch |
 | `multiple_payee_ibans` | In addition to `iban` when the invoice names several payee IBANs: `warning` (only the first is checked) |
+| `low_confidence` | LLM-extracted invoices only: every field below the confidence threshold is listed; payee IBAN (BT-84) or a total (BT-109, BT-110, BT-112, BT-115) among them → `failed`, others only → `warning`, none → `passed` |
 | `po_match` | No BT-13 or unknown order → `warning`; order of another supplier or unknown seller → `failed`; per line (paired **by position**) and in total: more than ordered (price, quantity, extra lines, other unit, currency, net total) → `failed`, less (partial delivery) → `warning`; differences listed per line |
 
 Any `failed` result makes the invoice `blocked`; otherwise it is `ready` for review.
@@ -85,7 +117,7 @@ The reader in [parsing/](src/invoiceguard_api/parsing/) follows [ADR-005](../../
 | UBL credit note | `failed`: not supported yet |
 | ZUGFeRD 1.0 (superseded in 2019) | `failed`: not supported |
 | Other XML, broken XML, XML with a DOCTYPE | `failed` |
-| PDF without embedded e-invoice XML | `awaiting_extraction` |
+| PDF without embedded e-invoice XML | LLM extraction (see above); `awaiting_extraction` without an API key |
 
 Stored terms (`invoice_fields`, source `xml`): BT-1, BT-2, BT-3, BT-5, BT-9, BT-13, BT-27, BT-31, BT-44, BT-48,
 BT-84, BT-106, BT-107, BT-108, BT-109, BT-110, BT-112, BT-115, and per line (`line_no` from 1) BT-126, BT-129, BT-130, BT-131, BT-146, BT-152,
@@ -108,11 +140,12 @@ The schema is owned by Alembic migrations in [migrations/](migrations/); the mod
 | Table | Content |
 | --- | --- |
 | `invoices` | Uploaded file: status (`received`, `processing`, `ready`, `awaiting_extraction`, `blocked`, `failed`) and `status_reason`, `xml`/`pdf`, file name, SHA-256 (unique), size, storage path |
-| `invoice_fields` | EN 16931 business terms per invoice (code like `BT-1`, optional line number, value, source `xml`/`llm`, confidence) |
+| `invoice_fields` | EN 16931 business terms per invoice (code like `BT-1`, optional line number, value, source `xml`/`llm`, confidence and evidence for `llm`) |
 | `suppliers`, `supplier_bank_accounts` | Supplier registry with IBANs (verified, since, verified by) |
 | `purchase_orders`, `purchase_order_lines` | Orders for PO matching |
 | `checks` | Check results per invoice (type, status, message, evidence as JSON); replaced on every run |
 | `audit_events` | Who did what to which entity, when, with details as JSON |
+| `model_calls` | One row per LLM call: invoice, purpose, model, status, tokens, cost (USD), latency, error, time ([ADR-004](../../docs/decisions/ADR-004-model-router.md)) |
 
 Enums are stored as `VARCHAR` with a `CHECK` constraint, not as native PostgreSQL enums, so adding a value is a plain
 migration. After changing a model:
@@ -138,6 +171,13 @@ Invalid values stop the app at startup.
 | `INVOICEGUARD_MAX_UPLOAD_BYTES` | positive integer | `10485760` (10 MiB) |
 | `INVOICEGUARD_VALIDATOR_URL` | KoSIT validator URL, for example `http://127.0.0.1:8081/` | unset: the KoSIT check is `skipped` |
 | `INVOICEGUARD_VALIDATOR_TIMEOUT_SECONDS` | positive number | `20` |
+| `INVOICEGUARD_LLM_API_KEY` | API key of the extraction model's provider (Gemini: Google AI Studio) | unset (or empty): plain PDFs stay `awaiting_extraction` |
+| `INVOICEGUARD_EXTRACTION_MODEL` | LiteLLM model string with a known price | `gemini/gemini-3.8-flash` |
+| `INVOICEGUARD_LLM_TIMEOUT_SECONDS` | positive number | `120` |
+| `INVOICEGUARD_EXTRACTION_REASONING_EFFORT` | `minimal`, `low`, `medium`, `high`: how much the model thinks (billed as output tokens); Gemini 3.8 Flash's lowest is `low` | `low` |
+| `INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD` | 0 to 1 | `0.8` |
+
+An empty variable counts as unset.
 
 ## Checks
 ```sh
