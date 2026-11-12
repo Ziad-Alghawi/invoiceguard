@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `failed`; fields stored with `source=llm`. Flow `awaiting_extraction → processing → ready / blocked / failed`
   with an atomic claim, audit events and startup recovery; without an API key PDFs wait with a reason.
 - `LLMClient` interface with a LiteLLM implementation (ADR-004); LiteLLM 1.108.1 pinned, its bundled price table
-  only (no download at import).
+  only (no download at import), and no `.env` loading at import (`LITELLM_MODE=PRODUCTION`).
 - `low_confidence` check: fields below `INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD` warn; a low-confidence payee
   IBAN or total blocks the invoice.
 - Cost log: migration 0004 with `model_calls` (tokens, cost, latency, status per call, also failed ones) and
@@ -23,7 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   user message, schema with no extra keys, rejection reasons without document text; tested with an injection PDF.
 - `scripts/extract_pdfs.py`: manual run against the real model with fields, confidence, cost and time per PDF.
 - Settings `INVOICEGUARD_LLM_API_KEY`, `INVOICEGUARD_EXTRACTION_MODEL`, `INVOICEGUARD_LLM_TIMEOUT_SECONDS`,
-  `INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD`; empty environment variables now count as unset.
+  `INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD`, `INVOICEGUARD_EXTRACTION_REASONING_EFFORT` (thinking level,
+  default `low`); empty environment variables now count as unset.
 - Monorepo skeleton (`apps/`, `services/`, `packages/`, `infra/`, `workflows/`, `docs/decisions/`) with a purpose README per folder.
 - MIT licence, README skeleton, `CLAUDE.md`, `docs/status.md`, `.gitignore`, `.env.example`, `.editorconfig`.
 - ADR template and ADR-001 (stack), ADR-002 (code vs LLM boundary), ADR-003 (approval as hard gate), linked from the README.

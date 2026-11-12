@@ -8,6 +8,8 @@ from typing import Annotated, Literal
 from pydantic import AnyHttpUrl, Field, PostgresDsn, SecretStr, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from invoiceguard_api.llm import ReasoningEffort
+
 Environment = Literal["dev", "test", "prod"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 
@@ -35,6 +37,9 @@ class Settings(BaseSettings):
     llm_api_key: SecretStr | None = None
     # A LiteLLM model string; its price must be in LiteLLM's price table (ADR-004).
     extraction_model: str = "gemini/gemini-3.8-flash"
+    # Thinking tokens are billed as output; `low` is the lowest level Gemini 3.8 Flash accepts in
+    # the pinned LiteLLM version (`minimal` is sent as `low`), see ADR-010.
+    extraction_reasoning_effort: ReasoningEffort = "low"
     llm_timeout_seconds: float = Field(default=120.0, gt=0)
     # Fields extracted with a lower confidence get a `low_confidence` check result.
     extraction_confidence_threshold: Decimal = Field(default=Decimal("0.8"), ge=0, le=1)

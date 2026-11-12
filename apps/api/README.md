@@ -174,6 +174,7 @@ Invalid values stop the app at startup.
 | `INVOICEGUARD_LLM_API_KEY` | API key of the extraction model's provider (Gemini: Google AI Studio) | unset (or empty): plain PDFs stay `awaiting_extraction` |
 | `INVOICEGUARD_EXTRACTION_MODEL` | LiteLLM model string with a known price | `gemini/gemini-3.8-flash` |
 | `INVOICEGUARD_LLM_TIMEOUT_SECONDS` | positive number | `120` |
+| `INVOICEGUARD_EXTRACTION_REASONING_EFFORT` | `minimal`, `low`, `medium`, `high`: how much the model thinks (billed as output tokens); Gemini 3.8 Flash's lowest is `low` | `low` |
 | `INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD` | 0 to 1 | `0.8` |
 
 An empty variable counts as unset.

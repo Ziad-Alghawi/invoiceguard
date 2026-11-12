@@ -26,8 +26,10 @@ from invoiceguard_api.seed import seed_demo_data
 from invoiceguard_api.settings import Settings
 
 # Whatever imports LiteLLM first, it must use its bundled price table and never download one
-# (ADR-004); the app sets this in llm/litellm_client.py, which test_litellm_client.py checks.
+# (ADR-004), and must not load the developer's .env (with a real API key) into the environment;
+# the app sets both in llm/litellm_client.py, which test_litellm_client.py checks.
 os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
 
 TEST_DATABASE_URL_ENV = "INVOICEGUARD_TEST_DATABASE_URL"
 API_DIR = Path(__file__).resolve().parents[1]
@@ -109,6 +111,8 @@ def settings(database_url: str, tmp_path: Path) -> Settings:
         database_url=PostgresDsn(database_url),
         storage_dir=tmp_path / "uploads",
         max_upload_bytes=TEST_MAX_UPLOAD_BYTES,
+        # Never a real key from the environment: tests use the fake client (tests/fakes.py).
+        llm_api_key=None,
     )
 
 

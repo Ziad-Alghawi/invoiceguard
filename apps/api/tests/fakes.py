@@ -11,7 +11,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from invoiceguard_api.llm import LLMError, LLMReply, UserPart
+from invoiceguard_api.llm import LLMError, LLMReply, ReasoningEffort, UserPart
 
 LLM_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "llm"
 COST_USD = Decimal("0.000412")
@@ -42,6 +42,7 @@ class Request:
     user: tuple[UserPart, ...]
     schema_name: str
     schema: dict[str, Any]
+    reasoning_effort: ReasoningEffort | None
 
 
 class FakeLLMClient:
@@ -60,8 +61,11 @@ class FakeLLMClient:
         user: Sequence[UserPart],
         schema_name: str,
         schema: dict[str, Any],
+        reasoning_effort: ReasoningEffort | None = None,
     ) -> LLMReply:
-        self.requests.append(Request(model, system, tuple(user), schema_name, schema))
+        self.requests.append(
+            Request(model, system, tuple(user), schema_name, schema, reasoning_effort)
+        )
         assert self._replies, "the test made more model calls than it recorded replies for"
         reply = self._replies.pop(0)
         if isinstance(reply, LLMError):

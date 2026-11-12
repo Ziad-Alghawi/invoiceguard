@@ -5,8 +5,17 @@ from invoiceguard_api.llm.client import (
     LLMClient,
     LLMError,
     LLMReply,
+    ReasoningEffort,
     TextPart,
     UserPart,
 )
 
-__all__ = ["FilePart", "LLMClient", "LLMError", "LLMReply", "TextPart", "UserPart"]
+__all__ = [
+    "FilePart",
+    "LLMClient",
+    "LLMError",
+    "LLMReply",
+    "ReasoningEffort",
+    "TextPart",
+    "UserPart",
+]

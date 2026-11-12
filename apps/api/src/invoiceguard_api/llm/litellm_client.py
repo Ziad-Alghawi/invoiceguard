@@ -14,6 +14,9 @@ from typing import Any
 # Without this, importing LiteLLM downloads its price table from GitHub, so costs would come
 # from whatever is on `main` today instead of the reviewed, pinned version (ADR-004).
 os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+# In its default "DEV" mode, importing LiteLLM loads the nearest .env file into the process
+# environment (with API keys and anything else in it); our settings come only from real env vars.
+os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
 
 import litellm
 from litellm.exceptions import (
@@ -24,7 +27,13 @@ from litellm.exceptions import (
     Timeout,
 )
 
-from invoiceguard_api.llm.client import LLMError, LLMReply, TextPart, UserPart
+from invoiceguard_api.llm.client import (
+    LLMError,
+    LLMReply,
+    ReasoningEffort,
+    TextPart,
+    UserPart,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +74,7 @@ class LiteLLMClient:
         user: Sequence[UserPart],
         schema_name: str,
         schema: dict[str, Any],
+        reasoning_effort: ReasoningEffort | None = None,
     ) -> LLMReply:
         start = time.perf_counter()
         try:
@@ -78,6 +88,7 @@ class LiteLLMClient:
                     "type": "json_schema",
                     "json_schema": {"name": schema_name, "schema": schema},
                 },
+                reasoning_effort=reasoning_effort,
                 api_key=self._api_key,
                 timeout=self._timeout_seconds,
                 # Retries are our decision (and each one is logged with its cost).

@@ -22,7 +22,15 @@ from invoiceguard_api.extraction.model import (
     FieldConfidence,
 )
 from invoiceguard_api.extraction.schema import Evidence, ExtractedInvoice
-from invoiceguard_api.llm import FilePart, LLMClient, LLMError, LLMReply, TextPart, UserPart
+from invoiceguard_api.llm import (
+    FilePart,
+    LLMClient,
+    LLMError,
+    LLMReply,
+    ReasoningEffort,
+    TextPart,
+    UserPart,
+)
 from invoiceguard_api.models import ModelCallStatus
 from invoiceguard_api.parsing import ParsedInvoice
 from invoiceguard_api.parsing.fields import DOCUMENT_TERMS
@@ -142,6 +150,7 @@ class PdfExtractor:
     client: LLMClient
     model: str
     confidence_threshold: Decimal
+    reasoning_effort: ReasoningEffort
 
     def _call(self, parts: list[UserPart]) -> LLMReply:
         return self.client.structured(
@@ -150,6 +159,7 @@ class PdfExtractor:
             user=parts,
             schema_name=SCHEMA_NAME,
             schema=SCHEMA,
+            reasoning_effort=self.reasoning_effort,
         )
 
     def _record(

@@ -7,11 +7,13 @@ import os
 import subprocess
 import sys
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import litellm
 import pytest
 from litellm.exceptions import AuthenticationError, InternalServerError, Timeout
+from litellm.utils import get_optional_params
 from pydantic import SecretStr
 
 from invoiceguard_api.llm import FilePart, LLMError, TextPart
@@ -50,6 +52,7 @@ def ask(client: LiteLLMClient, model: str = MODEL) -> Any:
         user=[TextPart("before"), FilePart("application/pdf", PDF), TextPart("after")],
         schema_name="test",
         schema=SCHEMA,
+        reasoning_effort="low",
     )
 
 
@@ -70,7 +73,7 @@ def test_reply_has_text_usage_cost_and_latency(sent: Any) -> None:
     assert len(calls) == 1
 
 
-def test_request_carries_the_pdf_schema_and_no_retries(sent: Any) -> None:
+def test_request_carries_the_pdf_schema_reasoning_effort_and_no_retries(sent: Any) -> None:
     calls = sent('{"a": 1}')
 
     ask(LiteLLMClient(FAKE_KEY, 30))
@@ -92,6 +95,18 @@ def test_request_carries_the_pdf_schema_and_no_retries(sent: Any) -> None:
         "json_schema": {"name": "test", "schema": SCHEMA},
     }
     assert (request["api_key"], request["timeout"], request["num_retries"]) == (FAKE_KEY, 30, 0)
+    assert request["reasoning_effort"] == "low"
+
+
+@pytest.mark.parametrize("effort", ["minimal", "low"])
+def test_low_effort_is_gemini_thinking_level_low(effort: str) -> None:
+    # The pinned price table marks Gemini 3.8 Flash as not supporting `minimal`, so LiteLLM sends
+    # `low`, the lowest level (ADR-010). A LiteLLM upgrade that changes this must be noticed.
+    params = get_optional_params(
+        model="gemini-3.8-flash", custom_llm_provider="gemini", reasoning_effort=effort
+    )
+
+    assert params["thinkingConfig"]["thinkingLevel"] == "low"
 
 
 def test_unknown_price_is_reported_as_none(sent: Any) -> None:
@@ -148,6 +163,26 @@ def test_price_table_is_the_pinned_local_copy() -> None:
     assert result.stdout.split() == ["True", "True"]
 
 
+def test_importing_litellm_does_not_load_a_dotenv_file(tmp_path: Path) -> None:
+    # LiteLLM's default mode loads the nearest .env on import (with `python -c`: from the working
+    # directory). Our module must switch that off, or a developer's real key leaks into settings.
+    (tmp_path / ".env").write_text("INVOICEGUARD_DOTENV_PROBE=loaded\n", encoding="utf-8")
+    env = {k: v for k, v in os.environ.items() if k != "LITELLM_MODE"}
+    code = (
+        "import os, invoiceguard_api.llm.litellm_client; "
+        "print(os.environ.get('INVOICEGUARD_DOTENV_PROBE'))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.split() == ["None"]
+
+
 def test_extractor_needs_a_key(settings: Settings) -> None:
     assert make_extractor(settings, None) is None
 
@@ -157,3 +192,4 @@ def test_extractor_needs_a_key(settings: Settings) -> None:
     assert extractor is not None
     assert isinstance(extractor.client, LiteLLMClient)
     assert (extractor.model, extractor.confidence_threshold) == (MODEL, Decimal("0.8"))
+    assert extractor.reasoning_effort == "low"

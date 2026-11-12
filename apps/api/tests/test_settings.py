@@ -67,6 +67,7 @@ def test_llm_settings_default_to_extraction_off(monkeypatch: pytest.MonkeyPatch)
     assert settings.llm_api_key is None
     assert settings.extraction_model == "gemini/gemini-3.8-flash"
     assert settings.extraction_confidence_threshold == Decimal("0.8")
+    assert settings.extraction_reasoning_effort == "low"
 
 
 def test_llm_api_key_is_not_shown(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -87,4 +88,13 @@ def test_confidence_threshold_is_between_0_and_1(
     monkeypatch.setenv("INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD", threshold)
 
     with pytest.raises(ValidationError, match="extraction_confidence_threshold"):
+        Settings()
+
+
+def test_reasoning_effort_cannot_turn_thinking_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Gemini 3 has no "off"; LiteLLM would quietly send the lowest level instead.
+    monkeypatch.setenv("INVOICEGUARD_DATABASE_URL", DB_URL)
+    monkeypatch.setenv("INVOICEGUARD_EXTRACTION_REASONING_EFFORT", "none")
+
+    with pytest.raises(ValidationError, match="extraction_reasoning_effort"):
         Settings()

@@ -72,7 +72,8 @@ def _print_result(
                 else:
                     flag += f"  DIFF (XML: {want})"
             evidence = field.evidence or {}
-            snippet = str(evidence.get("snippet", ""))[:SNIPPET_WIDTH]
+            # Snippets can span lines on the page; one line per field keeps the table readable.
+            snippet = " ".join(str(evidence.get("snippet", "")).split())[:SNIPPET_WIDTH]
             page = f"p{evidence['page']}: " if evidence else ""
             print(
                 f"{field.name:<17} {field.code or '':<7} {field.confidence:>5}  "
@@ -96,7 +97,10 @@ def main() -> int:
     if extractor is None:
         print("INVOICEGUARD_LLM_API_KEY is not set; see the docstring.", file=sys.stderr)
         return 2
-    print(f"model: {extractor.model}, confidence threshold: {extractor.confidence_threshold}")
+    print(
+        f"model: {extractor.model}, reasoning effort: {extractor.reasoning_effort}, "
+        f"confidence threshold: {extractor.confidence_threshold}"
+    )
 
     costs: list[Decimal] = []
     seconds: list[float] = []

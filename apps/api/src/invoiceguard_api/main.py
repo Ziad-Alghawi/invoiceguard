@@ -43,7 +43,10 @@ def make_extractor(settings: Settings, llm_client: LLMClient | None) -> PdfExtra
             settings.llm_api_key.get_secret_value(), settings.llm_timeout_seconds
         )
     return PdfExtractor(
-        llm_client, settings.extraction_model, settings.extraction_confidence_threshold
+        llm_client,
+        settings.extraction_model,
+        settings.extraction_confidence_threshold,
+        settings.extraction_reasoning_effort,
     )
 
 
