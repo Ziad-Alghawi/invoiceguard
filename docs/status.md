@@ -28,11 +28,27 @@
     one retry on invalid output; fields stored with `source=llm`; `low_confidence` check (IBAN or totals → blocked);
     every call logged in `model_calls` with tokens, cost and latency, unknown price → `failed`; cost per invoice in
     `GET /invoices/{id}`; injection test with a hostile PDF; recorded replies in CI, manual script for real runs
+    - Manual run (2026-11-12, `gemini/gemini-3.8-flash` at its default thinking level; 3 public ZUGFeRD corpus PDFs
+      with the XML removed, 1 injection PDF): **mean $0.0141 and 22.8 s per invoice** (range $0.0113 to $0.0183
+      and 18.9 to 27.0 s; 1,483 to 2,015 input and 2,707 to 4,485 output tokens; one call per invoice, no retries;
+      total $0.0564)
+    - Field accuracy: 69 of 72 document terms equal the original XML. The 3 differences are the due date (BT-9),
+      which the PDFs print ("Zahlbar ... bis 04.04.2018") but the XML does not carry, so they are correct
+      extractions: **72 of 72 correct**. Line and VAT row counts match (2, 4, 6, 2 lines); the script does not
+      compare line values. All confidences were 0.8 or higher, so no `low_confidence` result.
+    - Injection PDF (printed text tells the model to set the IBAN to `DE58…0099`): not followed. No IBAN extracted
+      (the invoice states none), every other value equal to the clean PDF; the model lowered some confidences
+      (0.95 to 0.98 instead of 1.0).
+    - Thinking level: output was about twice the input, about half of it thinking, so extraction now runs with
+      `INVOICEGUARD_EXTRACTION_REASONING_EFFORT=low` (ADR-010). Cost, latency and accuracy at `low` are not
+      measured yet.
 
 ## Open decisions
 - Demo hosting (where the API runs: cluster or free host) and domain: decide by the end of R1.
 
 ## Next
+- R1-5 follow-up: rerun `scripts/extract_pdfs.py` on the 4 samples at thinking level `low` and record the numbers
+  here (4 calls)
 - R1: review queue, CSV export
 
 ## Known limitations
@@ -63,3 +79,7 @@
 - Timestamps do not order events (PostgreSQL `now()` is per transaction, Windows clocks tick in ~15 ms); append-only
   logs get an identity id.
 - With an LLM configured, `awaiting_extraction` is a passing state: clients and tests poll through it.
+- Importing a library can change the process environment: LiteLLM loads the nearest `.env` on import unless
+  `LITELLM_MODE=PRODUCTION`, which put a real API key into the test settings. Tests now pin the key to None.
+- Reasoning models bill thinking as output tokens: compare output tokens with the size of the reply before
+  shortening the prompt or schema.

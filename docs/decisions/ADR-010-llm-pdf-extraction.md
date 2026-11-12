@@ -54,8 +54,24 @@ strict schema; convert the reply into `ParsedInvoice` and run the normal checks.
   checks run, so the cost stays logged when a later step fails. A model without a price in LiteLLM's
   table ends the extraction as `failed` (`price_unknown`), never as zero cost. LiteLLM reads its
   bundled price table (`LITELLM_LOCAL_MODEL_COST_MAP=True`) instead of downloading the newest one at
-  import, so costs come from the reviewed, pinned version. Per-invoice and per-day cost caps follow
-  with the agent in R2.
+  import, so costs come from the reviewed, pinned version. The same module sets `LITELLM_MODE=PRODUCTION`:
+  in its default mode, importing LiteLLM loads the nearest `.env` file into the process environment, which
+  put a developer's real API key into the test settings. Per-invoice and per-day cost caps follow with the
+  agent in R2.
+- **Thinking level:** Gemini 3 models think before they answer, and LiteLLM counts thinking tokens as
+  output tokens, billed at the output price. In the manual run at the model's default level (4 PDFs, see
+  `docs/status.md`) the output was 1.8 to 2.2 times the input (2,700 to 4,500 tokens), while a reply of
+  this schema is roughly 1,000 to 2,000 tokens; output was about 90 % of the cost ($0.011 to $0.018 per
+  invoice) and drives the latency (19 to 27 s). Extraction is mostly transcription, so
+  `INVOICEGUARD_EXTRACTION_REASONING_EFFORT` (default **`low`**) is passed as LiteLLM's `reasoning_effort`,
+  which LiteLLM sends as Gemini's `thinkingLevel`. **Trade-off:** less thinking should cut cost and latency,
+  at the risk of more slips where an invoice needs reasoning to read: allowances and charges, several VAT
+  rates, an amount due below the gross total (prepayment), totals on a later page than the lines. The
+  deterministic checks (`vat_math`, `iban`, `low_confidence`, `po_match`) catch the slips that move money,
+  and the model's confidence stays self-reported either way. `minimal` would be lower still, but the
+  pinned price table marks Gemini 3.8 Flash as not supporting it (LiteLLM then sends `low`), and Gemini 3
+  cannot turn thinking off. Going back to more thinking is a config change; R3 measures field accuracy
+  per level on the eval set and sets the default from data.
 - **Flow (ADR-007):** the same background task that finds no XML moves the invoice to
   `awaiting_extraction` and then claims it again (`awaiting_extraction → processing`, a conditional
   update), extracts, stores the fields with `source=llm`, runs the checks and ends in `ready`, `blocked`
@@ -75,6 +91,8 @@ strict schema; convert the reply into `ParsedInvoice` and run the normal checks.
   layout; ADR-002 rejected it.
 - **One confidence per line term:** the most detail, at several times the output tokens per line.
 - **Tool calling instead of a response schema:** the same result with more variance between providers.
+- **Default thinking level:** the most careful reading, at about twice the output tokens of the reply
+  itself; kept as a setting (`high`) instead of the default.
 - **Token log-probabilities as confidence:** not offered uniformly across providers and LiteLLM; the
   model's own confidence is simpler, with its limits stated below.
 
