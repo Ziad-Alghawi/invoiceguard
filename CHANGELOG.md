@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Login with seeded users (ADR-006, ADR-011): `POST /auth/login`, `/auth/logout`, `GET /auth/me`; Argon2id password
+  hashes (`argon2-cffi`); server-side sessions (only the token's SHA-256 is stored) in an HttpOnly, SameSite=Lax cookie,
+  Secure in prod; 5 failed logins in a row lock the account for 15 minutes (`429` with `Retry-After`). Settings
+  `INVOICEGUARD_SESSION_TTL_MINUTES`, `INVOICEGUARD_LOGIN_MAX_FAILURES`, `INVOICEGUARD_LOGIN_LOCKOUT_MINUTES`.
+- `invoiceguard-seed-user` / `make seed-user`: creates or resets a user from `INVOICEGUARD_SEED_USER_*`; the password
+  comes from the environment only.
+- Review API (ADR-012): every invoice endpoint needs a login; `POST /invoices/{id}/approve` (a `blocked` invoice only
+  with `override_reason`), `POST /invoices/{id}/reject` (reason required), statuses `approved` and `rejected`;
+  `GET /invoices` filters by `status` and returns `X-Total-Count`; `GET /invoices/{id}` returns the fields with
+  `low_confidence` flags and a `file_url`; `GET /invoices/{id}/file` downloads the original; `GET /invoices/{id}/audit`.
+- Migration 0005: `users`, `sessions`, the two review statuses, and on `audit_events` the user, status before and
+  after and reason as columns (existing status events moved there) plus a trigger that rejects `UPDATE` and `DELETE`.
+  Login, logout, failed login, lockout, upload (now attributed to the user), override, approve and reject are audited.
+- Web review UI: login page, queue with status filters and paging, invoice page with check results, extracted fields
+  (low-confidence ones highlighted with evidence), download, approve / approve with override / reject, and audit
+  history; the web server forwards the session to the API (backend for frontend).
+- CI smoke test logs in with a generated seed password and approves, overrides and checks the audit rows.
+- ADR-011 (sessions and lockout), ADR-012 (review decisions in R1), ADR-007 amendment (review statuses).
 - LLM extraction of plain PDF invoices (ADR-010): Gemini Flash reads the PDF and answers in a strict schema with a
   value, confidence and evidence (page, snippet) per field and per line; one retry on invalid output, then
   `failed`; fields stored with `source=llm`. Flow `awaiting_extraction → processing → ready / blocked / failed`

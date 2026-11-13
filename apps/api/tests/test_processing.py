@@ -76,7 +76,9 @@ def fields(db_session: Session, invoice_id: uuid.UUID) -> dict[tuple[str, int | 
     return {(row.code, row.line_no): row.value for row in rows}
 
 
-def status_changes(db_session: Session, invoice_id: uuid.UUID) -> list[tuple[str, str]]:
+def status_changes(
+    db_session: Session, invoice_id: uuid.UUID
+) -> list[tuple[str | None, str | None]]:
     events = db_session.scalars(
         select(AuditEvent)
         .where(
@@ -84,7 +86,7 @@ def status_changes(db_session: Session, invoice_id: uuid.UUID) -> list[tuple[str
         )
         .order_by(AuditEvent.id)
     )
-    return [(event.details["from"], event.details["to"]) for event in events]
+    return [(event.status_before, event.status_after) for event in events]
 
 
 @pytest.mark.parametrize(
@@ -166,10 +168,8 @@ def test_ready_event_records_syntax_and_warnings(
         select(AuditEvent).where(AuditEvent.entity_id == str(invoice_id)).order_by(AuditEvent.id)
     ).all()[-1]
     assert event.actor == "system"
+    assert (event.status_before, event.status_after, event.reason) == ("processing", "ready", None)
     assert event.details == {
-        "from": "processing",
-        "to": "ready",
-        "reason": None,
         "syntax": "ubl",
         "warnings": ["multiple_payee_ibans: 2 found, stored the first"],
         # Unseeded database: supplier and order unknown (warnings), no validator (skipped).

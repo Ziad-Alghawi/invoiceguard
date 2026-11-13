@@ -3,7 +3,19 @@
 Next.js (App Router, TypeScript, Tailwind, shadcn/ui, next-intl de/en) review queue UI for approving, rejecting and
 editing invoices; filled from R1.
 
-Today it has one page that calls the API's `GET /health` on the server and shows `ok` or `unreachable`.
+Pages:
+
+| Path             | What it shows                                                                                                                                                                                                                       |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`              | API health (`ok` / `unreachable`) and a link to the queue                                                                                                                                                                           |
+| `/login`         | Login with a seeded user (no sign-up)                                                                                                                                                                                               |
+| `/invoices`      | Review queue with status filters (to review, blocked, approved, rejected, processing/failed, all) and paging                                                                                                                        |
+| `/invoices/[id]` | Check results with evidence, extracted fields (low-confidence ones highlighted with the printed snippet), download of the original, approve / reject (a blocked invoice needs an override reason and a confirmation), audit history |
+
+The browser talks only to this server ("backend for frontend"): server components and server actions call the API with
+the session cookie, which the login action copies from the API's answer into an HttpOnly cookie on this origin
+([ADR-011](../../docs/decisions/ADR-011-session-cookie-auth.md)). [src/proxy.ts](src/proxy.ts) redirects to `/login`
+when there is no cookie; the API decides whether a session is valid and enforces every decision rule.
 
 ## Requirements
 
@@ -28,7 +40,8 @@ pnpm dev            # http://localhost:3000
 pnpm build && pnpm start
 ```
 
-Start the API (`apps/api`) to see `ok`; without it the page shows `unreachable`.
+Start the API (`apps/api`) to see `ok`; without it the page shows `unreachable`. To log in, seed a user first
+(`make seed-user`, see the root README).
 
 ## Check
 

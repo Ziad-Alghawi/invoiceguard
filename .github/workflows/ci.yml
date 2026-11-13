@@ -84,7 +84,10 @@ jobs:
       - name: Install the api test dependencies (for the KoSIT tests)
         working-directory: apps/api
         run: uv sync --locked
-      - run: cp .env.example .env
+      - name: Create .env with a random password for the seed user (never in the repo)
+        run: |
+          cp .env.example .env
+          echo "INVOICEGUARD_SEED_USER_PASSWORD=$(openssl rand -hex 24)" >> .env
       - name: Build images and start api, web, db, validator (waits for healthy)
         run: make dev
       - name: API /health returns ok
@@ -96,8 +99,23 @@ jobs:
       - name: API /ready reaches the database
         run: |
           curl --fail --silent --show-error http://localhost:8000/ready | grep '"status":"ready"'
-      - name: Seed demo data twice (idempotent)
-        run: make seed && make seed
+      - name: Seed demo data and the login user twice (idempotent)
+        run: make seed && make seed && make seed-user && make seed-user
+      - name: Invoices need a login; the seeded user logs in
+        run: |
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8000/invoices)" = 401
+          # .env is read by make and Compose, not a shell script (values may contain spaces): read
+          # the last value of each key, as make does.
+          env_value() { grep "^$1=" .env | tail -n 1 | cut -d= -f2-; }
+          jq -n --arg email "$(env_value INVOICEGUARD_SEED_USER_EMAIL)" \
+            --arg password "$(env_value INVOICEGUARD_SEED_USER_PASSWORD)" \
+            '{email: $email, password: $password}' \
+            | curl --fail --silent --show-error --cookie-jar cookies.txt \
+              -H 'Content-Type: application/json' --data @- http://localhost:8000/auth/login | jq .
+          curl --fail --silent --show-error --cookie cookies.txt http://localhost:8000/auth/me | jq .
+      - name: Web login page renders
+        run: |
+          curl --fail --silent --show-error http://localhost:3000/login | grep -q 'Log in'
       - name: KoSIT tests against the validator service
         working-directory: apps/api
         env:
@@ -106,20 +124,36 @@ jobs:
       - name: Clean XRechnung ends ready with all checks passed (KoSIT included); the same file again 409
         run: |
           invoice=apps/api/tests/fixtures/ubl_xrechnung.xml
-          .github/scripts/upload-and-wait.sh "$invoice" > clean.json
+          .github/scripts/upload-and-wait.sh "$invoice" cookies.txt > clean.json
           jq . clean.json
           test "$(jq -r .status clean.json)" = ready
           test "$(jq -r '[.checks[] | select(.status != "passed")] | length' clean.json)" = 0
           test "$(jq -r '.checks[] | select(.type == "kosit") | .status' clean.json)" = passed
-          test "$(curl --silent --output /dev/null --write-out '%{http_code}' -F file=@$invoice http://localhost:8000/invoices)" = 409
+          test "$(curl --silent --cookie cookies.txt --output /dev/null --write-out '%{http_code}' -F file=@$invoice http://localhost:8000/invoices)" = 409
       - name: Changed IBAN (fraud sample) ends blocked with the registry evidence
         run: |
-          .github/scripts/upload-and-wait.sh apps/api/tests/fixtures/ubl_fraud_iban.xml > fraud.json
+          .github/scripts/upload-and-wait.sh apps/api/tests/fixtures/ubl_fraud_iban.xml cookies.txt > fraud.json
           jq . fraud.json
           test "$(jq -r .status fraud.json)" = blocked
           test "$(jq -r '.checks[0].type + "=" + .checks[0].status' fraud.json)" = iban=failed
           test "$(jq -r '.checks[0].evidence.invoice_iban' fraud.json)" = DE58876543210000000099
           test "$(jq -r '.checks[0].evidence.verified_ibans[0].iban' fraud.json)" = DE60123456780000000003
+      - name: Approve the clean invoice; the blocked one only with an override reason; audit rows
+        run: |
+          api=http://localhost:8000/invoices
+          post() { curl --silent --cookie cookies.txt -H 'Content-Type: application/json' --output out.json --write-out '%{http_code}' --data "$2" "$1"; }
+          clean=$(jq -r .id clean.json)
+          fraud=$(jq -r .id fraud.json)
+          test "$(post "$api/$clean/approve" '{}')" = 200
+          test "$(jq -r .status out.json)" = approved
+          test "$(post "$api/$fraud/approve" '{}')" = 409
+          jq . out.json
+          test "$(post "$api/$fraud/approve" '{"override_reason": "IBAN change confirmed by phone."}')" = 200
+          test "$(jq -r .status out.json)" = approved
+          curl --fail --silent --show-error --cookie cookies.txt "$api/$fraud/audit" > audit.json
+          jq . audit.json
+          test "$(jq -r '[.[].action] | .[-2:] | join(",")' audit.json)" = "invoice.override,invoice.approved"
+          test "$(jq -r '.[-1].actor' audit.json)" = reviewer@example.com
       - name: Container logs
         if: failure()
         working-directory: infra

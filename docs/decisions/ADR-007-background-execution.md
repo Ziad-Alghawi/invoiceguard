@@ -61,3 +61,9 @@ when one of these is measured:
 - New column `invoices.status_reason`: why an invoice is in its status (for example the parse error of a `failed`
   invoice), shown to the user. Internal errors get a generic reason; the details go to the logs.
 - Startup recovery runs in the thread pool after the app has started, so the API answers while it works.
+
+## Amendment (2026-11-13)
+
+- Review outcomes are now statuses after all: `approved` and `rejected`, set only by a logged-in reviewer through the
+  review endpoints (ADR-012). Processing never sets or leaves them; it only claims `received` and
+  `awaiting_extraction` invoices. In R2 the approval moves into the graph (ADR-003) and the endpoints resume it.

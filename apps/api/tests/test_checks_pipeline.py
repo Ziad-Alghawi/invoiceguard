@@ -95,7 +95,7 @@ def test_changed_iban_ends_blocked_with_evidence(
         .order_by(AuditEvent.id.desc())
     ).first()
     assert event is not None
-    assert (event.details["to"], event.details["reason"]) == ("blocked", "Failed checks: iban.")
+    assert (event.status_after, event.reason) == ("blocked", "Failed checks: iban.")
     assert event.details["checks"] == {
         "passed": 4,
         "warning": 0,

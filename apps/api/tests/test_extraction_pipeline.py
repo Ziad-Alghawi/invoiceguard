@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from conftest import INVOICE_TEXT, poll_until_done, text_pdf
 from fakes import COST_USD, FakeLLMClient, field, recorded, reply_text
 from invoiceguard_api import processing
+from invoiceguard_api.auth import SESSION_COOKIE
 from invoiceguard_api.extraction.extract import DOCUMENT_END, DOCUMENT_START, SYSTEM_PROMPT
 from invoiceguard_api.llm import FilePart, LLMError
 from invoiceguard_api.main import create_app
@@ -44,12 +45,15 @@ StartApp = Callable[[FakeLLMClient | None], TestClient]
 
 
 @pytest.fixture
-def start_app(settings: Settings, engine: Engine) -> Iterator[StartApp]:
-    """Start the app with a fake LLM client, or with none (no API key); stopped after the test."""
+def start_app(settings: Settings, engine: Engine, session_token: str) -> Iterator[StartApp]:
+    """Start the app with a fake LLM client, or with none (no API key), logged in as the
+    reviewer; stopped after the test."""
     with ExitStack() as stack:
 
         def start(llm: FakeLLMClient | None) -> TestClient:
-            return stack.enter_context(TestClient(create_app(settings, llm_client=llm)))
+            client = stack.enter_context(TestClient(create_app(settings, llm_client=llm)))
+            client.cookies.set(SESSION_COOKIE, session_token)
+            return client
 
         yield start
 
@@ -86,13 +90,13 @@ def _calls(db_session: Session, invoice_id: str) -> list[ModelCall]:
     )
 
 
-def _status_flow(db_session: Session, invoice_id: str) -> list[tuple[str, str]]:
+def _status_flow(db_session: Session, invoice_id: str) -> list[tuple[str | None, str | None]]:
     events = db_session.scalars(
         select(AuditEvent)
         .where(AuditEvent.entity_id == invoice_id, AuditEvent.action == "invoice.status_changed")
         .order_by(AuditEvent.id)
     )
-    return [(event.details["from"], event.details["to"]) for event in events]
+    return [(event.status_before, event.status_after) for event in events]
 
 
 @pytest.mark.usefixtures("seeded")

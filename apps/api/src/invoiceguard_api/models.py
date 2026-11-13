@@ -41,7 +41,7 @@ class Base(DeclarativeBase):
 
 
 class InvoiceStatus(enum.StrEnum):
-    """Processing status (ADR-007). Review outcomes are recorded by the approval workflow."""
+    """Processing status (ADR-007) and, in R1, the review outcome (ADR-012)."""
 
     RECEIVED = "received"
     PROCESSING = "processing"
@@ -50,6 +50,9 @@ class InvoiceStatus(enum.StrEnum):
     READY = "ready"
     BLOCKED = "blocked"
     FAILED = "failed"
+    # Set only by a logged-in reviewer (ADR-012); final.
+    APPROVED = "approved"
+    REJECTED = "rejected"
 
 
 class SourceType(enum.StrEnum):
@@ -238,17 +241,61 @@ class Check(Base):
     __table_args__ = (Index("ix_checks_invoice_id", "invoice_id"),)
 
 
+class User(Base):
+    """A seeded reviewer (ADR-006); there is no sign-up."""
+
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    # Stored lower-case; login compares lower-case.
+    email: Mapped[str] = mapped_column(String(255), unique=True)
+    display_name: Mapped[str] = mapped_column(String(255))
+    # Argon2id hash in PHC string format, never the password.
+    password_hash: Mapped[str] = mapped_column(String(255))
+    # Failed logins in a row; reset by a successful login or when a lockout starts (ADR-011).
+    failed_logins: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = _created_at()
+
+
+class UserSession(Base):
+    """A login session (ADR-011). Only the SHA-256 of the cookie token is stored."""
+
+    __tablename__ = "sessions"
+
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    created_at: Mapped[datetime] = _created_at()
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped[User] = relationship()
+
+    __table_args__ = (Index("ix_sessions_user_id", "user_id"),)
+
+
 class AuditEvent(Base):
-    """Append-only log of who did what to which entity."""
+    """Append-only log of who did what to which entity.
+
+    A database trigger rejects UPDATE and DELETE (migration 0005). Rows are ordered by `id`, not
+    by `at` (see docs/status.md, lessons learned).
+    """
 
     __tablename__ = "audit_events"
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # The user's email, or "system" / "anonymous" / "seed" for actions without a logged-in user.
     actor: Mapped[str] = mapped_column(String(255))
+    # The logged-in user who acted; null for system actions and failed logins.
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     action: Mapped[str] = mapped_column(String(100))
     entity_type: Mapped[str] = mapped_column(String(50))
     entity_id: Mapped[str] = mapped_column(String(64))
+    # Invoice status before and after the action, for actions that change it.
+    status_before: Mapped[str | None] = mapped_column(String(20))
+    status_after: Mapped[str | None] = mapped_column(String(20))
+    # Why: a reviewer's reject or override reason, or the reason for a processing status.
+    reason: Mapped[str | None] = mapped_column(Text)
     details: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
     __table_args__ = (Index("ix_audit_events_entity", "entity_type", "entity_id"),)
