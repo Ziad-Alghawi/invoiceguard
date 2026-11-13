@@ -104,8 +104,14 @@ jobs:
       - name: Invoices need a login; the seeded user logs in
         run: |
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8000/invoices)" = 401
-          set -a; . ./.env; set +a
-          jq -n --arg email "$INVOICEGUARD_SEED_USER_EMAIL" --arg password "$INVOICEGUARD_SEED_USER_PASSWORD"             '{email: $email, password: $password}'             | curl --fail --silent --show-error --cookie-jar cookies.txt -H 'Content-Type: application/json'               --data @- http://localhost:8000/auth/login | jq .
+          # .env is read by make and Compose, not a shell script (values may contain spaces): read
+          # the last value of each key, as make does.
+          env_value() { grep "^$1=" .env | tail -n 1 | cut -d= -f2-; }
+          jq -n --arg email "$(env_value INVOICEGUARD_SEED_USER_EMAIL)" \
+            --arg password "$(env_value INVOICEGUARD_SEED_USER_PASSWORD)" \
+            '{email: $email, password: $password}' \
+            | curl --fail --silent --show-error --cookie-jar cookies.txt \
+              -H 'Content-Type: application/json' --data @- http://localhost:8000/auth/login | jq .
           curl --fail --silent --show-error --cookie cookies.txt http://localhost:8000/auth/me | jq .
       - name: Web login page renders
         run: |
