@@ -53,7 +53,7 @@ def test_upload_writes_audit_event(client: TestClient, db_session: Session) -> N
     event = db_session.scalars(
         select(AuditEvent).where(AuditEvent.action == "invoice.received")
     ).one()
-    assert event.actor == "anonymous"
+    assert event.actor == "anna.becker@example.com"
     assert event.action == "invoice.received"
     assert (event.entity_type, event.entity_id) == ("invoice", invoice_id)
     assert event.details == {
@@ -191,6 +191,8 @@ def test_detail_returns_the_invoice(client: TestClient, finished: FinishedInvoic
     assert detail.pop("status") == "failed"
     assert "Unknown invoice format" in detail.pop("status_reason")
     assert detail.pop("checks") == []
+    assert detail.pop("fields") == []
+    assert detail.pop("file_url") == f"/invoices/{created['id']}/file"
     assert (detail.pop("llm_calls"), detail.pop("llm_cost_usd")) == (0, "0")
     created.pop("status")
     created.pop("status_reason")

@@ -3,8 +3,10 @@ container in CI), in a separate database that is created and migrated once per t
 
 import io
 import os
+import secrets
 import time
 from collections.abc import Callable, Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -19,9 +21,10 @@ from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
+from invoiceguard_api.auth import SESSION_COOKIE, hash_password, token_hash
 from invoiceguard_api.db import make_engine, make_session_factory
 from invoiceguard_api.main import create_app
-from invoiceguard_api.models import Base
+from invoiceguard_api.models import Base, User, UserSession
 from invoiceguard_api.seed import seed_demo_data
 from invoiceguard_api.settings import Settings
 
@@ -116,10 +119,60 @@ def settings(database_url: str, tmp_path: Path) -> Settings:
     )
 
 
+REVIEWER_EMAIL = "anna.becker@example.com"
+# Made up for the tests only; real users get their password from the environment (seed_user.py).
+REVIEWER_PASSWORD = "test-only-correct-horse"  # pragma: allowlist secret
+
+
+@pytest.fixture(scope="session")
+def reviewer_password_hash() -> str:
+    """Hashed once: Argon2 is slow on purpose."""
+    return hash_password(REVIEWER_PASSWORD)
+
+
 @pytest.fixture
-def client(settings: Settings, engine: Engine) -> Iterator[TestClient]:
-    """App client on the test database; requesting `engine` empties the tables afterwards."""
+def reviewer(engine: Engine, reviewer_password_hash: str) -> User:
+    """The seeded reviewer, password REVIEWER_PASSWORD."""
+    with make_session_factory(engine)() as session:
+        user = User(
+            email=REVIEWER_EMAIL,
+            display_name="Anna Becker",
+            password_hash=reviewer_password_hash,
+            failed_logins=0,
+        )
+        session.add(user)
+        session.commit()
+        return user
+
+
+@pytest.fixture
+def anon_client(settings: Settings, engine: Engine) -> Iterator[TestClient]:
+    """App client without a login; requesting `engine` empties the tables afterwards."""
     with TestClient(create_app(settings)) as test_client:
+        yield test_client
+
+
+@pytest.fixture
+def session_token(engine: Engine, reviewer: User) -> str:
+    """A session cookie value for `reviewer`, stored as a login would store it."""
+    token = secrets.token_urlsafe(32)
+    with make_session_factory(engine)() as session:
+        session.add(
+            UserSession(
+                token_hash=token_hash(token),
+                user_id=reviewer.id,
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
+            )
+        )
+        session.commit()
+    return token
+
+
+@pytest.fixture
+def client(settings: Settings, engine: Engine, session_token: str) -> Iterator[TestClient]:
+    """App client logged in as `reviewer`; requesting `engine` empties the tables afterwards."""
+    with TestClient(create_app(settings)) as test_client:
+        test_client.cookies.set(SESSION_COOKIE, session_token)
         yield test_client
 
 

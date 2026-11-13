@@ -17,6 +17,8 @@ TABLES = {
     "checks",
     "audit_events",
     "model_calls",
+    "users",
+    "sessions",
 }
 
 

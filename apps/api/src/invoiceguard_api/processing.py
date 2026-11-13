@@ -75,7 +75,10 @@ def _status_event(
         action="invoice.status_changed",
         entity_type="invoice",
         entity_id=str(invoice_id),
-        details={"from": old.value, "to": new.value, "reason": reason, **extra},
+        status_before=old.value,
+        status_after=new.value,
+        reason=reason,
+        details=extra,
     )
 
 

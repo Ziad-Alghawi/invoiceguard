@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from starlette.concurrency import run_in_threadpool
 
+from invoiceguard_api.auth import router as auth_router
 from invoiceguard_api.body_limit import ContentLengthLimitMiddleware
 from invoiceguard_api.checks import KositValidator
 from invoiceguard_api.db import make_engine, make_session_factory
@@ -21,6 +22,7 @@ from invoiceguard_api.invoices import router as invoices_router
 from invoiceguard_api.llm import LLMClient
 from invoiceguard_api.logging import configure_logging
 from invoiceguard_api.processing import recover_unfinished
+from invoiceguard_api.review import router as review_router
 from invoiceguard_api.settings import Settings, get_settings
 from invoiceguard_api.storage import FileStorage
 
@@ -91,5 +93,7 @@ def create_app(settings: Settings | None = None, llm_client: LLMClient | None = 
         max_bytes=settings.max_upload_bytes + MULTIPART_OVERHEAD_BYTES,
     )
     app.include_router(health_router)
+    app.include_router(auth_router)
     app.include_router(invoices_router)
+    app.include_router(review_router)
     return app

@@ -43,6 +43,16 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = Field(default=120.0, gt=0)
     # Fields extracted with a lower confidence get a `low_confidence` check result.
     extraction_confidence_threshold: Decimal = Field(default=Decimal("0.8"), ge=0, le=1)
+    # Login sessions (ADR-011): fixed lifetime, then log in again.
+    session_ttl_minutes: int = Field(default=8 * 60, gt=0)
+    # This many failed logins in a row lock the account for `login_lockout_minutes`.
+    login_max_failures: int = Field(default=5, gt=0)
+    login_lockout_minutes: int = Field(default=15, gt=0)
+
+    @property
+    def secure_cookies(self) -> bool:
+        """Session cookies only over HTTPS in prod; dev and test run on plain http://localhost."""
+        return self.env == "prod"
 
 
 @lru_cache
