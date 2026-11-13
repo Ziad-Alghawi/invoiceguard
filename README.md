@@ -44,7 +44,14 @@ _Coming in R5 (diagram). Monorepo layout: `apps/`, `services/`, `packages/`, `in
 
    Any failed check ends in **`blocked`**, otherwise **`ready`** for review. `GET /invoices/{id}` returns the results,
    worst first.
-4. Review queue and export follow in R1.
+4. **Review** in the web app: a seeded reviewer logs in ([ADR-011](docs/decisions/ADR-011-session-cookie-auth.md)),
+   works through the queue and opens an invoice: check results with evidence, extracted fields (low-confidence LLM
+   fields highlighted with the printed text), the original file and the audit history. A **`ready`** invoice can be
+   approved; a **`blocked`** one only with a written override reason; any of them can be rejected with a reason
+   ([ADR-012](docs/decisions/ADR-012-review-decisions-in-r1.md)). The API enforces these rules, not the UI. Every
+   login, failed login, logout, upload, status change, override and decision is written to an append-only audit
+   log (a database trigger rejects changes).
+5. DATEV-style CSV export follows in R1.
 
 ## Safety design
 
@@ -65,18 +72,28 @@ Requires Docker and GNU make (on Windows: `scoop install make` or `winget instal
 ```sh
 git clone https://github.com/Ziad-Alghawi/invoiceguard.git && cd invoiceguard
 cp .env.example .env
+# Edit .env: set INVOICEGUARD_SEED_USER_PASSWORD (at least 12 characters, no $ or #) and, if you like, the
+# email and name of the reviewer. Never commit .env.
 make dev        # api + web + db + KoSIT validator, applies migrations, waits until all are healthy
 make seed       # German demo suppliers, verified bank accounts and purchase orders (safe to rerun)
+make seed-user  # creates the reviewer from INVOICEGUARD_SEED_USER_* (rerun to reset the password or unlock)
 ```
 
-Open http://localhost:3000: the page shows `API: ok`. Upload an e-invoice (XML or PDF) to the API:
+There is no sign-up: to add another reviewer, change the three `INVOICEGUARD_SEED_USER_*` values and run
+`make seed-user` again. Five wrong passwords in a row lock an account for 15 minutes; `make seed-user` unlocks it.
+
+Open http://localhost:3000: the page shows `API: ok`. The API needs a login, so log in with curl and keep the
+session cookie, then upload e-invoices (XML or PDF):
 
 ```sh
-curl -F "file=@apps/api/tests/fixtures/ubl_xrechnung.xml" http://localhost:8000/invoices   # 202, 409 if already uploaded
-curl http://localhost:8000/invoices/<id>    # status received → processing → ready, with the check results
-curl -F "file=@apps/api/tests/fixtures/ubl_fraud_iban.xml" http://localhost:8000/invoices  # changed IBAN → blocked
-curl http://localhost:8000/invoices         # newest first
+curl -c cookies.txt -H "Content-Type: application/json" \
+  -d '{"email": "reviewer@example.com", "password": "<your password>"}' http://localhost:8000/auth/login
+curl -b cookies.txt -F "file=@apps/api/tests/fixtures/ubl_xrechnung.xml" http://localhost:8000/invoices   # 202
+curl -b cookies.txt -F "file=@apps/api/tests/fixtures/ubl_fraud_iban.xml" http://localhost:8000/invoices  # → blocked
 ```
+
+Then open http://localhost:3000/invoices, log in with the same account, and approve or reject them. The changed-IBAN
+invoice is `blocked`: approving it needs an override reason. Each invoice page shows its audit history.
 
 To extract plain PDFs, put a Gemini API key (Google AI Studio) into `INVOICEGUARD_LLM_API_KEY` in `.env` and run
 `make dev` again. Without a key, plain PDFs wait in `awaiting_extraction`. The free tier may use what you send to
@@ -108,6 +125,8 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
 - [ADR-008: Synchronous SQLAlchemy 2 with psycopg 3](docs/decisions/ADR-008-sync-database-access.md)
 - [ADR-009: KoSIT validator as its own service, called over HTTP](docs/decisions/ADR-009-kosit-validator-service.md)
 - [ADR-010: LLM extraction of plain PDF invoices](docs/decisions/ADR-010-llm-pdf-extraction.md)
+- [ADR-011: Server-side sessions in an HttpOnly cookie, with a lockout](docs/decisions/ADR-011-session-cookie-auth.md)
+- [ADR-012: Review decisions in R1: a status change by one reviewer, override with a reason](docs/decisions/ADR-012-review-decisions-in-r1.md)
 
 ## Roadmap
 
@@ -135,6 +154,10 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
 - LLM extraction: the model's confidence is self-reported, not calibrated (R3 measures it); a PDF without a
   readable total or invoice number ends in `failed`; the Gemini free tier is for sample data only; there is no
   per-invoice or per-day cost cap yet (R2).
+- Review (R1): one reviewer role; overriding a blocked invoice needs a reason from the same reviewer, not a second
+  person, and approval is a status change, not yet a pause in the agent graph (both come in R2, ADR-012). Decisions
+  are final. The lockout is per account, so anyone who knows a demo email can lock it for 15 minutes; there is no
+  per-IP rate limit. The UI has no upload page yet (upload through the API).
 
 ## Deutsch
 

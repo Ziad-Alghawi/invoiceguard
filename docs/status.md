@@ -1,7 +1,7 @@
 # Status
 
 **Current milestone:** R1 — Working core
-**Last updated:** 2026-11-12
+**Last updated:** 2026-11-13
 
 ## Done
 - R0 — Foundation (complete)
@@ -46,14 +46,31 @@
       field "Bestellung : 2013-471331", which the XML has, and a note "Rechnung gemäß Bestellung Nr. 2018-471331");
       `low` took the note with confidence 0.9, the default level took the field. IBANs and totals were correct in
       both runs, and the injection was again not followed. `low` stays the default; R3 decides on more data.
+  - Review UI, login and audit log (R1-6, ADR-011, ADR-012): seeded users only (`make seed-user`, password from
+    env), Argon2id, server-side sessions in an HttpOnly cookie, lockout after 5 failed logins; every invoice
+    endpoint needs a login; approve (blocked only with an override reason) and reject (reason required) with
+    final statuses `approved` / `rejected` under a row lock; queue filter and total count, fields with
+    low-confidence flags, file download; `audit_events` extended (user, status before/after, reason) and made
+    append-only by a trigger, with `GET /invoices/{id}/audit`; web login, queue and detail pages (backend for
+    frontend). Checked end to end on Docker Compose: seeded user logs in through the web form, approves a blocked
+    invoice with an override, rejects another, audit rows written, logout ends the session
 
 ## Open decisions
 - Demo hosting (where the API runs: cluster or free host) and domain: decide by the end of R1.
 
 ## Next
-- R1: review queue, CSV export
+- R1-7: Playwright E2E (happy path: login, approve, reject, blocked override)
+- R1: DATEV-style CSV export, deployed demo
+- R2: approval as `interrupt()` in the graph, second approver for overrides (ADR-012)
 
 ## Known limitations
+- Review (ADR-012): one reviewer role, the override of a blocked invoice is the same reviewer's written reason (no
+  second person yet); decisions are final; approval is a status change, not yet a pause in the graph (R2).
+- Login lockout is per account: anyone who knows a demo email can lock it for 15 minutes, and the `429` reveals that
+  the account exists. No per-IP rate limit (ingress in R4).
+- The audit trigger stops UPDATE and DELETE through the app's database user, not the table owner (TRUNCATE, dropping
+  the trigger); production needs a separate, restricted database role.
+- No upload page in the web app yet; uploads go through the API.
 - Duplicate check race: two copies of the same invoice processed at the same moment can both pass, because each
   sees no other stored invoice yet. Unlikely at demo load (one API process, ADR-007); a unique index on
   (seller, normalised invoice number) or a per-seller advisory lock would close it.
@@ -87,3 +104,7 @@
   `LITELLM_MODE=PRODUCTION`, which put a real API key into the test settings. Tests now pin the key to None.
 - Reasoning models bill thinking as output tokens: compare output tokens with the size of the reply before
   shortening the prompt or schema.
+- With partial prerendering, a redirect inside a Suspense boundary arrives after the 200 status and the static shell:
+  guard protected pages in `proxy.ts` too, so a missing login gets a real redirect.
+- Check how new a dependency release is before locking it: a transitive package published that same day can be
+  pinned to the previous release until it has settled (uv `constraint-dependencies`).
