@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 
@@ -23,6 +24,9 @@ export default function Home() {
       >
         <ApiHealth />
       </Suspense>
+      <Link href="/invoices" className="text-sm underline underline-offset-4">
+        Open the review queue
+      </Link>
     </main>
   );
 }
