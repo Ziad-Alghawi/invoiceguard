@@ -16,6 +16,7 @@ from sqlalchemy import (
     Identity,
     Index,
     Integer,
+    LargeBinary,
     MetaData,
     Numeric,
     String,
@@ -117,6 +118,9 @@ class Invoice(Base):
     size_bytes: Mapped[int] = mapped_column(Integer)
     # Relative to the storage root, so the volume can be mounted anywhere.
     storage_path: Mapped[str] = mapped_column(String(255))
+    # The DATEV export that contains the invoice (ADR-013); null until it is exported, and an
+    # exported invoice is never exported again.
+    datev_export_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("datev_exports.id"))
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -125,7 +129,10 @@ class Invoice(Base):
     fields: Mapped[list["InvoiceField"]] = relationship(back_populates="invoice")
     checks: Mapped[list["Check"]] = relationship(back_populates="invoice")
 
-    __table_args__ = (Index("ix_invoices_created_at", "created_at"),)
+    __table_args__ = (
+        Index("ix_invoices_created_at", "created_at"),
+        Index("ix_invoices_datev_export_id", "datev_export_id"),
+    )
 
 
 class InvoiceField(Base):
@@ -271,6 +278,24 @@ class UserSession(Base):
     user: Mapped[User] = relationship()
 
     __table_args__ = (Index("ix_sessions_user_id", "user_id"),)
+
+
+class DatevExport(Base):
+    """One DATEV-style booking file (ADR-013), stored as created so it can be downloaded again."""
+
+    __tablename__ = "datev_exports"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    created_at: Mapped[datetime] = _created_at()
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    invoice_count: Mapped[int] = mapped_column(Integer)
+    # The fiscal year the file is for and the range of document dates in it (header fields).
+    fiscal_year_start: Mapped[date] = mapped_column(Date)
+    date_from: Mapped[date] = mapped_column(Date)
+    date_to: Mapped[date] = mapped_column(Date)
+    filename: Mapped[str] = mapped_column(String(100))
+    # The file exactly as downloaded (Windows-1252 CSV); a few hundred bytes per invoice.
+    content: Mapped[bytes] = mapped_column(LargeBinary)
 
 
 class AuditEvent(Base):

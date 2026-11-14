@@ -161,3 +161,49 @@ jobs:
       - name: Stop
         if: always()
         run: make down
+
+  e2e:
+    name: e2e (Playwright on Docker Compose)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: apps/web/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - name: Install web dependencies and Chromium
+        working-directory: apps/web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+      - name: Create .env with a random password for the seed user (never in the repo)
+        run: |
+          cp .env.example .env
+          echo "INVOICEGUARD_SEED_USER_PASSWORD=$(openssl rand -hex 24)" >> .env
+      # No LLM key: the test uploads XML invoices only, so no model is called.
+      - name: Start the stack, seed demo data and the login user
+        run: make dev && make seed && make seed-user
+      - name: Log in, reject, approve, export to DATEV in the browser
+        env:
+          CI: "true"
+        run: make e2e
+      - name: Playwright report and traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+          retention-days: 7
+      - name: Container logs
+        if: failure()
+        working-directory: infra
+        run: docker compose --env-file ../.env logs
+      - name: Stop
+        if: always()
+        run: make down

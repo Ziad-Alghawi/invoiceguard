@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { apiFetch, apiPostAnonymous, errorMessage } from "@/lib/api";
+import type { ExportState } from "@/lib/exports";
 import { isInvoiceId } from "@/lib/invoices";
 import { parseSessionCookie, SESSION_COOKIE } from "@/lib/session";
 
@@ -101,4 +102,29 @@ export async function reject(
   formData: FormData,
 ): Promise<ActionState> {
   return decide(invoiceId, "reject", { reason: text(formData, "reason") });
+}
+
+type ExportCreated = {
+  id: string;
+  invoice_count: number;
+  without_tax_key: number;
+  remaining: number;
+};
+
+/** Creates a DATEV export of the approved, not yet exported invoices (ADR-013). */
+export async function exportDatev(): Promise<ExportState> {
+  const response = await apiFetch("/exports/datev", { method: "POST" });
+  if (!response.ok) {
+    return { error: await errorMessage(response), export: null };
+  }
+  const created = (await response.json()) as ExportCreated;
+  return {
+    error: null,
+    export: {
+      id: created.id,
+      invoiceCount: created.invoice_count,
+      withoutTaxKey: created.without_tax_key,
+      remaining: created.remaining,
+    },
+  };
 }

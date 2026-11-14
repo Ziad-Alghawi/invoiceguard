@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { exportDatev } from "@/app/actions";
+import { ExportButton } from "@/components/export-button";
 import { StatusBadge } from "@/components/status-badge";
 import { apiFetch, ApiError, errorMessage } from "@/lib/api";
 import {
@@ -133,7 +135,10 @@ async function Queue({ searchParams }: { searchParams: SearchParams }) {
 export default function QueuePage({ searchParams }: PageProps<"/invoices">) {
   return (
     <main className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold">Invoice queue</h1>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <h1 className="text-xl font-semibold">Invoice queue</h1>
+        <ExportButton exportDatev={exportDatev} />
+      </div>
       <Suspense
         fallback={<p className="text-sm text-muted-foreground">Loading…</p>}
       >

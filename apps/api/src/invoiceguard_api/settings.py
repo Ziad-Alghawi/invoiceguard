@@ -48,6 +48,26 @@ class Settings(BaseSettings):
     # This many failed logins in a row lock the account for `login_lockout_minutes`.
     login_max_failures: int = Field(default=5, gt=0)
     login_lockout_minutes: int = Field(default=15, gt=0)
+    # DATEV-style booking export (ADR-013). The defaults are placeholders for a demo client on
+    # SKR03; a real export needs the numbers and accounts the tax advisor uses for the client.
+    datev_advisor_number: int = Field(default=1001, ge=1001, le=9_999_999)
+    datev_client_number: int = Field(default=1, ge=1, le=99_999)
+    # First month of the fiscal year; DATEV accepts one fiscal year per file.
+    datev_fiscal_year_start_month: int = Field(default=1, ge=1, le=12)
+    datev_account_length: int = Field(default=4, ge=4, le=8)
+    datev_chart_of_accounts: Literal["03", "04"] = "03"
+    # Konto: the creditor (supplier) account. One collective creditor until suppliers get their
+    # own creditor numbers.
+    datev_creditor_account: str = Field(default="70000", pattern=r"^\d{5,9}$")
+    # Gegenkonto: the expense account, not an automatic tax account (the BU key adds the tax).
+    # SKR03 4900 "Sonstige betriebliche Aufwendungen" until booking suggestions exist (R3).
+    datev_expense_account: str = Field(default="4900", pattern=r"^\d{4,8}$")
+    # Input VAT rate -> BU key (SKR03: 9 = 19 % Vorsteuer, 8 = 7 % Vorsteuer). Set as JSON in
+    # the environment, for example {"19": "9", "7": "8"}.
+    datev_tax_keys: dict[Decimal, Annotated[str, Field(pattern=r"^\d{1,4}$")]] = {
+        Decimal(19): "9",
+        Decimal(7): "8",
+    }
 
     @property
     def secure_cookies(self) -> bool:

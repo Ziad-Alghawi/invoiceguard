@@ -16,7 +16,7 @@ export INVOICEGUARD_SEED_USER_EMAIL
 export INVOICEGUARD_SEED_USER_PASSWORD
 export INVOICEGUARD_SEED_USER_NAME
 
-.PHONY: dev down seed seed-user check test eval
+.PHONY: dev down seed seed-user check test e2e eval
 
 dev: ## Build and start api + web + db + validator, wait until all are healthy
 ifeq ($(wildcard .env),)
@@ -45,6 +45,10 @@ check: ## Lint, format check and type check (api + web)
 test: ## Tests (api + web); the api tests need the db and validator running (make dev)
 	$(API) uv run pytest
 	$(WEB) pnpm test
+
+e2e: ## Playwright browser test against the running stack (make dev, make seed, make seed-user first)
+	$(WEB) pnpm exec playwright install chromium
+	$(WEB) pnpm e2e
 
 eval: ## Evaluation harness
 	@echo "make eval: not implemented yet (R3)"

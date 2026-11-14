@@ -1,7 +1,7 @@
 # Status
 
 **Current milestone:** R1 — Working core
-**Last updated:** 2026-11-13
+**Last updated:** 2026-11-14
 
 ## Done
 - R0 — Foundation (complete)
@@ -54,13 +54,19 @@
     append-only by a trigger, with `GET /invoices/{id}/audit`; web login, queue and detail pages (backend for
     frontend). Checked end to end on Docker Compose: seeded user logs in through the web form, approves a blocked
     invoice with an override, rejects another, audit rows written, logout ends the session
+  - DATEV export and Playwright E2E (R1-7, ADR-013): `POST /exports/datev` writes approved, not yet exported invoices
+    into a DATEV-style `EXTF` Buchungsstapel (format 700/13, Windows-1252, one row per invoice, accounts and tax keys
+    from settings), one fiscal year per file; invoices are locked and linked to the export (migration 0006), so none
+    is exported twice; the stored file can be downloaded again; audit events per export, invoice and download.
+    "Export to DATEV" on the web queue. Golden-file and formatting tests. Playwright test (`make e2e`, CI job `e2e`
+    on Docker Compose, XML only, no LLM): login, reject the fraud invoice with a reason, approve a clean one, export,
+    check the downloaded CSV. API coverage 99.6 %
 
 ## Open decisions
 - Demo hosting (where the API runs: cluster or free host) and domain: decide by the end of R1.
 
 ## Next
-- R1-7: Playwright E2E (happy path: login, approve, reject, blocked override)
-- R1: DATEV-style CSV export, deployed demo
+- R1: deployed demo (then R1 is complete)
 - R2: approval as `interrupt()` in the graph, second approver for overrides (ADR-012)
 
 ## Known limitations
@@ -85,6 +91,10 @@
   cases with conflicting values (and may add a prompt rule to lower the confidence on a conflict).
 - No per-invoice or per-day LLM cost cap yet (planned with the agent in R2); the cost is logged per call.
 - A PDF the model cannot read a required term from (invoice number, date, totals) ends in `failed`, not in review.
+- DATEV export (ADR-013): not certified and not yet imported into a real DATEV installation; one row per invoice, so
+  several VAT rates (or a line without a rate) mean no BU key; one collective creditor and one expense account until
+  creditor numbers and booking suggestions (R3); no exchange rate for non-EUR invoices; disallowed characters in the
+  invoice number become `-` in Belegfeld 1. Storing BG-23 (VAT breakdown) would allow one row per rate.
 
 ## Lessons learned
 - Docker Compose v5 on Windows builds through Bake: run Compose from the folder that holds the compose file when build contexts are outside it.
@@ -108,3 +118,5 @@
   guard protected pages in `proxy.ts` too, so a missing login gets a real redirect.
 - Check how new a dependency release is before locking it: a transitive package published that same day can be
   pinned to the previous release until it has settled (uv `constraint-dependencies`).
+- End-to-end tests against a long-lived stack must set their own preconditions: the first local E2E run exported
+  2018 sample invoices, because a DATEV file holds one fiscal year and the oldest goes first.

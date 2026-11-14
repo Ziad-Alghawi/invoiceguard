@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- DATEV-style export (ADR-013): `POST /exports/datev` writes the approved, not yet exported invoices of the oldest
+  waiting fiscal year into an `EXTF` Buchungsstapel file (format 700/13, Windows-1252, CRLF, `;`, decimal comma, DDMM
+  document date, one row per invoice: gross amount, Soll/Haben, creditor and expense account, BU key for a single
+  configured VAT rate, Belegfeld 1, Buchungstext) and returns the count, how many have no tax key and how many are
+  left for another fiscal year; `GET /exports/datev/{id}/file` downloads the stored file again. Settings
+  `INVOICEGUARD_DATEV_*` (advisor and client number, fiscal year start, account length, chart, accounts, tax keys as
+  JSON). Audit events `datev_export.created`, `invoice.exported`, `datev_export.downloaded`.
+- Migration 0006: `datev_exports` (the stored files) and `invoices.datev_export_id`; exports lock the invoices
+  `FOR UPDATE`, so an invoice is never in two files.
+- Web: "Export to DATEV" on the queue starts the download and shows the count, with "Download again".
+- Playwright end-to-end test (`make e2e`, CI job `e2e` on Docker Compose, no LLM calls): login, reject the
+  changed-IBAN invoice, approve a clean one, export and check the downloaded file. `@playwright/test` 1.64.1
+  (pinned; the newer 1.65 releases were days old).
+- Tests: DATEV field formatting, encoding and a golden file; export rules (no double export, only approved, one
+  fiscal year per file, tax keys, settings, parallel exports, audit).
+
 - Login with seeded users (ADR-006, ADR-011): `POST /auth/login`, `/auth/logout`, `GET /auth/me`; Argon2id password
   hashes (`argon2-cffi`); server-side sessions (only the token's SHA-256 is stored) in an HttpOnly, SameSite=Lax cookie,
   Secure in prod; 5 failed logins in a row lock the account for 15 minutes (`429` with `Retry-After`). Settings

@@ -89,3 +89,25 @@ export async function apiPostAnonymous(
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
 }
+
+const DOWNLOAD_HEADERS = [
+  "Content-Type",
+  "Content-Disposition",
+  "Content-Length",
+];
+
+/** Streams a file download from the API with the user's session (route handlers). */
+export async function apiDownload(path: string): Promise<Response> {
+  const upstream = await apiFetch(path);
+  if (!upstream.ok) {
+    return new Response("Not found", { status: upstream.status });
+  }
+  const headers = new Headers({ "X-Content-Type-Options": "nosniff" });
+  for (const name of DOWNLOAD_HEADERS) {
+    const value = upstream.headers.get(name);
+    if (value !== null) {
+      headers.set(name, value);
+    }
+  }
+  return new Response(upstream.body, { headers });
+}

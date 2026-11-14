@@ -9,7 +9,7 @@ Pages:
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/`              | API health (`ok` / `unreachable`) and a link to the queue                                                                                                                                                                           |
 | `/login`         | Login with a seeded user (no sign-up)                                                                                                                                                                                               |
-| `/invoices`      | Review queue with status filters (to review, blocked, approved, rejected, processing/failed, all) and paging                                                                                                                        |
+| `/invoices`      | Review queue with status filters (to review, blocked, approved, rejected, processing/failed, all) and paging; "Export to DATEV" downloads the approved, not yet exported invoices as a booking file (ADR-013)                       |
 | `/invoices/[id]` | Check results with evidence, extracted fields (low-confidence ones highlighted with the printed snippet), download of the original, approve / reject (a blocked invoice needs an override reason and a confirmation), audit history |
 
 The browser talks only to this server ("backend for frontend"): server components and server actions call the API with
@@ -52,6 +52,14 @@ pnpm format:check   # prettier (pnpm format to fix)
 pnpm test           # vitest (pnpm test:watch while developing)
 pnpm build
 ```
+
+## End-to-end test
+
+[e2e/review-and-export.spec.ts](e2e/review-and-export.spec.ts) (Playwright, Chromium) runs against the Docker
+Compose stack: it uploads a clean and a changed-IBAN XRechnung through the API, then in the browser logs in, rejects
+the blocked one with a reason, approves the clean one, exports to DATEV and checks the downloaded file. It calls no
+LLM. From the repo root: `make dev && make seed && make seed-user`, then `make e2e` (it reads the seed user from
+`.env`). CI runs the same in the `e2e` job.
 
 ## Docker
 

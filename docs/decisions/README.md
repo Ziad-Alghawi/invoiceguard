@@ -17,3 +17,4 @@ New ADRs start from the [template](ADR-000-template.md).
 | [ADR-010](ADR-010-llm-pdf-extraction.md) | LLM extraction of plain PDF invoices | Accepted |
 | [ADR-011](ADR-011-session-cookie-auth.md) | Server-side sessions in an HttpOnly cookie, with a lockout | Accepted |
 | [ADR-012](ADR-012-review-decisions-in-r1.md) | Review decisions in R1: a status change by one reviewer, override with a reason | Accepted |
+| [ADR-013](ADR-013-datev-style-export.md) | DATEV-style booking export (EXTF Buchungsstapel), one row per invoice | Accepted |

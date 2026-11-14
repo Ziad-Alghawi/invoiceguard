@@ -51,7 +51,14 @@ _Coming in R5 (diagram). Monorepo layout: `apps/`, `services/`, `packages/`, `in
    ([ADR-012](docs/decisions/ADR-012-review-decisions-in-r1.md)). The API enforces these rules, not the UI. Every
    login, failed login, logout, upload, status change, override and decision is written to an append-only audit
    log (a database trigger rejects changes).
-5. DATEV-style CSV export follows in R1.
+5. **Export** approved invoices to accounting with **Export to DATEV** on the queue
+   ([ADR-013](docs/decisions/ADR-013-datev-style-export.md)): a DATEV-style booking file ("Buchungsstapel", `EXTF`
+   format 700/13, Windows-1252, `;`, decimal comma) with one row per invoice: gross amount, creditor and expense
+   account, BU tax key, document date, invoice number (Belegfeld 1) and supplier name. Accounts, advisor and client
+   number and the tax keys are settings (`INVOICEGUARD_DATEV_*` in `.env`). An invoice goes into one file only; the
+   file is stored and can be downloaded again, and every export and download is audited. This is **not a certified
+   DATEV interface**: it follows DATEV's public format description and needs a check by the tax advisor's first
+   import.
 
 ## Safety design
 
@@ -95,6 +102,11 @@ curl -b cookies.txt -F "file=@apps/api/tests/fixtures/ubl_fraud_iban.xml" http:/
 Then open http://localhost:3000/invoices, log in with the same account, and approve or reject them. The changed-IBAN
 invoice is `blocked`: approving it needs an override reason. Each invoice page shows its audit history.
 
+Click **Export to DATEV** on the queue to download the approved invoices as `EXTF_Buchungsstapel_<time>.csv`. It
+opens in Excel or LibreOffice (separator `;`, encoding Windows-1252) and imports into DATEV as a Buchungsstapel.
+The same file is also available through the API: `curl -b cookies.txt -X POST http://localhost:8000/exports/datev`
+returns its `file_url`.
+
 To extract plain PDFs, put a Gemini API key (Google AI Studio) into `INVOICEGUARD_LLM_API_KEY` in `.env` and run
 `make dev` again. Without a key, plain PDFs wait in `awaiting_extraction`. The free tier may use what you send to
 improve Google's models: send only made-up or public sample invoices.
@@ -108,6 +120,7 @@ For development without Docker you also need [uv](https://docs.astral.sh/uv/) an
 | --- | --- |
 | `make check` | ruff, ruff format, mypy, eslint, tsc, prettier |
 | `make test` | pytest (against a `_test` database and the validator in the running stack), vitest |
+| `make e2e` | Playwright browser test against the running stack (after `make seed` and `make seed-user`) |
 | `make eval` | evaluation harness (R3) |
 | `uvx pre-commit install` | git hooks: ruff, prettier, whitespace, large files, detect-secrets |
 
@@ -127,6 +140,7 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
 - [ADR-010: LLM extraction of plain PDF invoices](docs/decisions/ADR-010-llm-pdf-extraction.md)
 - [ADR-011: Server-side sessions in an HttpOnly cookie, with a lockout](docs/decisions/ADR-011-session-cookie-auth.md)
 - [ADR-012: Review decisions in R1: a status change by one reviewer, override with a reason](docs/decisions/ADR-012-review-decisions-in-r1.md)
+- [ADR-013: DATEV-style booking export (EXTF Buchungsstapel), one row per invoice](docs/decisions/ADR-013-datev-style-export.md)
 
 ## Roadmap
 
@@ -158,6 +172,10 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
   person, and approval is a status change, not yet a pause in the agent graph (both come in R2, ADR-012). Decisions
   are final. The lockout is per account, so anyone who knows a demo email can lock it for 15 minutes; there is no
   per-IP rate limit. The UI has no upload page yet (upload through the API).
+- DATEV export: not certified and not yet imported into a real DATEV installation. One row per invoice, so invoices
+  with several VAT rates (or lines without a rate) get no tax key and the advisor sets the tax; one collective
+  creditor and one expense account for all invoices until booking suggestions (R3); no exchange rate for non-EUR
+  invoices; invoice numbers lose characters DATEV does not allow in Belegfeld 1 (they become `-`).
 
 ## Deutsch
 
