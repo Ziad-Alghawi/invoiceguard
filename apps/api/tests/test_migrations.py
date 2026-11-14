@@ -19,6 +19,7 @@ TABLES = {
     "model_calls",
     "users",
     "sessions",
+    "datev_exports",
 }
 
 

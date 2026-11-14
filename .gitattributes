@@ -1,1 +1,3 @@
 * text=auto eol=lf
+# DATEV golden file: CRLF line ends and Windows-1252 are part of the format, keep the bytes.
+apps/api/tests/fixtures/datev/*.csv binary

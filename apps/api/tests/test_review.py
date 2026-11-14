@@ -419,7 +419,7 @@ def test_file_downloads_the_original_upload(
 
 
 def test_download_name_cannot_break_the_header() -> None:
-    header = invoices._attachment('a"b\\c\r\n.xml')
+    header = invoices.attachment('a"b\\c\r\n.xml')
 
     assert header == "attachment; filename=\"a_b_c__.xml\"; filename*=UTF-8''a%22b%5Cc%0D%0A.xml"
 

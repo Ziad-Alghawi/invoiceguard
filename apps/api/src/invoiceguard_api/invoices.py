@@ -301,7 +301,7 @@ def get_invoice(invoice_id: uuid.UUID, session: DbSession, request: Request) -> 
     )
 
 
-def _attachment(filename: str) -> str:
+def attachment(filename: str) -> str:
     """Content-Disposition for a download: an ASCII fallback and the UTF-8 name (RFC 6266)."""
     fallback = "".join(
         char if char.isascii() and char.isprintable() and char not in '"\\' else "_"
@@ -326,7 +326,7 @@ def get_invoice_file(invoice_id: uuid.UUID, session: DbSession, request: Request
         storage.read(invoice.storage_path),
         media_type=MEDIA_TYPES[invoice.source_type],
         headers={
-            "Content-Disposition": _attachment(invoice.original_filename),
+            "Content-Disposition": attachment(invoice.original_filename),
             "X-Content-Type-Options": "nosniff",
         },
     )

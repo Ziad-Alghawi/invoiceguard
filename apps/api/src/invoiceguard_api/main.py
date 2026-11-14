@@ -16,6 +16,7 @@ from invoiceguard_api.auth import router as auth_router
 from invoiceguard_api.body_limit import ContentLengthLimitMiddleware
 from invoiceguard_api.checks import KositValidator
 from invoiceguard_api.db import make_engine, make_session_factory
+from invoiceguard_api.exports import router as exports_router
 from invoiceguard_api.extraction import PdfExtractor
 from invoiceguard_api.health import router as health_router
 from invoiceguard_api.invoices import router as invoices_router
@@ -96,4 +97,5 @@ def create_app(settings: Settings | None = None, llm_client: LLMClient | None = 
     app.include_router(auth_router)
     app.include_router(invoices_router)
     app.include_router(review_router)
+    app.include_router(exports_router)
     return app
