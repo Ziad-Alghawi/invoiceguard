@@ -1,0 +1,38 @@
+# Shared reverse proxy for every site on the server (ADR-014): one Caddy with ports 80/443, and a
+# Docker network `edge` that each project's public container joins under a unique alias.
+# Not run from the repo: copy this folder to /opt/edge on the server (docs/deploy.md), then
+#   cd /opt/edge && docker compose up -d
+# Add a site: put <name>.caddy into sites/, attach the app to `edge`, then
+#   docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+
+name: edge
+
+services:
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites:/etc/caddy/sites:ro
+      # Certificates and the ACME account: keep them, or Let's Encrypt rate limits hit on restarts.
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - edge
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  edge:
+    name: edge
+
+volumes:
+  caddy-data:
+  caddy-config:

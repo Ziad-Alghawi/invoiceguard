@@ -2,7 +2,8 @@
 
 # Compose runs from infra/ (see infra/README.md) with the root .env for configuration.
 COMPOSE = cd infra && docker compose --env-file ../.env
-# The public demo (ADR-014, docs/deploy.md): the dev stack plus the prod override with Caddy.
+# The public demo (ADR-014, docs/deploy.md): the dev stack plus the prod override, behind the
+# server's shared Caddy (infra/edge).
 PROD = $(COMPOSE) -f docker-compose.yml -f docker-compose.prod.yml
 API = cd apps/api &&
 WEB = cd apps/web &&
@@ -36,13 +37,13 @@ seed-user: ## Create or reset the login user from INVOICEGUARD_SEED_USER_* in .e
 down: ## Stop and remove the containers (the database volume is kept)
 	$(COMPOSE) down
 
-prod-up: ## Demo server: build and start the stack behind Caddy (HTTPS), wait until healthy
+prod-up: ## Demo server: build and start the stack on the `edge` network, wait until healthy
 ifeq ($(wildcard .env),)
 	$(error .env not found: see docs/deploy.md)
 endif
 	$(PROD) up --build --detach --wait --remove-orphans
 
-prod-down: ## Demo server: stop the stack (volumes with data and certificates are kept)
+prod-down: ## Demo server: stop the stack (volumes with data are kept)
 	$(PROD) down
 
 demo-reset: ## Demo server: delete all invoices, reload the samples, reset the demo login

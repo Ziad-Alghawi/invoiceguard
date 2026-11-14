@@ -37,8 +37,11 @@ Both images are multi-stage and run as non-root users. The web image uses Next.j
 
 ## Public demo (prod override)
 [`docker-compose.prod.yml`](docker-compose.prod.yml) is layered on top of the dev file for the demo server
-([ADR-014](../docs/decisions/ADR-014-demo-hosting-single-vps.md)): it adds [Caddy](Caddyfile) as the only service
-with public ports (80/443, automatic Let's Encrypt certificate for `DEMO_DOMAIN`), removes every other host port,
-sets `INVOICEGUARD_ENV=prod` (Secure cookies), demo mode and a daily LLM budget, restarts services after a reboot,
+([ADR-014](../docs/decisions/ADR-014-demo-hosting-single-vps.md)): it removes every host port, attaches the web
+container to the server's shared Caddy network `edge` as `invoiceguard-web`, sets `INVOICEGUARD_ENV=prod` (Secure cookies), demo mode and a daily LLM budget, restarts services after a reboot,
 rotates logs and caps the validator's memory. `make prod-up`, `make prod-down` and `make demo-reset` use it; the
 step-by-step guide is [docs/deploy.md](../docs/deploy.md).
+
+[`edge/`](edge) is the server's shared reverse proxy, not part of this project's stack: one Caddy with ports
+80/443 and automatic Let's Encrypt certificates, shared security headers, and one file per site in
+[`edge/sites/`](edge/sites). It is copied to `/opt/edge` on the server, so other projects can add their sites.

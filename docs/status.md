@@ -61,8 +61,8 @@
     "Export to DATEV" on the web queue. Golden-file and formatting tests. Playwright test (`make e2e`, CI job `e2e`
     on Docker Compose, XML only, no LLM): login, reject the fraud invoice with a reason, approve a clean one, export,
     check the downloaded CSV. API coverage 99.6 %
-  - Public demo (R1-8, ADR-014): one Hetzner VPS with the Compose stack and a prod override; Caddy is the only public
-    service (Let's Encrypt for `invoiceguard.ziadalghawi.com`, security headers, no access log), `INVOICEGUARD_ENV=prod`
+  - Public demo (R1-8, ADR-014): one Hetzner VPS with the Compose stack and a prod override behind a shared
+    Caddy (`infra/edge`, one file per site, so other projects can share the server; Let's Encrypt for `invoiceguard.ziadalghawi.com`, security headers, no access log), `INVOICEGUARD_ENV=prod`
     for Secure cookies, no other host ports. Daily LLM budget (`INVOICEGUARD_LLM_DAILY_BUDGET_USD`, 0.50 on the demo).
     `make demo-reset` (demo mode only, nightly cron) reloads five sample invoices and the demo login; the login page
     shows the shared account. Step-by-step guide in `docs/deploy.md`. README with screenshots, architecture diagram,

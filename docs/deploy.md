@@ -1,18 +1,25 @@
 # Deploying the public demo
 
-The demo runs on one Hetzner Cloud VPS with the Docker Compose stack plus a production override and Caddy for
-HTTPS ([ADR-014](decisions/ADR-014-demo-hosting-single-vps.md)). Only Caddy has public ports. The API,
-validator and database stay on the internal Compose network.
+The demo runs on one Hetzner Cloud VPS with the Docker Compose stack plus a production override
+([ADR-014](decisions/ADR-014-demo-hosting-single-vps.md)). One shared Caddy (`/opt/edge`, from
+[`infra/edge`](../infra/edge)) serves every site on the server over HTTPS and is the only container with public
+ports. InvoiceGuard's web container joins Caddy's `edge` network; the API, validator and database stay on the
+project's own network.
 
 ```mermaid
 flowchart LR
-    browser([Browser]) -- "HTTPS :443" --> caddy[Caddy<br/>Let's Encrypt, headers]
-    subgraph vps [Hetzner VPS: Docker Compose]
-        caddy --> web[web<br/>Next.js]
+    browser([Browser]) -- "HTTPS :443" --> caddy
+    subgraph vps [Hetzner VPS]
+        caddy[shared Caddy, /opt/edge<br/>Let's Encrypt, headers<br/>one file per site]
+        caddy -. "later" .-> other[other projects]
+        caddy -- "network edge" --> web
+        subgraph ig [InvoiceGuard Compose project]
+        web[web<br/>Next.js]
         web -- "session cookie" --> api[api<br/>FastAPI]
         api --> db[(PostgreSQL<br/>pgvector)]
         api --> validator[KoSIT validator]
         api -. "PDFs only, daily cap" .-> llm[(Gemini API)]
+        end
     end
 ```
 
@@ -77,14 +84,34 @@ install -m 600 -o deploy -g deploy /root/.ssh/authorized_keys /home/deploy/.ssh/
 printf 'PermitRootLogin no\nPasswordAuthentication no\n' > /etc/ssh/sshd_config.d/10-hardening.conf
 systemctl reload ssh
 
-install -d -o deploy -g deploy /opt/invoiceguard
+install -d -o deploy -g deploy /opt/invoiceguard /opt/edge
 ```
 
-## 4. Configure and start (as deploy)
+## 4. Start the shared Caddy (as deploy, once per server)
 
 ```sh
 ssh deploy@<IP>
 git clone https://github.com/Ziad-Alghawi/invoiceguard.git /opt/invoiceguard
+cp -r /opt/invoiceguard/infra/edge/. /opt/edge/
+cd /opt/edge && docker compose up -d     # creates the `edge` network and starts Caddy on 80/443
+```
+
+`/opt/edge` belongs to the server, not to one project: later sites add their own file there. Until InvoiceGuard
+runs, its site answers `502`.
+
+**Adding another site later:** write `/opt/edge/sites/<name>.caddy` (copy `invoiceguard.caddy`: host name,
+`import security_headers`, `reverse_proxy <alias>:<port>`), attach the app's public container to the external
+network `edge` with a unique alias (see `infra/docker-compose.prod.yml`), add a DNS A record, then:
+
+```sh
+cd /opt/edge
+docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile   # a broken file stops every reload
+docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile     # no restart, no downtime
+```
+
+## 5. Configure and start InvoiceGuard (as deploy)
+
+```sh
 cd /opt/invoiceguard
 cp .env.example .env && chmod 600 .env
 ```
@@ -93,7 +120,6 @@ Edit `.env` (`nano .env`). Never commit it or copy it anywhere else:
 
 | Variable | Value |
 | --- | --- |
-| `DEMO_DOMAIN` | `invoiceguard.ziadalghawi.com` |
 | `POSTGRES_PASSWORD` | output of `openssl rand -hex 24` |
 | `INVOICEGUARD_SEED_USER_EMAIL` | `demo@example.com` (shown on the login page) |
 | `INVOICEGUARD_SEED_USER_PASSWORD` | output of `openssl rand -hex 12` (shown on the login page on purpose; random so it is no password used anywhere else) |
@@ -105,12 +131,12 @@ The other values keep their defaults. `INVOICEGUARD_DATABASE_URL` is only used o
 API's database URL from the `POSTGRES_*` values.
 
 ```sh
-make prod-up      # builds the images, starts db, validator, api, web and Caddy, waits until healthy
+make prod-up      # builds the images, starts db, validator, api and web on `edge`, waits until healthy
 make demo-reset   # master data, five sample invoices, the demo login
 ```
 
 Open https://invoiceguard.ziadalghawi.com: the login page shows the demo account. If the certificate is missing,
-look at `cd infra && docker compose -f docker-compose.yml -f docker-compose.prod.yml logs caddy` (usually DNS
+look at `cd /opt/edge && docker compose logs caddy` (usually DNS
 not pointing at the server yet, or port 80 closed in the firewall).
 
 **Nightly reset** (`crontab -e` as deploy):
@@ -119,7 +145,7 @@ not pointing at the server yet, or port 80 closed in the firewall).
 0 3 * * * cd /opt/invoiceguard && make demo-reset >> /home/deploy/demo-reset.log 2>&1
 ```
 
-## 5. Update
+## 6. Update
 
 ```sh
 ssh deploy@<IP>
@@ -128,18 +154,20 @@ git pull
 make prod-up      # rebuilds changed images, recreates changed containers; migrations run at api start
 ```
 
+If `infra/edge/sites/invoiceguard.caddy` changed: copy it to `/opt/edge/sites/` and reload Caddy (above).
+
 Roll back with `git checkout <previous commit or tag> && make prod-up`. A migration is not undone that way:
 `docker compose ... exec api alembic downgrade -1` first, if the new release added one.
 
-## 6. Operate
+## 7. Operate
 
 | Task | Command (in `/opt/invoiceguard`) |
 | --- | --- |
 | Status | `cd infra && docker compose --env-file ../.env -f docker-compose.yml -f docker-compose.prod.yml ps` |
-| Logs | same, with `logs --tail 100 api` (or `web`, `caddy`, `validator`, `db`) |
+| Logs | same, with `logs --tail 100 api` (or `web`, `validator`, `db`); Caddy: `cd /opt/edge && docker compose logs caddy` |
 | LLM cost today | `... exec db psql -U invoiceguard -c "select sum(cost_usd) from model_calls where at >= current_date"` |
 | Reset the demo now | `make demo-reset` |
-| Stop | `make prod-down` (data and certificates stay in volumes) |
+| Stop | `make prod-down` (data stays in volumes; Caddy and other sites keep running) |
 | Disk | `df -h /` and `docker system df`; `docker image prune` after updates |
 
 Container logs rotate at 3 × 10 MB per container. Caddy writes no access log, because visitor IP addresses

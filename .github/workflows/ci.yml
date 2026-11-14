@@ -88,13 +88,12 @@ jobs:
         run: |
           cp .env.example .env
           echo "INVOICEGUARD_SEED_USER_PASSWORD=$(openssl rand -hex 24)" >> .env
-      - name: Demo prod override and Caddyfile are valid (ADR-014)
+      - name: Demo prod override, shared Caddy and its sites are valid (ADR-014)
         working-directory: infra
-        env:
-          DEMO_DOMAIN: demo.example.com
         run: |
           docker compose --env-file ../.env -f docker-compose.yml -f docker-compose.prod.yml config --quiet
-          docker run --rm -e DEMO_DOMAIN -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.10.2-alpine             caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          docker compose -f edge/compose.yml config --quiet
+          docker run --rm -v "$PWD/edge/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$PWD/edge/sites:/etc/caddy/sites:ro"             caddy:2.10.2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
       - name: Build images and start api, web, db, validator (waits for healthy)
         run: make dev
       - name: API /health returns ok

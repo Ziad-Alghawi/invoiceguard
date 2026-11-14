@@ -20,10 +20,13 @@ project.
 Run the R1 demo on **one Hetzner Cloud VPS** (2 vCPU, 4 GB RAM, in Germany) with the **same Docker Compose
 stack** we test in CI, plus a production override (`infra/docker-compose.prod.yml`):
 
-- **Caddy** is the only service with public ports (80, 443). It gets and renews a Let's Encrypt certificate for
-  `invoiceguard.ziadalghawi.com` (a DNS A record at the registrar), redirects HTTP to HTTPS and sets security
-  headers. The API, validator and database have no published ports; the browser talks only to the web server,
-  which calls the API over the Compose network (backend for frontend).
+- **One shared Caddy** for the whole server (`infra/edge`, copied to `/opt/edge`), because more small projects
+  will run on the same VPS. It is the only container with public ports (80, 443), gets and renews a Let's Encrypt
+  certificate for every site (here `invoiceguard.ziadalghawi.com`, a DNS A record at the registrar), redirects
+  HTTP to HTTPS and sets shared security headers. Each project puts one file into `sites/` and attaches its public
+  container to the Docker network `edge` under a unique alias (`invoiceguard-web`). The API, validator and
+  database have no published ports and are not on `edge`; the browser talks only to the web server, which calls
+  the API over the project's own network (backend for frontend).
 - `INVOICEGUARD_ENV=prod` makes the session cookie `Secure`. Secrets live only in the server's `.env` (mode
   600), never in git.
 - **Demo safety:** a daily LLM spending cap (`INVOICEGUARD_LLM_DAILY_BUDGET_USD`, default 0.50 in the override)
@@ -56,5 +59,7 @@ stack** we test in CI, plus a production override (`infra/docker-compose.prod.ym
 - One API process stays a requirement (ADR-007); a single VPS fits it.
 - The shared demo password is public on the login page, so anyone can lock the demo account for 15 minutes with
   wrong passwords (ADR-011); the nightly reset unlocks it, and a per-IP rate limit comes with the ingress in R4.
+- Adding a site is a file and a reload, without touching InvoiceGuard; a broken site file stops Caddy's reload
+  for all sites, so `caddy validate` runs first (CI validates ours).
 - In R4 the same images move to the cluster; Caddy's job goes to the ingress controller and cert-manager, the
   reset becomes a Kubernetes CronJob.

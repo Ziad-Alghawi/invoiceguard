@@ -1,0 +1,19 @@
+# Shared Caddy for all sites on this server (ADR-014). Caddy obtains and renews a Let's Encrypt
+# certificate for every site address and redirects http:// to https://.
+# No access log: visitor IP addresses are personal data and not needed.
+
+# Headers every site imports with `import security_headers`.
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+		-X-Powered-By
+	}
+}
+
+# One file per site.
+import /etc/caddy/sites/*.caddy
