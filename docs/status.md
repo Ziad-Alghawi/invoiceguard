@@ -66,8 +66,11 @@
     for Secure cookies, no other host ports. Daily LLM budget (`INVOICEGUARD_LLM_DAILY_BUDGET_USD`, 0.50 on the demo).
     `make demo-reset` (demo mode only, nightly cron) reloads five sample invoices and the demo login; the login page
     shows the shared account. Step-by-step guide in `docs/deploy.md`. README with screenshots, architecture diagram,
-    features and limits. Checked locally on the prod override with `DEMO_DOMAIN=localhost`: HTTP → HTTPS redirect,
-    headers, login over HTTPS with a Secure, HttpOnly, SameSite=Lax cookie, reset results
+    features and limits. Live since 2026-11-14 at https://invoiceguard.ziadalghawi.com (Hetzner CX23,
+    Ubuntu 24.04, Docker 29.9, Compose v5.7; unattended upgrades, SSH keys only, no root login, Hetzner firewall).
+    Checked from outside: Let's Encrypt certificate, HTTP → HTTPS 308, HSTS and headers, ports 3000/5432/8000/8081
+    closed, browser login with a Secure, HttpOnly, SameSite=Lax cookie; reset gives 3 ready and 2 blocked with KoSIT
+    passed on all XRechnung samples; nightly reset at 03:00 UTC
 
 ## Open decisions
 - None for R1. Demo hosting and domain settled in ADR-014.
