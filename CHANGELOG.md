@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Public demo deployment (ADR-014, `docs/deploy.md`): `infra/docker-compose.prod.yml` layers Caddy (the only public
+  ports, automatic Let's Encrypt HTTPS, security headers, no access log) over the Compose stack; no other host ports,
+  `INVOICEGUARD_ENV=prod` for Secure cookies, restart policies, log rotation, a 1 GB memory limit for the validator.
+  `make prod-up`, `make prod-down`, `make demo-reset`; `DEMO_DOMAIN` in `.env`.
+- Daily LLM budget (`INVOICEGUARD_LLM_DAILY_BUDGET_USD`, summed from `model_calls` per UTC day): once reached, PDFs stay
+  in `awaiting_extraction` with a reason and an `invoice.extraction_deferred` audit event, without calling the model.
+- Demo reset (`invoiceguard-demo-reset`, only with `INVOICEGUARD_DEMO_MODE=true`): deletes invoices, exports and
+  files, keeps the append-only audit log (plus a `demo.reset` event) and LLM costs, restores the master data and
+  processes five packaged sample invoices (ready, changed IBAN, PO overcharge, CII, unknown supplier).
+- Web: the login page shows the shared demo account when `DEMO_LOGIN_EMAIL` and `DEMO_LOGIN_PASSWORD` are set.
+- CI: validates the prod override and the Caddyfile, and runs the demo reset in the built image.
+- README: description, demo link, screenshots, architecture diagram, features, tech stack, honest limits.
+
 - DATEV-style export (ADR-013): `POST /exports/datev` writes the approved, not yet exported invoices of the oldest
   waiting fiscal year into an `EXTF` Buchungsstapel file (format 700/13, Windows-1252, CRLF, `;`, decimal comma, DDMM
   document date, one row per invoice: gross amount, Soll/Haben, creditor and expense account, BU key for a single

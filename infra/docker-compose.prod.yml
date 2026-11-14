@@ -1,0 +1,73 @@
+# Public demo on one VPS (ADR-014): layered on top of docker-compose.yml.
+# Run from the repo root with `make prod-up`, which runs:
+#   docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.prod.yml up ...
+# Caddy is the only service with public ports; it gets a Let's Encrypt certificate for DEMO_DOMAIN.
+# Every secret comes from the server's .env (mode 600), never from the repo. See docs/deploy.md.
+
+# Rotate container logs, so a busy week cannot fill the disk.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      DEMO_DOMAIN: ${DEMO_DOMAIN:?set DEMO_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates and the ACME account: keep them, or Let's Encrypt rate limits hit on restarts.
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+
+  db:
+    restart: unless-stopped
+    logging: *logging
+    # No host port: only the api reaches the database, over the Compose network.
+    ports: !reset []
+
+  api:
+    restart: unless-stopped
+    logging: *logging
+    # No host port: the browser talks to the web server only (backend for frontend).
+    ports: !reset []
+    environment:
+      # Secure session cookies (HTTPS only); see Settings.secure_cookies.
+      INVOICEGUARD_ENV: prod
+      # Allows `make demo-reset`, which deletes every invoice.
+      INVOICEGUARD_DEMO_MODE: "true"
+      # Stop LLM extraction for the day once this much is spent (US dollars).
+      INVOICEGUARD_LLM_DAILY_BUDGET_USD: ${INVOICEGUARD_LLM_DAILY_BUDGET_USD:-0.50}
+
+  validator:
+    restart: unless-stopped
+    logging: *logging
+    ports: !reset []
+    # The JVM takes 75 % of this as its maximum heap (services/validator/Dockerfile); without a
+    # limit it would size the heap from the whole server's memory.
+    mem_limit: 1g
+
+  web:
+    restart: unless-stopped
+    logging: *logging
+    ports: !reset []
+    environment:
+      # The shared demo account, shown on the login page (ADR-006); the same values that
+      # `make demo-reset` seeds.
+      DEMO_LOGIN_EMAIL: ${INVOICEGUARD_SEED_USER_EMAIL:?set INVOICEGUARD_SEED_USER_EMAIL in .env}
+      DEMO_LOGIN_PASSWORD: ${INVOICEGUARD_SEED_USER_PASSWORD:?set INVOICEGUARD_SEED_USER_PASSWORD in .env}
+
+volumes:
+  caddy-data:
+  caddy-config:

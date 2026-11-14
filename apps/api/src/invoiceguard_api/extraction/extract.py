@@ -151,6 +151,8 @@ class PdfExtractor:
     model: str
     confidence_threshold: Decimal
     reasoning_effort: ReasoningEffort
+    # Spending cap per UTC day; the caller enforces it, because it needs the logged calls.
+    daily_budget_usd: Decimal | None = None
 
     def _call(self, parts: list[UserPart]) -> LLMReply:
         return self.client.structured(

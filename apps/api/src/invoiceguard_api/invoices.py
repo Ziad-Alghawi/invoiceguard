@@ -133,6 +133,47 @@ def _read_limited(file: BinaryIO, max_bytes: int) -> bytes:
     return b"".join(chunks)
 
 
+def add_received(
+    session: Session,
+    storage: FileStorage,
+    filename: str,
+    source_type: SourceType,
+    content: bytes,
+    *,
+    actor: str,
+    user_id: uuid.UUID | None = None,
+) -> Invoice:
+    """Store the file and add the invoice in status `received` with its audit event; the
+    caller commits and schedules processing."""
+    sha256 = hashlib.sha256(content).hexdigest()
+    invoice = Invoice(
+        id=uuid.uuid4(),
+        status=InvoiceStatus.RECEIVED,
+        source_type=source_type,
+        original_filename=filename,
+        sha256=sha256,
+        size_bytes=len(content),
+        storage_path=storage.save(sha256, source_type.value, content),
+    )
+    session.add(invoice)
+    session.add(
+        AuditEvent(
+            actor=actor,
+            user_id=user_id,
+            action="invoice.received",
+            entity_type="invoice",
+            entity_id=str(invoice.id),
+            details={
+                "filename": filename,
+                "sha256": sha256,
+                "size_bytes": len(content),
+                "source_type": source_type.value,
+            },
+        )
+    )
+    return invoice
+
+
 def _duplicate(invoice_id: uuid.UUID) -> HTTPException:
     detail = DuplicateDetail(message="This file was already uploaded.", invoice_id=invoice_id)
     return HTTPException(status.HTTP_409_CONFLICT, detail.model_dump(mode="json"))
@@ -178,31 +219,8 @@ def upload_invoice(
         raise _duplicate(existing_id)
 
     storage: FileStorage = request.app.state.storage
-    invoice = Invoice(
-        id=uuid.uuid4(),
-        status=InvoiceStatus.RECEIVED,
-        source_type=source_type,
-        original_filename=filename,
-        sha256=sha256,
-        size_bytes=len(content),
-        storage_path=storage.save(sha256, source_type.value, content),
-    )
-    details: dict[str, Any] = {
-        "filename": filename,
-        "sha256": sha256,
-        "size_bytes": len(content),
-        "source_type": source_type.value,
-    }
-    session.add(invoice)
-    session.add(
-        AuditEvent(
-            actor=user.email,
-            user_id=user.id,
-            action="invoice.received",
-            entity_type="invoice",
-            entity_id=str(invoice.id),
-            details=details,
-        )
+    invoice = add_received(
+        session, storage, filename, source_type, content, actor=user.email, user_id=user.id
     )
     try:
         session.commit()

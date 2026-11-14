@@ -50,6 +50,7 @@ def make_extractor(settings: Settings, llm_client: LLMClient | None) -> PdfExtra
         settings.extraction_model,
         settings.extraction_confidence_threshold,
         settings.extraction_reasoning_effort,
+        settings.llm_daily_budget_usd,
     )
 
 

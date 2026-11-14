@@ -1,6 +1,6 @@
 # Status
 
-**Current milestone:** R1 — Working core
+**Current milestone:** R2 — Agent, MCP servers, approval gate
 **Last updated:** 2026-11-14
 
 ## Done
@@ -12,7 +12,7 @@
   - Dockerfiles (multi-stage, non-root), Docker Compose (api + web + db) with healthchecks
   - Makefile (`dev`, `down`, `check`, `test`, `eval`), pre-commit with detect-secrets
   - CI (api, web, compose smoke test) green, PR template, README "Run locally"
-- R1 — Working core (in progress)
+- R1 — Working core (complete)
   - Week-1 decisions: ADR-004 (model router: LiteLLM), ADR-005 (ZUGFeRD/XRechnung reader: factur-x + own lxml parser, after a spike), ADR-006 (demo auth: seeded users), ADR-007 (background execution: BackgroundTasks + status column)
   - Database layer (ADR-008: sync SQLAlchemy 2 + psycopg 3), Alembic migration with the R1 tables, `/ready` checks the db
   - `make seed`: idempotent German demo suppliers with verified IBANs and purchase orders
@@ -61,12 +61,18 @@
     "Export to DATEV" on the web queue. Golden-file and formatting tests. Playwright test (`make e2e`, CI job `e2e`
     on Docker Compose, XML only, no LLM): login, reject the fraud invoice with a reason, approve a clean one, export,
     check the downloaded CSV. API coverage 99.6 %
+  - Public demo (R1-8, ADR-014): one Hetzner VPS with the Compose stack and a prod override; Caddy is the only public
+    service (Let's Encrypt for `invoiceguard.ziadalghawi.com`, security headers, no access log), `INVOICEGUARD_ENV=prod`
+    for Secure cookies, no other host ports. Daily LLM budget (`INVOICEGUARD_LLM_DAILY_BUDGET_USD`, 0.50 on the demo).
+    `make demo-reset` (demo mode only, nightly cron) reloads five sample invoices and the demo login; the login page
+    shows the shared account. Step-by-step guide in `docs/deploy.md`. README with screenshots, architecture diagram,
+    features and limits. Checked locally on the prod override with `DEMO_DOMAIN=localhost`: HTTP → HTTPS redirect,
+    headers, login over HTTPS with a Secure, HttpOnly, SameSite=Lax cookie, reset results
 
 ## Open decisions
-- Demo hosting (where the API runs: cluster or free host) and domain: decide by the end of R1.
+- None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
-- R1: deployed demo (then R1 is complete)
 - R2: approval as `interrupt()` in the graph, second approver for overrides (ADR-012)
 
 ## Known limitations
@@ -76,7 +82,9 @@
   the account exists. No per-IP rate limit (ingress in R4).
 - The audit trigger stops UPDATE and DELETE through the app's database user, not the table owner (TRUNCATE, dropping
   the trigger); production needs a separate, restricted database role.
-- No upload page in the web app yet; uploads go through the API.
+- No upload page in the web app yet; uploads go through the API, which the public demo does not expose.
+- Demo (ADR-014): one VPS, no backups (sample data, reset nightly); the shared demo login can be locked for 15 minutes
+  by anyone, the nightly reset unlocks it.
 - Duplicate check race: two copies of the same invoice processed at the same moment can both pass, because each
   sees no other stored invoice yet. Unlikely at demo load (one API process, ADR-007); a unique index on
   (seller, normalised invoice number) or a per-seller advisory lock would close it.
@@ -89,7 +97,8 @@
 - LLM confidence is self-reported, not calibrated; R3 measures field accuracy and how well confidence predicts errors.
   It does not flag conflicts: a PDF that prints two different order numbers got 0.9 for the wrong one. R3 adds eval
   cases with conflicting values (and may add a prompt rule to lower the confidence on a conflict).
-- No per-invoice or per-day LLM cost cap yet (planned with the agent in R2); the cost is logged per call.
+- The daily LLM budget is checked before each extraction, so parallel extractions can overshoot it by one invoice
+  each; PDFs it held back wait until the API restarts (no scheduler). No per-invoice cap yet (R2).
 - A PDF the model cannot read a required term from (invoice number, date, totals) ends in `failed`, not in review.
 - DATEV export (ADR-013): not certified and not yet imported into a real DATEV installation; one row per invoice, so
   several VAT rates (or a line without a rate) mean no BU key; one collective creditor and one expense account until
@@ -118,5 +127,8 @@
   guard protected pages in `proxy.ts` too, so a missing login gets a real redirect.
 - Check how new a dependency release is before locking it: a transitive package published that same day can be
   pinned to the previous release until it has settled (uv `constraint-dependencies`).
+- Docker publishes ports past `ufw`: firewall a Docker host outside the VM (cloud firewall) or publish nothing but
+  the proxy.
+- A JVM sizes its heap from the container's memory limit; without one it sees the whole server.
 - End-to-end tests against a long-lived stack must set their own preconditions: the first local E2E run exported
   2018 sample invoices, because a DATEV file holds one fiscal year and the oldest goes first.
