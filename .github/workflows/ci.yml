@@ -88,6 +88,12 @@ jobs:
         run: |
           cp .env.example .env
           echo "INVOICEGUARD_SEED_USER_PASSWORD=$(openssl rand -hex 24)" >> .env
+      - name: Demo prod override, shared Caddy and its sites are valid (ADR-014)
+        working-directory: infra
+        run: |
+          docker compose --env-file ../.env -f docker-compose.yml -f docker-compose.prod.yml config --quiet
+          docker compose -f edge/compose.yml config --quiet
+          docker run --rm -v "$PWD/edge/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$PWD/edge/sites:/etc/caddy/sites:ro"             caddy:2.10.2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
       - name: Build images and start api, web, db, validator (waits for healthy)
         run: make dev
       - name: API /health returns ok
@@ -154,6 +160,18 @@ jobs:
           jq . audit.json
           test "$(jq -r '[.[].action] | .[-2:] | join(",")' audit.json)" = "invoice.override,invoice.approved"
           test "$(jq -r '.[-1].actor' audit.json)" = reviewer@example.com
+      - name: Demo reset in the built image loads the samples (KoSIT included)
+        run: |
+          (cd infra && docker compose --env-file ../.env exec -T -e INVOICEGUARD_DEMO_MODE=true api invoiceguard-demo-reset)
+          curl --fail --silent --show-error --cookie cookies.txt 'http://localhost:8000/invoices?limit=10' > demo.json
+          jq -r '.[] | .original_filename + " " + .status' demo.json | sort | tee demo.txt
+          diff demo.txt - <<'TXT'
+          01_it_service_clean.xml ready
+          02_it_service_changed_iban.xml blocked
+          03_logistik_over_po.xml blocked
+          04_buerobedarf_cii.xml ready
+          05_unknown_supplier_zugferd.xml ready
+          TXT
       - name: Container logs
         if: failure()
         working-directory: infra

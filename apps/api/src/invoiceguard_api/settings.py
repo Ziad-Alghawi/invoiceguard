@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = Field(default=120.0, gt=0)
     # Fields extracted with a lower confidence get a `low_confidence` check result.
     extraction_confidence_threshold: Decimal = Field(default=Decimal("0.8"), ge=0, le=1)
+    # Spending cap per UTC day in US dollars, summed from `model_calls`. Once reached, PDFs wait in
+    # `awaiting_extraction` until a later restart (ADR-014). Unset: no cap.
+    llm_daily_budget_usd: Decimal | None = Field(default=None, gt=0)
     # Login sessions (ADR-011): fixed lifetime, then log in again.
     session_ttl_minutes: int = Field(default=8 * 60, gt=0)
     # This many failed logins in a row lock the account for `login_lockout_minutes`.
@@ -68,6 +71,9 @@ class Settings(BaseSettings):
         Decimal(19): "9",
         Decimal(7): "8",
     }
+
+    # The public demo (ADR-014): allows `invoiceguard-demo-reset`, which deletes every invoice.
+    demo_mode: bool = False
 
     @property
     def secure_cookies(self) -> bool:

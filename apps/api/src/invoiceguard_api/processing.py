@@ -12,10 +12,11 @@ transaction that sets the final status. Each status change writes an audit event
 
 import logging
 import uuid
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from invoiceguard_api.checks import (
@@ -53,6 +54,10 @@ AWAITING_EXTRACTION_REASON = "The PDF has no embedded e-invoice XML; it needs LL
 EXTRACTION_OFF_REASON = (
     "The PDF has no embedded e-invoice XML, and LLM extraction is skipped: no API key is "
     "configured (INVOICEGUARD_LLM_API_KEY)."
+)
+BUDGET_REASON = (
+    "The daily LLM budget (INVOICEGUARD_LLM_DAILY_BUDGET_USD) is used up; the PDF is extracted "
+    "after the next API restart on a later day."
 )
 INTERNAL_ERROR_REASON = "Processing failed with an internal error; see the API logs."
 RESTART_REASON = "Reset after an API restart interrupted processing."
@@ -273,14 +278,56 @@ def process_invoice(
         extract_invoice(session_factory, storage, extractor, invoice_id)
 
 
+def spent_today_usd(session: Session) -> Decimal:
+    """LLM cost logged since midnight UTC, for every purpose and invoice."""
+    midnight = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    spent: Decimal = session.scalar(
+        select(func.coalesce(func.sum(ModelCall.cost_usd), 0)).where(ModelCall.at >= midnight)
+    )
+    return spent
+
+
+def _defer_for_budget(session: Session, invoice_id: uuid.UUID, spent: Decimal) -> None:
+    """Keep the invoice waiting and say why; the audit log records each deferral."""
+    deferred = session.execute(
+        update(Invoice)
+        .where(Invoice.id == invoice_id, Invoice.status == InvoiceStatus.AWAITING_EXTRACTION)
+        .values(status_reason=BUDGET_REASON)
+        .returning(Invoice.id)
+    ).scalar_one_or_none()
+    if deferred is None:
+        session.rollback()
+        return
+    session.add(
+        AuditEvent(
+            actor=SYSTEM_ACTOR,
+            action="invoice.extraction_deferred",
+            entity_type="invoice",
+            entity_id=str(invoice_id),
+            reason=BUDGET_REASON,
+            details={"spent_today_usd": str(spent)},
+        )
+    )
+    session.commit()
+    logger.warning("Daily LLM budget used up (%s USD); invoice %s waits", spent, invoice_id)
+
+
 def extract_invoice(
     session_factory: sessionmaker[Session],
     storage: FileStorage,
     extractor: PdfExtractor,
     invoice_id: uuid.UUID,
 ) -> None:
-    """Extract and check an invoice in `awaiting_extraction`; any error ends in `failed`."""
+    """Extract and check an invoice in `awaiting_extraction`; any error ends in `failed`.
+
+    With a daily budget, the invoice keeps waiting once today's logged cost has reached it. The
+    check runs before the call, so parallel extractions can overshoot it by one invoice each.
+    """
     with session_factory() as session:
+        budget = extractor.daily_budget_usd
+        if budget is not None and (spent := spent_today_usd(session)) >= budget:
+            _defer_for_budget(session, invoice_id, spent)
+            return
         invoice = _claim(session, invoice_id, InvoiceStatus.AWAITING_EXTRACTION)
         if invoice is None:
             logger.info("Invoice %s is not waiting for extraction; skipped", invoice_id)

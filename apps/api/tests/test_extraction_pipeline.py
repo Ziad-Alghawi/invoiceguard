@@ -6,9 +6,11 @@ second app's startup recovery competes for the same invoices.
 """
 
 import io
+import time
 import uuid
 from collections.abc import Callable, Iterator
 from contextlib import ExitStack
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -18,7 +20,7 @@ from pypdf import PdfReader
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 
-from conftest import INVOICE_TEXT, poll_until_done, text_pdf
+from conftest import INVOICE_TEXT, PROCESSING_TIMEOUT_SECONDS, poll_until_done, text_pdf
 from fakes import COST_USD, FakeLLMClient, field, recorded, reply_text
 from invoiceguard_api import processing
 from invoiceguard_api.auth import SESSION_COOKIE
@@ -334,3 +336,77 @@ def test_injected_instructions_in_the_pdf_change_nothing(
     # The injected IBAN is a value like any other: the registry check blocks it.
     assert (detail["status"], detail["status_reason"]) == ("blocked", "Failed checks: iban.")
     assert _check(detail, "iban")["evidence"]["invoice_iban"] == FRAUD_IBAN
+
+
+def _log_cost(db_session: Session, cost: str, at: datetime) -> None:
+    db_session.add(
+        ModelCall(
+            purpose="extraction",
+            model="gemini/test",
+            status=ModelCallStatus.OK,
+            cost_usd=Decimal(cost),
+            latency_ms=1,
+            at=at,
+        )
+    )
+    db_session.commit()
+
+
+@pytest.fixture
+def budget_app(
+    settings: Settings, engine: Engine, session_token: str
+) -> Iterator[Callable[[FakeLLMClient], TestClient]]:
+    """Start the app with a daily LLM budget of 0.01 USD and a fake LLM client."""
+    capped = settings.model_copy(update={"llm_daily_budget_usd": Decimal("0.01")})
+    with ExitStack() as stack:
+
+        def start(llm: FakeLLMClient) -> TestClient:
+            client = stack.enter_context(TestClient(create_app(capped, llm_client=llm)))
+            client.cookies.set(SESSION_COOKIE, session_token)
+            return client
+
+        yield start
+
+
+@pytest.mark.usefixtures("seeded")
+def test_a_used_up_daily_budget_keeps_the_pdf_waiting(
+    budget_app: Callable[[FakeLLMClient], TestClient],
+    samples: dict[str, bytes],
+    db_session: Session,
+) -> None:
+    _log_cost(db_session, "0.01", datetime.now(UTC))
+    llm = FakeLLMClient(reply_text())
+
+    client = budget_app(llm)
+    location = client.post(
+        "/invoices", files={"file": ("scan.pdf", samples["text_pdf"], "application/pdf")}
+    ).headers["location"]
+    # `awaiting_extraction` is set first, the budget reason right after it.
+    deadline = time.monotonic() + PROCESSING_TIMEOUT_SECONDS
+    while (detail := client.get(location).json())["status_reason"] != processing.BUDGET_REASON:
+        assert time.monotonic() < deadline, detail
+        time.sleep(0.02)
+
+    assert detail["status"] == "awaiting_extraction"
+    assert llm.requests == []
+    assert _calls(db_session, detail["id"]) == []
+    deferred = db_session.scalars(
+        select(AuditEvent).where(AuditEvent.action == "invoice.extraction_deferred")
+    ).all()
+    assert [event.entity_id for event in deferred][-1] == detail["id"]
+    assert deferred[-1].details == {"spent_today_usd": "0.010000"}
+
+
+@pytest.mark.usefixtures("seeded")
+def test_cost_from_yesterday_does_not_count_against_the_budget(
+    budget_app: Callable[[FakeLLMClient], TestClient],
+    samples: dict[str, bytes],
+    db_session: Session,
+) -> None:
+    _log_cost(db_session, "5.00", datetime.now(UTC) - timedelta(days=1))
+    _log_cost(db_session, "0.009", datetime.now(UTC))
+
+    detail = upload(budget_app(FakeLLMClient(reply_text())), samples["text_pdf"])
+
+    assert detail["status"] == "ready"
+    assert processing.spent_today_usd(db_session) == Decimal("0.009") + COST_USD

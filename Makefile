@@ -2,6 +2,9 @@
 
 # Compose runs from infra/ (see infra/README.md) with the root .env for configuration.
 COMPOSE = cd infra && docker compose --env-file ../.env
+# The public demo (ADR-014, docs/deploy.md): the dev stack plus the prod override, behind the
+# server's shared Caddy (infra/edge).
+PROD = $(COMPOSE) -f docker-compose.yml -f docker-compose.prod.yml
 API = cd apps/api &&
 WEB = cd apps/web &&
 
@@ -16,7 +19,7 @@ export INVOICEGUARD_SEED_USER_EMAIL
 export INVOICEGUARD_SEED_USER_PASSWORD
 export INVOICEGUARD_SEED_USER_NAME
 
-.PHONY: dev down seed seed-user check test e2e eval
+.PHONY: dev down seed seed-user check test e2e eval prod-up prod-down demo-reset
 
 dev: ## Build and start api + web + db + validator, wait until all are healthy
 ifeq ($(wildcard .env),)
@@ -33,6 +36,19 @@ seed-user: ## Create or reset the login user from INVOICEGUARD_SEED_USER_* in .e
 
 down: ## Stop and remove the containers (the database volume is kept)
 	$(COMPOSE) down
+
+prod-up: ## Demo server: build and start the stack on the `edge` network, wait until healthy
+ifeq ($(wildcard .env),)
+	$(error .env not found: see docs/deploy.md)
+endif
+	$(PROD) up --build --detach --wait --remove-orphans
+
+prod-down: ## Demo server: stop the stack (volumes with data are kept)
+	$(PROD) down
+
+demo-reset: ## Demo server: delete all invoices, reload the samples, reset the demo login
+	$(PROD) exec api invoiceguard-demo-reset
+	$(PROD) exec -e INVOICEGUARD_SEED_USER_EMAIL -e INVOICEGUARD_SEED_USER_PASSWORD 		-e INVOICEGUARD_SEED_USER_NAME api invoiceguard-seed-user
 
 check: ## Lint, format check and type check (api + web)
 	$(API) uv run ruff check

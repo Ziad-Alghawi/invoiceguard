@@ -1,22 +1,76 @@
 # InvoiceGuard
 
 [![CI](https://github.com/Ziad-Alghawi/invoiceguard/actions/workflows/ci.yml/badge.svg)](https://github.com/Ziad-Alghawi/invoiceguard/actions/workflows/ci.yml)
+![API coverage ≥ 90 %](https://img.shields.io/badge/api%20coverage-%E2%89%A590%25-brightgreen)
+![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
+![Next.js](https://img.shields.io/badge/Next.js-App%20Router-black)
+[![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
-Agentic platform for incoming supplier invoices (XRechnung, ZUGFeRD, PDF): it reads them, checks them against rules and master data, catches fraud and prompt-injection attacks, prepares the booking, and lets a human approve. The agent can never pay or post anything on its own.
+InvoiceGuard checks incoming supplier invoices for German SMEs before anyone pays them. It reads XRechnung,
+ZUGFeRD and plain PDF invoices, checks them against master data (verified bank accounts, purchase orders,
+duplicates, VAT math, the official KoSIT validator) and blocks suspicious ones, such as a changed IBAN. A
+human reviewer approves or rejects every invoice with an audit trail and exports approved ones as a DATEV-style
+booking file. Nothing is ever paid or posted automatically.
 
-> Status: R0 (foundation) done, R1 (working core) in progress. Sections below are filled as each release lands.
-
-## Problem
-
-_Coming in R1._
+> Status: R0 (foundation) and R1 (working core with a live demo) are done. R2 adds the agent and approval gate.
 
 ## Demo
 
-_Coming in R1 (live link), GIF in R5._
+**https://invoiceguard.ziadalghawi.com**: the login page shows the shared demo account. Five made-up sample
+invoices are loaded and reset every night: two ready, one with a changed bank account (possible fraud), one
+charging more than its purchase order, and one from an unknown supplier. Try approving the blocked ones: the
+system asks for a written override reason and records it.
+
+| Review queue | Blocked invoice: changed IBAN |
+| --- | --- |
+| ![Review queue with ready and blocked invoices](docs/images/queue.png) | ![Invoice detail with a failed IBAN check, evidence, decision panel and audit history](docs/images/blocked-iban.png) |
+
+## Features
+
+- **E-invoice reading by code:** XRechnung (UBL and CII) and ZUGFeRD 2.x / Factur-X into EN 16931 terms, with
+  hardened XML parsing (XXE and entity expansion blocked).
+- **LLM only where code cannot read:** plain PDFs are extracted by Gemini Flash into a strict schema with
+  confidence and evidence per field; the document is untrusted data, never instructions. Every call is logged
+  with tokens, cost and latency, and a daily budget caps spending.
+- **Deterministic checks with evidence:** official KoSIT validator, VAT math, duplicates, known supplier, payee
+  IBAN against verified accounts, purchase order match, low LLM confidence. Any failed check blocks the invoice.
+- **Human review as a hard gate:** seeded logins (Argon2id, server-side sessions, HttpOnly Secure cookies,
+  lockout), approve or reject with reasons, override of blocked invoices only with a written reason.
+- **Append-only audit log:** every login, upload, status change and decision; a database trigger rejects edits.
+- **DATEV-style export:** approved invoices as an `EXTF` Buchungsstapel CSV, each invoice exported once.
+- **Built like production:** typed Python and TypeScript, 99 % API test coverage, Playwright E2E test, CI on
+  every PR, Docker Compose, deployed behind Caddy with HTTPS.
 
 ## Architecture
 
-_Coming in R5 (diagram). Monorepo layout: `apps/`, `services/`, `packages/`, `infra/`, `workflows/`, `docs/`._
+```mermaid
+flowchart LR
+    reviewer([Reviewer<br/>browser]) -- HTTPS --> caddy[Caddy<br/>TLS, headers]
+    caddy --> web["web: Next.js App Router<br/>review UI, backend for frontend"]
+    web -- "REST + session cookie" --> api["api: FastAPI<br/>upload, processing, review, export"]
+    api --> db[("PostgreSQL 16 + pgvector<br/>invoices, checks, audit log, model calls")]
+    api --> files[("uploads volume")]
+    api -- "XML" --> kosit["KoSIT validator<br/>(Java service)"]
+    api -. "plain PDFs only,<br/>strict schema, cost cap" .-> llm[("Gemini Flash<br/>via LiteLLM")]
+    api -- "approved invoices" --> datev[/"DATEV-style CSV"/]
+```
+
+Upload answers `202` and processing runs in the background: read (XML parser or LLM) → checks → `ready` or
+`blocked` → human decision → export. The browser never talks to the API directly; the web server calls it with
+the user's session. The public demo runs this stack on one VPS with Docker Compose
+([ADR-014](docs/decisions/ADR-014-demo-hosting-single-vps.md), [deploy guide](docs/deploy.md)).
+
+## Tech stack
+
+| Area | Tools |
+| --- | --- |
+| Backend | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 (psycopg 3), Alembic, lxml, factur-x, LiteLLM, Argon2 |
+| Frontend | Next.js (App Router, TypeScript), Tailwind CSS, shadcn/ui |
+| Data | PostgreSQL 16 with pgvector |
+| Validation | KoSIT validator with the XRechnung configuration |
+| Quality | ruff, mypy (strict), pytest, ESLint, Prettier, Vitest, Playwright, pre-commit with detect-secrets |
+| Delivery | Docker (multi-stage, non-root), Docker Compose, GitHub Actions, Caddy, Hetzner Cloud |
+| Planned | LangGraph, MCP servers, Langfuse, Helm, Argo CD (R2 to R4) |
 
 ## How it works
 
@@ -122,6 +176,7 @@ For development without Docker you also need [uv](https://docs.astral.sh/uv/) an
 | `make test` | pytest (against a `_test` database and the validator in the running stack), vitest |
 | `make e2e` | Playwright browser test against the running stack (after `make seed` and `make seed-user`) |
 | `make eval` | evaluation harness (R3) |
+| `make prod-up`, `make demo-reset` | the public demo stack behind Caddy, and its nightly reset ([deploy guide](docs/deploy.md)) |
 | `uvx pre-commit install` | git hooks: ruff, prettier, whitespace, large files, detect-secrets |
 
 ## Decisions
@@ -141,6 +196,7 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
 - [ADR-011: Server-side sessions in an HttpOnly cookie, with a lockout](docs/decisions/ADR-011-session-cookie-auth.md)
 - [ADR-012: Review decisions in R1: a status change by one reviewer, override with a reason](docs/decisions/ADR-012-review-decisions-in-r1.md)
 - [ADR-013: DATEV-style booking export (EXTF Buchungsstapel), one row per invoice](docs/decisions/ADR-013-datev-style-export.md)
+- [ADR-014: R1 demo on one VPS with Docker Compose and Caddy](docs/decisions/ADR-014-demo-hosting-single-vps.md)
 
 ## Roadmap
 
@@ -153,6 +209,11 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
 
 ## Limitations
 
+- **Demo, not a product:** the public demo holds made-up sample data only and is reset every night. Do not
+  upload real invoices. Its login is shared and shown on the login page, so anyone can lock it for 15 minutes
+  with wrong passwords. One small server, no backups, no SLA.
+- **Not a certified DATEV interface** (details below), and no connection to an ERP or bank: InvoiceGuard
+  prepares a decision and a booking file, it never pays or posts.
 - ZUGFeRD 1.0 (superseded in 2019) and UBL credit notes are not read; they end in `failed` with a reason.
 - Only the first payee IBAN is stored and checked when an invoice names several; the others are flagged as a
   `multiple_payee_ibans` warning, not compared with the registry.
@@ -166,8 +227,9 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
   (an invoice checked while the validator was down keeps its `skipped` KoSIT result, and an extraction that hit the
   LLM quota stays `failed`).
 - LLM extraction: the model's confidence is self-reported, not calibrated (R3 measures it); a PDF without a
-  readable total or invoice number ends in `failed`; the Gemini free tier is for sample data only; there is no
-  per-invoice or per-day cost cap yet (R2).
+  readable total or invoice number ends in `failed`; the Gemini free tier is for sample data only; there is a per-day cost cap
+  (`INVOICEGUARD_LLM_DAILY_BUDGET_USD`) but no per-invoice cap yet (R2), and PDFs held back by the cap are only
+  picked up again when the API restarts.
 - Review (R1): one reviewer role; overriding a blocked invoice needs a reason from the same reviewer, not a second
   person, and approval is a status change, not yet a pause in the agent graph (both come in R2, ADR-012). Decisions
   are final. The lockout is per account, so anyone who knows a demo email can lock it for 15 minutes; there is no

@@ -1,7 +1,19 @@
+import { connection } from "next/server";
+import { Suspense } from "react";
+
 import { login } from "@/app/actions";
+import { DemoCredentials } from "@/components/demo-credentials";
 import { LoginForm } from "@/components/login-form";
+import { getDemoLogin } from "@/lib/demo";
 
 export const metadata = { title: "Log in · InvoiceGuard" };
+
+async function Demo() {
+  // Read at request time, not at build time: one image serves local runs and the demo.
+  await connection();
+  const demo = getDemoLogin();
+  return demo && <DemoCredentials login={demo} />;
+}
 
 export default function LoginPage() {
   return (
@@ -10,6 +22,9 @@ export default function LoginPage() {
       <p className="text-sm text-muted-foreground">
         Log in with a seeded reviewer account. There is no sign-up.
       </p>
+      <Suspense fallback={null}>
+        <Demo />
+      </Suspense>
       <LoginForm login={login} />
     </main>
   );

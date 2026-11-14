@@ -34,3 +34,14 @@ Compose v5 builds through Bake, which refuses to read the build contexts in `app
 
 Both images are multi-stage and run as non-root users. The web image uses Next.js `output: "standalone"` and reads
 `API_URL` at runtime, so one image works in every environment.
+
+## Public demo (prod override)
+[`docker-compose.prod.yml`](docker-compose.prod.yml) is layered on top of the dev file for the demo server
+([ADR-014](../docs/decisions/ADR-014-demo-hosting-single-vps.md)): it removes every host port, attaches the web
+container to the server's shared Caddy network `edge` as `invoiceguard-web`, sets `INVOICEGUARD_ENV=prod` (Secure cookies), demo mode and a daily LLM budget, restarts services after a reboot,
+rotates logs and caps the validator's memory. `make prod-up`, `make prod-down` and `make demo-reset` use it; the
+step-by-step guide is [docs/deploy.md](../docs/deploy.md).
+
+[`edge/`](edge) is the server's shared reverse proxy, not part of this project's stack: one Caddy with ports
+80/443 and automatic Let's Encrypt certificates, shared security headers, and one file per site in
+[`edge/sites/`](edge/sites). It is copied to `/opt/edge` on the server, so other projects can add their sites.

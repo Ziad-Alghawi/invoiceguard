@@ -30,3 +30,7 @@ class FileStorage:
 
     def read(self, relative: str) -> bytes:
         return (self.root / relative).read_bytes()
+
+    def delete(self, relative: str) -> None:
+        """Remove a stored file; a file that is already gone is not an error."""
+        (self.root / relative).unlink(missing_ok=True)

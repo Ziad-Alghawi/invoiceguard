@@ -1,0 +1,14 @@
+# InvoiceGuard public demo. Only the web app is public; api, validator and database stay on the
+# project's own Compose network. `invoiceguard-web` is the web container's alias on `edge`
+# (infra/docker-compose.prod.yml).
+invoiceguard.ziadalghawi.com {
+	import security_headers
+	encode zstd gzip
+
+	# Uploads are limited to 10 MiB in the api; refuse anything far larger at the edge.
+	request_body {
+		max_size 12MB
+	}
+
+	reverse_proxy invoiceguard-web:3000
+}
