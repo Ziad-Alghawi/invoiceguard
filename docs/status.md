@@ -1,7 +1,7 @@
 # Status
 
 **Current milestone:** R2 — Agent, MCP servers, approval gate
-**Last updated:** 2026-11-14
+**Last updated:** 2026-11-16
 
 ## Done
 - R0 — Foundation (complete)
@@ -76,7 +76,13 @@
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
-- R2: approval as `interrupt()` in the graph, second approver for overrides (ADR-012)
+- R2 (planned 2026-11-16, ADR-015, ADR-016), one PR each:
+  - R2-2 Processing graph, PostgreSQL checkpointer, approval as `interrupt()`; no behaviour change
+  - R2-3 Four-eyes override: roles `reviewer` / `approver`, status `override_requested`
+  - R2-4 Security events and a heuristic prompt-injection scan
+  - R2-5 Read-only MCP servers `mcp-erp` and `mcp-registry`, one database role each
+  - R2-6 Exception agent with a German supplier email draft and a per-invoice cost cap; saved result on the demo
+  - R2-7 Web upload page (demo: XML and sample picker only) and reopening rejected invoices
 
 ## Known limitations
 - Review (ADR-012): one reviewer role, the override of a blocked invoice is the same reviewer's written reason (no
