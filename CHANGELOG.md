@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- ADR-015 (processing graph with LangGraph, approval as `interrupt()`) and ADR-016 (four-eyes override of blocked
+  invoices, reopening rejected invoices); R2 plan in `docs/status.md`.
 - Public demo deployment (ADR-014, `docs/deploy.md`): `infra/edge` is a shared Caddy for every site on the server
   (the only public ports, automatic Let's Encrypt HTTPS, shared security headers, no access log, one file per site);
   `infra/docker-compose.prod.yml` removes all host ports, attaches the web container to its `edge` network, sets
