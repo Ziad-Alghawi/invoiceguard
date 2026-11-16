@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Processing graph (R2-2, ADR-015): processing runs as a LangGraph graph per invoice (`read` / `extract` → `checks` →
+  `review` → `decide`, thread ID = invoice ID), checkpointed by `PostgresSaver` in the `langgraph` schema (migration
+  0007). Every run pauses at `review` with `interrupt()`; approve and reject resume it with `Command(resume=...)`
+  under a per-invoice advisory lock, and only `decide` writes `approved` / `rejected` with its audit rows. Pauses
+  survive API restarts; startup gives invoices from before the graph a paused thread; the demo reset deletes
+  threads. Same statuses, rules, responses and audit events as before. Dependencies `langgraph` 1.2.20 and
+  `langgraph-checkpoint-postgres` 3.2.0.
 - ADR-015 (processing graph with LangGraph, approval as `interrupt()`) and ADR-016 (four-eyes override of blocked
   invoices, reopening rejected invoices); R2 plan in `docs/status.md`.
 - Public demo deployment (ADR-014, `docs/deploy.md`): `infra/edge` is a shared Caddy for every site on the server

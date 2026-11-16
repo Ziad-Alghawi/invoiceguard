@@ -1,6 +1,6 @@
 # ADR-012: Review decisions in R1: a status change by one reviewer, override with a reason
 
-- **Status:** Accepted
+- **Status:** Accepted; the mechanism (a status change under a row lock) is superseded by ADR-015 in R2-2, the rules stay
 - **Date:** 2026-11-13
 
 ## Context

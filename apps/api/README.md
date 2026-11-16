@@ -62,8 +62,9 @@ characters) and `INVOICEGUARD_SEED_USER_NAME`; run it once per user. Passwords a
   `invoice.override`, `invoice.approved`, `invoice.rejected`.
 
 ## Processing
-After the upload, a background task ([processing.py](src/invoiceguard_api/processing.py), ADR-007) reads the file,
-validates the XML with KoSIT, stores the fields and runs the checks:
+After the upload, a background task ([processing.py](src/invoiceguard_api/processing.py), ADR-007) runs the
+invoice's LangGraph thread ([ADR-015](../../docs/decisions/ADR-015-processing-graph-approval-interrupt.md)): it
+reads the file, validates the XML with KoSIT, stores the fields and runs the checks:
 
 ```
 received → processing → ready                  read and checked; no check failed (warnings are fine)
@@ -82,6 +83,11 @@ awaiting_extraction → processing → ready / blocked / failed     LLM extracti
   same transaction that sets the final status. An error anywhere rolls all of it back and ends in `failed`.
 - On startup, invoices left in `processing` are reset to `received`, and all `received` invoices are processed again;
   with an API key, all `awaiting_extraction` invoices are extracted. This assumes one API process (ADR-007).
+- The graph: `read` or `extract` → `checks` → `review` → `decide`. Every run ends paused at `review` with
+  `interrupt()`; approve and reject resume it, and `decide` writes the decision and its audit rows in one
+  transaction. Thread ID = invoice ID; checkpoints are in the `langgraph` schema (migration 0007). Each run and each
+  decision holds the invoice's advisory lock. On startup, invoices waiting for review without a paused thread get
+  one (no audit event, nothing processed again).
 
 ## LLM extraction
 Plain PDFs (no embedded e-invoice XML) are read by an LLM, the one LLM step in R1

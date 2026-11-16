@@ -1,24 +1,45 @@
-"""Background processing of uploaded invoices (ADR-007): received → processing → final status.
+"""Invoice processing as a LangGraph graph (ADR-007, ADR-015): one thread per invoice, the
+thread ID is the invoice ID, and the state is checkpointed in PostgreSQL (checkpoints.py).
 
-Steps: read the XML, validate it with KoSIT (ADR-009), store the fields, run the checks; any
-failed check ends in `blocked`, otherwise `ready`. A PDF without XML moves to
-`awaiting_extraction`; when an LLM is configured, the same task then claims it again and
-extracts the fields (ADR-010): awaiting_extraction → processing → checks → final status.
+    START ─┬─ read ────┬─ checks ─┬─ review ─ decide ─ END
+           ├─ extract ─┴──────────┤
+           └──────────────────────┘
 
-Plain sync functions: FastAPI runs them in its thread pool (ADR-008). Every step is safe to run
-twice: claiming is a conditional update, and fields and check results are replaced in the same
-transaction that sets the final status. Each status change writes an audit event.
+- read: reads the XML and validates it with KoSIT (ADR-009). A PDF without XML ends in
+  `awaiting_extraction`, a file that cannot be read in `failed`; both go straight to review.
+- extract: the LLM extraction of a plain PDF (ADR-010), awaiting_extraction → processing.
+- checks: stores the fields and runs the checks; any failed check ends in `blocked`, else `ready`.
+- review: pauses with `interrupt()`. Only a reviewer's decision resumes it (review.py).
+- decide: writes `approved` or `rejected` and the reviewer's audit rows in one transaction.
+
+Every run ends paused at review, whatever its outcome, because a reviewer can reject failed and
+waiting invoices too. A new run on a thread (extraction after waiting, a re-run after a restart)
+starts again from START; a run that starts at review only pauses an invoice for its decision.
+
+A run starts after a claim, a conditional update to `processing`, and holds the invoice's
+advisory lock, as every decision does, so work on one thread happens one at a time. Status
+changes write audit events. Plain sync functions: FastAPI runs them in its thread pool (ADR-008).
 """
 
 import logging
 import uuid
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal, TypedDict
 
+from langchain_core.runnables import RunnableConfig
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.state import CompiledStateGraph
+from langgraph.runtime import Runtime
+from langgraph.types import Command, interrupt
+from pydantic import TypeAdapter
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
+from invoiceguard_api.checkpoints import engine_of, invoice_lock, open_checkpointer
 from invoiceguard_api.checks import (
     KositValidator,
     final_status,
@@ -29,8 +50,11 @@ from invoiceguard_api.checks import (
 )
 from invoiceguard_api.checks.model import Validation
 from invoiceguard_api.extraction import Extraction, PdfExtractor
+from invoiceguard_api.extraction.model import FieldConfidence
 from invoiceguard_api.models import (
     AuditEvent,
+    Check,
+    CheckStatus,
     FieldSource,
     Invoice,
     InvoiceField,
@@ -66,6 +90,72 @@ NO_XML = Validation(
     outcome="not_applicable",
     reason="No e-invoice XML to validate: the fields were extracted from the PDF by an LLM.",
 )
+# The statuses a thread is paused at review in: a reviewer can decide on these.
+IN_REVIEW = frozenset(
+    {
+        InvoiceStatus.READY,
+        InvoiceStatus.BLOCKED,
+        InvoiceStatus.FAILED,
+        InvoiceStatus.AWAITING_EXTRACTION,
+    }
+)
+
+Start = Literal["read", "extract", "review"]
+
+
+class Decision(TypedDict):
+    """A reviewer's decision, the value that resumes a thread paused at review."""
+
+    action: Literal["approve", "reject"]
+    user_id: str
+    actor: str
+    # The status the reviewer decided on; decide refuses to write if it has changed since.
+    status_before: str
+    reason: str | None
+
+
+class RunState(TypedDict, total=False):
+    """The checkpointed state: plain JSON values only (see checkpoints.py)."""
+
+    invoice_id: str
+    start: Start
+    # What read or extract hands to checks (a `Reading` as JSON); None when there is nothing.
+    reading: dict[str, Any] | None
+    decision: Decision
+
+
+@dataclass(frozen=True)
+class Reading:
+    """The invoice as read from XML or extracted by an LLM, before the checks."""
+
+    invoice: ParsedInvoice
+    validation: Validation
+    # Set for LLM extraction only: a confidence per field (ADR-010).
+    confidences: tuple[FieldConfidence, ...] | None = None
+    confidence_threshold: Decimal = Decimal(1)
+    # Added to the audit event of the final status (the extraction's model and cost).
+    details: dict[str, Any] | None = None
+
+
+READING = TypeAdapter(Reading)
+
+
+@dataclass(frozen=True)
+class Services:
+    """What the nodes work with; passed to each run as its context, never checkpointed."""
+
+    session_factory: sessionmaker[Session]
+    storage: FileStorage
+    # Only a run that reads XML needs the validator, only extraction the extractor.
+    validator: KositValidator | None
+    extractor: PdfExtractor | None
+
+
+class StaleDecision(Exception):
+    """The invoice is no longer in the status the reviewer decided on; nothing was written."""
+
+
+# --- Status and audit writes -------------------------------------------------------------------
 
 
 def _status_event(
@@ -87,8 +177,8 @@ def _status_event(
     )
 
 
-def _claim(session: Session, invoice_id: uuid.UUID, waiting: InvoiceStatus) -> Invoice | None:
-    """Move an invoice from `waiting` to `processing`; None if another run has it or it is done."""
+def _claim(session: Session, invoice_id: uuid.UUID, waiting: InvoiceStatus) -> bool:
+    """Move an invoice from `waiting` to `processing`; False if another run has it or it is done."""
     claimed = session.execute(
         update(Invoice)
         .where(Invoice.id == invoice_id, Invoice.status == waiting)
@@ -97,10 +187,10 @@ def _claim(session: Session, invoice_id: uuid.UUID, waiting: InvoiceStatus) -> I
     ).scalar_one_or_none()
     if claimed is None:
         session.rollback()
-        return None
+        return False
     session.add(_status_event(invoice_id, waiting, InvoiceStatus.PROCESSING, None))
     session.commit()
-    return session.get(Invoice, invoice_id, populate_existing=True)
+    return True
 
 
 def _finish(
@@ -115,6 +205,32 @@ def _finish(
     invoice.status_reason = reason
     session.commit()
     logger.info("Invoice %s is %s", invoice.id, status.value)
+
+
+def _fail_internal(session: Session, invoice: Invoice, step: str) -> None:
+    """After an unexpected error: log it, drop the step's writes and end in `failed`."""
+    logger.exception("%s invoice %s failed", step, invoice.id)
+    session.rollback()
+    _finish(session, invoice, InvoiceStatus.FAILED, INTERNAL_ERROR_REASON)
+
+
+def _status(session_factory: sessionmaker[Session], invoice_id: uuid.UUID) -> InvoiceStatus | None:
+    with session_factory() as session:
+        return session.scalar(select(Invoice.status).where(Invoice.id == invoice_id))
+
+
+def failed_checks(session: Session, invoice_id: uuid.UUID) -> list[str]:
+    """The types of the invoice's failed checks, sorted."""
+    return list(
+        session.scalars(
+            select(Check.type)
+            .where(Check.invoice_id == invoice_id, Check.status == CheckStatus.FAILED)
+            .order_by(Check.type)
+        )
+    )
+
+
+# --- Reading and checks -------------------------------------------------------------------------
 
 
 def _xml_fields(invoice_id: uuid.UUID, parsed: ParsedInvoice) -> list[InvoiceField]:
@@ -151,20 +267,20 @@ def _llm_fields(invoice_id: uuid.UUID, extraction: Extraction) -> list[InvoiceFi
     return rows
 
 
-def _check_and_finish(
-    session: Session,
-    invoice: Invoice,
-    parsed: ParsedInvoice,
-    validation: Validation,
-    fields: list[InvoiceField],
-    extracted: Extraction | None = None,
-    confidence_threshold: Decimal = Decimal(1),
-    **extra: Any,
-) -> None:
+def _check_and_finish(session: Session, invoice: Invoice, reading: Reading) -> None:
     """Replace the fields and check results and set the final status, in one transaction."""
+    parsed = reading.invoice
+    extraction = None if reading.confidences is None else Extraction(parsed, reading.confidences)
+    fields = (
+        _xml_fields(invoice.id, parsed)
+        if extraction is None
+        else _llm_fields(invoice.id, extraction)
+    )
     session.execute(delete(InvoiceField).where(InvoiceField.invoice_id == invoice.id))
     session.add_all(fields)
-    context = load_context(session, invoice.id, parsed, validation, extracted, confidence_threshold)
+    context = load_context(
+        session, invoice.id, parsed, reading.validation, extraction, reading.confidence_threshold
+    )
     results = run_checks(context)
     replace_results(session, invoice.id, results)
     summary = summarise(results)
@@ -182,35 +298,35 @@ def _check_and_finish(
         syntax=parsed.syntax,
         warnings=list(parsed.warnings),
         checks=summary,
-        **extra,
+        **(reading.details or {}),
     )
 
 
-def _run(
+def _read_xml(
     session: Session,
     storage: FileStorage,
     validator: KositValidator,
-    extractor: PdfExtractor | None,
+    extraction_on: bool,
     invoice: Invoice,
-) -> None:
+) -> Reading | None:
     try:
         xml = invoice_xml(storage.read(invoice.storage_path), invoice.source_type)
         parsed = read_invoice_xml(xml)
     except NoEmbeddedXml:
-        reason = EXTRACTION_OFF_REASON if extractor is None else AWAITING_EXTRACTION_REASON
+        reason = AWAITING_EXTRACTION_REASON if extraction_on else EXTRACTION_OFF_REASON
         _finish(session, invoice, InvoiceStatus.AWAITING_EXTRACTION, reason)
-        return
+        return None
     except ParseError as error:
         _finish(session, invoice, InvoiceStatus.FAILED, str(error))
-        return
-    # Before any write, so the call (up to the validator timeout) holds no row locks.
-    validation = validator.validate(xml)
-    _check_and_finish(session, invoice, parsed, validation, _xml_fields(invoice.id, parsed))
+        return None
+    # The claim is committed and nothing is written yet, so the call (up to the validator
+    # timeout) holds no row locks.
+    return Reading(parsed, validator.validate(xml))
 
 
 def _extract(
     session: Session, storage: FileStorage, extractor: PdfExtractor, invoice: Invoice
-) -> None:
+) -> Reading | None:
     # The claim is committed, so the model calls (seconds each) hold no row locks.
     result = extractor.extract(storage.read(invoice.storage_path))
     session.add_all(
@@ -237,17 +353,221 @@ def _extract(
     }
     if result.extraction is None:
         _finish(session, invoice, InvoiceStatus.FAILED, result.failure, extraction=summary)
-        return
-    _check_and_finish(
-        session,
-        invoice,
+        return None
+    return Reading(
         result.extraction.invoice,
         NO_XML,
-        _llm_fields(invoice.id, result.extraction),
-        result.extraction,
+        result.extraction.confidences,
         extractor.confidence_threshold,
-        extraction=summary,
+        {"extraction": summary},
     )
+
+
+# --- Graph nodes --------------------------------------------------------------------------------
+
+
+def _load(session: Session, state: RunState) -> Invoice:
+    return session.get_one(Invoice, uuid.UUID(state["invoice_id"]))
+
+
+def _reading_update(reading: Reading | None) -> RunState:
+    return {"reading": None if reading is None else READING.dump_python(reading, mode="json")}
+
+
+def _read_node(state: RunState, runtime: Runtime[Services]) -> RunState:
+    services = runtime.context
+    if services.validator is None:
+        raise ValueError("A run that reads XML needs the KoSIT validator.")
+    with services.session_factory() as session:
+        invoice = _load(session, state)
+        try:
+            reading = _read_xml(
+                session,
+                services.storage,
+                services.validator,
+                services.extractor is not None,
+                invoice,
+            )
+        except Exception:
+            _fail_internal(session, invoice, "Processing")
+            reading = None
+    return _reading_update(reading)
+
+
+def _extract_node(state: RunState, runtime: Runtime[Services]) -> RunState:
+    services = runtime.context
+    if services.extractor is None:
+        raise ValueError("An extraction run needs the PDF extractor.")
+    with services.session_factory() as session:
+        invoice = _load(session, state)
+        try:
+            reading = _extract(session, services.storage, services.extractor, invoice)
+        except Exception:
+            _fail_internal(session, invoice, "Extracting")
+            reading = None
+    return _reading_update(reading)
+
+
+def _checks_node(state: RunState, runtime: Runtime[Services]) -> RunState:
+    reading = READING.validate_python(state["reading"])
+    with runtime.context.session_factory() as session:
+        invoice = _load(session, state)
+        try:
+            _check_and_finish(session, invoice, reading)
+        except Exception:
+            _fail_internal(session, invoice, "Checking")
+    # The invoice data is stored in its tables now; the checkpoint need not keep a copy.
+    return {"reading": None}
+
+
+def _review_node(state: RunState) -> RunState:
+    # The first statement: LangGraph runs a node again from its start when it resumes, so
+    # nothing may happen here before the pause (ADR-015).
+    decision: Decision = interrupt({"invoice_id": state["invoice_id"]})
+    return {"decision": decision}
+
+
+def _decision_events(session: Session, invoice: Invoice, decision: Decision) -> list[AuditEvent]:
+    new_status = (
+        InvoiceStatus.APPROVED if decision["action"] == "approve" else InvoiceStatus.REJECTED
+    )
+
+    def event(action: str, **details: Any) -> AuditEvent:
+        return AuditEvent(
+            actor=decision["actor"],
+            user_id=uuid.UUID(decision["user_id"]),
+            action=action,
+            entity_type="invoice",
+            entity_id=str(invoice.id),
+            status_before=invoice.status.value,
+            status_after=new_status.value,
+            reason=decision["reason"],
+            details=details,
+        )
+
+    if decision["action"] == "reject":
+        return [event("invoice.rejected")]
+    if invoice.status is InvoiceStatus.BLOCKED:
+        # The override first, then the approval it allowed; the identity id keeps this order.
+        return [
+            event("invoice.override", failed_checks=failed_checks(session, invoice.id)),
+            event("invoice.approved"),
+        ]
+    return [event("invoice.approved")]
+
+
+def _decide_node(state: RunState, runtime: Runtime[Services]) -> RunState:
+    """The only place that writes `approved` or `rejected`: status and audit rows, one commit."""
+    decision = state["decision"]
+    with runtime.context.session_factory() as session:
+        invoice = session.get(
+            Invoice, uuid.UUID(state["invoice_id"]), with_for_update=True, populate_existing=True
+        )
+        if invoice is None or invoice.status.value != decision["status_before"]:
+            raise StaleDecision(
+                f"Invoice {state['invoice_id']} is no longer {decision['status_before']}"
+            )
+        session.add_all(_decision_events(session, invoice, decision))
+        invoice.status = (
+            InvoiceStatus.APPROVED if decision["action"] == "approve" else InvoiceStatus.REJECTED
+        )
+        invoice.status_reason = decision["reason"]
+        session.commit()
+        logger.info("Invoice %s is %s by %s", invoice.id, invoice.status.value, decision["actor"])
+    return {}
+
+
+def _start(state: RunState) -> Start:
+    return state["start"]
+
+
+def _after_reading(state: RunState) -> Literal["checks", "review"]:
+    return "checks" if state.get("reading") is not None else "review"
+
+
+def _build_graph() -> StateGraph[RunState, Services, RunState, RunState]:
+    graph = StateGraph(RunState, context_schema=Services)
+    graph.add_node("read", _read_node)
+    graph.add_node("extract", _extract_node)
+    graph.add_node("checks", _checks_node)
+    graph.add_node("review", _review_node)
+    graph.add_node("decide", _decide_node)
+    graph.add_conditional_edges(START, _start, ["read", "extract", "review"])
+    graph.add_conditional_edges("read", _after_reading, ["checks", "review"])
+    graph.add_conditional_edges("extract", _after_reading, ["checks", "review"])
+    graph.add_edge("checks", "review")
+    graph.add_edge("review", "decide")
+    graph.add_edge("decide", END)
+    return graph
+
+
+GRAPH = _build_graph()
+Graph = CompiledStateGraph[RunState, Services, RunState, RunState]
+
+
+# --- Running threads ----------------------------------------------------------------------------
+
+
+@contextmanager
+def _open_graph(session_factory: sessionmaker[Session]) -> Iterator[Graph]:
+    with open_checkpointer(engine_of(session_factory)) as checkpointer:
+        yield GRAPH.compile(checkpointer=checkpointer)
+
+
+def _config(invoice_id: uuid.UUID) -> RunnableConfig:
+    return {"configurable": {"thread_id": str(invoice_id)}}
+
+
+def _invoke(
+    graph: Graph, services: Services, invoice_id: uuid.UUID, value: RunState | Command[Any]
+) -> None:
+    # "sync": each step's checkpoint is stored before the next step starts.
+    graph.invoke(value, _config(invoice_id), context=services, durability="sync")
+
+
+def _run(services: Services, invoice_id: uuid.UUID, start: Start) -> None:
+    with _open_graph(services.session_factory) as graph:
+        _invoke(graph, services, invoice_id, {"invoice_id": str(invoice_id), "start": start})
+
+
+def paused_for_review(graph: Graph, invoice_id: uuid.UUID) -> bool:
+    state = graph.get_state(_config(invoice_id))
+    return state.next == ("review",) and any(task.interrupts for task in state.tasks)
+
+
+def _pause_for_review(graph: Graph, services: Services, invoice_id: uuid.UUID) -> bool:
+    """Start a run at review unless the thread is paused there; True if it started one.
+
+    For invoices from before the graph (ADR-015), and for a thread whose last decision failed
+    after it had resumed: the new run replaces that half-done one.
+    """
+    if paused_for_review(graph, invoice_id):
+        return False
+    _invoke(graph, services, invoice_id, {"invoice_id": str(invoice_id), "start": "review"})
+    return True
+
+
+def apply_decision(services: Services, invoice_id: uuid.UUID, decision: Decision) -> None:
+    """Resume the invoice's thread with a reviewer's decision; decide writes the outcome.
+
+    The caller holds the invoice lock and has checked the rules. If this raises, the status
+    is unchanged (decide writes in one transaction) and the call can be repeated.
+    """
+    with _open_graph(services.session_factory) as graph:
+        _pause_for_review(graph, services, invoice_id)
+        _invoke(graph, services, invoice_id, Command(resume=decision))
+
+
+def delete_threads(
+    session_factory: sessionmaker[Session], invoice_ids: Iterable[uuid.UUID]
+) -> None:
+    """Delete the invoices' threads with all their checkpoints."""
+    with open_checkpointer(engine_of(session_factory)) as checkpointer:
+        for invoice_id in invoice_ids:
+            checkpointer.delete_thread(str(invoice_id))
+
+
+# --- Entry points -------------------------------------------------------------------------------
 
 
 def process_invoice(
@@ -257,23 +577,18 @@ def process_invoice(
     extractor: PdfExtractor | None,
     invoice_id: uuid.UUID,
 ) -> None:
-    """Parse and check one invoice; any error in the work ends in status `failed`.
+    """Parse and check one `received` invoice; any error in the work ends in status `failed`.
 
     A plain PDF goes on to `extract_invoice` when an extractor is configured. If the database
     itself fails, the invoice stays `processing` and startup recovery resumes it.
     """
-    with session_factory() as session:
-        invoice = _claim(session, invoice_id, InvoiceStatus.RECEIVED)
-        if invoice is None:
-            logger.info("Invoice %s is not waiting for processing; skipped", invoice_id)
-            return
-        try:
-            _run(session, storage, validator, extractor, invoice)
-        except Exception:
-            logger.exception("Processing invoice %s failed", invoice_id)
-            session.rollback()
-            _finish(session, invoice, InvoiceStatus.FAILED, INTERNAL_ERROR_REASON)
-        awaiting = invoice.status is InvoiceStatus.AWAITING_EXTRACTION
+    with invoice_lock(session_factory, invoice_id):
+        with session_factory() as session:
+            if not _claim(session, invoice_id, InvoiceStatus.RECEIVED):
+                logger.info("Invoice %s is not waiting for processing; skipped", invoice_id)
+                return
+        _run(Services(session_factory, storage, validator, extractor), invoice_id, "read")
+    awaiting = _status(session_factory, invoice_id) is InvoiceStatus.AWAITING_EXTRACTION
     if awaiting and extractor is not None:
         extract_invoice(session_factory, storage, extractor, invoice_id)
 
@@ -323,31 +638,38 @@ def extract_invoice(
     With a daily budget, the invoice keeps waiting once today's logged cost has reached it. The
     check runs before the call, so parallel extractions can overshoot it by one invoice each.
     """
-    with session_factory() as session:
-        budget = extractor.daily_budget_usd
-        if budget is not None and (spent := spent_today_usd(session)) >= budget:
-            _defer_for_budget(session, invoice_id, spent)
-            return
-        invoice = _claim(session, invoice_id, InvoiceStatus.AWAITING_EXTRACTION)
-        if invoice is None:
-            logger.info("Invoice %s is not waiting for extraction; skipped", invoice_id)
-            return
-        try:
-            _extract(session, storage, extractor, invoice)
-        except Exception:
-            logger.exception("Extracting invoice %s failed", invoice_id)
-            session.rollback()
-            _finish(session, invoice, InvoiceStatus.FAILED, INTERNAL_ERROR_REASON)
+    with invoice_lock(session_factory, invoice_id):
+        with session_factory() as session:
+            budget = extractor.daily_budget_usd
+            if budget is not None and (spent := spent_today_usd(session)) >= budget:
+                _defer_for_budget(session, invoice_id, spent)
+                return
+            if not _claim(session, invoice_id, InvoiceStatus.AWAITING_EXTRACTION):
+                logger.info("Invoice %s is not waiting for extraction; skipped", invoice_id)
+                return
+        _run(Services(session_factory, storage, None, extractor), invoice_id, "extract")
 
 
-def _waiting(session: Session, status: InvoiceStatus) -> list[uuid.UUID]:
+def _waiting(session: Session, statuses: Iterable[InvoiceStatus]) -> list[uuid.UUID]:
     return list(
         session.scalars(
             select(Invoice.id)
-            .where(Invoice.status == status)
+            .where(Invoice.status.in_(list(statuses)))
             .order_by(Invoice.created_at, Invoice.id)
         ).all()
     )
+
+
+def _pause_all_for_review(services: Services, invoice_ids: list[uuid.UUID]) -> int:
+    """Make sure every given invoice still in review has a thread paused at review."""
+    paused = 0
+    with _open_graph(services.session_factory) as graph:
+        for invoice_id in invoice_ids:
+            with invoice_lock(services.session_factory, invoice_id):
+                # A decision may have come in since the list was read.
+                if _status(services.session_factory, invoice_id) in IN_REVIEW:
+                    paused += _pause_for_review(graph, services, invoice_id)
+    return paused
 
 
 def recover_unfinished(
@@ -356,8 +678,9 @@ def recover_unfinished(
     validator: KositValidator,
     extractor: PdfExtractor | None,
 ) -> None:
-    """On startup: reset invoices a restart left in `processing`, then process all `received`
-    and, when an extractor is configured, extract all `awaiting_extraction`.
+    """On startup: reset invoices a restart left in `processing`, pause every invoice in review
+    whose thread is not paused at review, then process all `received` and, when an extractor
+    is configured, extract all `awaiting_extraction`.
 
     Assumes one API process (ADR-007); with several, this would take over another's work.
     """
@@ -374,9 +697,15 @@ def recover_unfinished(
             invoice.status = InvoiceStatus.RECEIVED
             invoice.status_reason = RESTART_REASON
         session.commit()
-        pending = _waiting(session, InvoiceStatus.RECEIVED)
+        in_review = _waiting(session, IN_REVIEW)
+        pending = _waiting(session, [InvoiceStatus.RECEIVED])
         # Read before processing `received`: those go on to extraction by themselves.
-        awaiting = [] if extractor is None else _waiting(session, InvoiceStatus.AWAITING_EXTRACTION)
+        awaiting = (
+            [] if extractor is None else _waiting(session, [InvoiceStatus.AWAITING_EXTRACTION])
+        )
+    services = Services(session_factory, storage, validator, extractor)
+    if in_review and (paused := _pause_all_for_review(services, in_review)):
+        logger.info("Paused %d invoice(s) for review that had no paused thread", paused)
     if pending or awaiting:
         logger.info(
             "Resuming %d unfinished and %d awaiting-extraction invoice(s) after startup",

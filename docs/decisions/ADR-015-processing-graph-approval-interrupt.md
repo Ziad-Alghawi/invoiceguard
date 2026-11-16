@@ -1,7 +1,7 @@
 # ADR-015: Processing graph with LangGraph, approval as `interrupt()`
 
 - **Status:** Accepted
-- **Date:** 2026-11-16
+- **Date:** 2026-11-16 (updated 2026-11-16 with R2-2: own schema, every run pauses at review, failed resumes)
 
 ## Context
 
@@ -18,26 +18,49 @@ their rules must keep working.
 ## Decision
 
 Processing becomes **one LangGraph graph per invoice**, with its state saved by the **LangGraph PostgreSQL
-checkpointer** (`PostgresSaver`, sync) in the application database.
+checkpointer** (`PostgresSaver`, sync) in the application database, in a schema of its own (`langgraph`).
 
-- **Nodes:** read (XML parse or LLM extraction) → checks → `review` → `decide`. The thread ID is the invoice
-  ID; a later run of the same invoice (reopen, ADR-016) gets its own thread (`{invoice_id}:{run}`).
+- **Nodes:** `read` (XML parse and KoSIT) or `extract` (LLM extraction) → `checks` → `review` → `decide`. A
+  file that cannot be read (`failed`) or a PDF without XML (`awaiting_extraction`) goes from `read` straight to
+  `review`. The thread ID is the invoice ID; a later run of the same invoice (reopen, ADR-016) gets its own
+  thread (`{invoice_id}:{run}`).
+- **Every run ends paused at `review`**, whatever its outcome: reject accepts `ready`, `blocked`, `failed` and
+  `awaiting_extraction` invoices, so each of them needs a paused thread to resume. Extraction after waiting is a
+  new run on the same thread: new input starts a thread again from START, which drops the pending pause.
 - **The pause:** `review` calls `interrupt()` as its first statement. LangGraph runs a node again from its
-  start when it resumes, so nothing may happen in that node before the pause.
+  start when it resumes, so nothing may happen in that node before the pause. `decide` is reachable only from
+  `review`, and START routes only to `read`, `extract` or `review`; a test checks the edges.
 - **Resuming:** `POST /invoices/{id}/approve` and `/reject` keep their paths, request bodies, rules and
-  responses. They check the user and the rules, take a transaction-scoped advisory lock on the invoice
-  (`pg_advisory_xact_lock`) so that two decisions on one invoice run one after the other, and resume the
-  thread with `Command(resume=...)`. The resume runs synchronously, so the response already shows the new
-  status.
+  responses. They take a transaction-scoped advisory lock on the invoice (`pg_advisory_xact_lock`), check the
+  user and the rules, and resume the thread with `Command(resume=...)`. The resume runs synchronously, so the
+  response already shows the new status. **Every graph run takes the same lock** (after upload, extraction,
+  startup recovery), so a run and a decision never work on one thread at the same time.
 - **Writing the outcome:** the `decide` node writes the status and the audit rows in one transaction of its
-  own. The endpoint does not hold a row lock (`SELECT ... FOR UPDATE`) while resuming: the graph writes the
-  same row through another connection, and the two would wait for each other.
-- **Status column:** stays the read model for the UI and the queries (ADR-007). Only graph nodes write it.
+  own. It refuses (and writes nothing) if the status is no longer the one the reviewer decided on. The endpoint
+  does not hold a row lock (`SELECT ... FOR UPDATE`) while resuming: the graph writes the same row through
+  another connection, and the two would wait for each other.
+- **Failed resume:** if `decide` fails after the thread has resumed, the thread is past `review` with the old
+  decision in its state, and a plain `Command(resume=...)` would be ignored (nothing is paused). So before each
+  resume the endpoint checks that the thread is paused at `review` and, if not, starts a run at `review` first.
+  The retry then decides with the new request's values, never the failed one's.
+- **Status column:** stays the read model for the UI and the queries (ADR-007). Graph nodes write every final
+  status. Two writes stay in front of the graph: the claim (a conditional update to `processing`, which decides
+  which caller runs the graph) and the startup reset of `processing` to `received`. The daily budget deferral
+  writes only the reason, not the status.
 - **Execution:** `BackgroundTasks` still start the graph after upload and extraction (ADR-007 stays; only
-  what the task runs changes). Startup recovery resumes or restarts unfinished threads. Invoices that were
-  `ready` or `blocked` before this change get a thread that starts at `review`.
-- **Tables:** the checkpointer's tables are created by an Alembic migration that calls the checkpointer's
-  own setup, so the schema is versioned with ours. The demo reset clears them together with the invoices.
+  what the task runs changes). The app's services (session factory, storage, validator, extractor) go to each
+  run as LangGraph's run context; they are never checkpointed. Startup recovery resets and re-runs unfinished
+  invoices as before, and starts a run at `review` for every invoice waiting for review whose thread is not
+  paused there: invoices that were `ready` or `blocked` before this change, and threads left behind a decision
+  that failed.
+- **Tables:** the checkpointer's tables are created by Alembic migration 0007, which calls the checkpointer's
+  own setup with `search_path` set to `langgraph`, so the schema is versioned with ours. The own schema keeps
+  the application schema to exactly our models (a test checks that) and makes the checkpoint data easy to find,
+  back up or drop. Each run opens a psycopg connection of its own with autocommit (the checkpointer's setup
+  creates indexes `CONCURRENTLY`, and it expects autocommit). The serializer is strict (built-in types only):
+  the state is plain JSON (invoice ID, the read invoice for the checks, the decision), so a row written into
+  the checkpoint tables cannot make the API build arbitrary objects. The demo reset deletes the threads of the
+  invoices it deletes.
 
 R2-2 introduces the graph **without changing behaviour**: the same statuses, rules, audit events and
 responses, and the existing tests pass unchanged. The four-eyes override (ADR-016) and the agent follow in
@@ -60,7 +83,13 @@ later changes.
 - A pause survives API restarts and can last for days.
 - Status and checkpoint are separate writes. If a resume fails, the status has not changed and the request
   can be repeated; a test covers this.
+- Startup reads the thread of every invoice waiting for review (one query each). Fine for the demo; with
+  many waiting invoices it should only look at threads that are not paused.
+- A decision waits while a run holds the invoice's lock, for example during an LLM extraction (seconds).
 - Checkpoint tables need the same backups and migrations as business data, and add a few kilobytes per
   invoice.
 - New dependencies: `langgraph` and `langgraph-checkpoint-postgres` (named in the plan and in ADR-003; the
-  checkpointer uses psycopg 3, which the app already uses).
+  checkpointer uses psycopg 3, which the app already uses). Pinned to `langgraph` 1.2.20 and
+  `langgraph-checkpoint-postgres` 3.2.0, with `langgraph-checkpoint` held at 4.3.1: the newer releases were
+  two to four days old. A checkpointer update that adds setup steps needs a new migration that calls its setup
+  again.
