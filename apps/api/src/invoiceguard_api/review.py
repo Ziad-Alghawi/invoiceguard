@@ -1,31 +1,29 @@
-"""Human review (ADR-003, ADR-012): approve or reject an invoice, and read its audit history.
+"""Human review (ADR-003, ADR-012, ADR-015): approve or reject an invoice, and read its audit
+history.
 
 A logged-in reviewer decides; nothing else sets `approved` or `rejected`. A `blocked` invoice
-(at least one failed check) is approved only with a written override reason. Each decision and
-its audit rows are written in one transaction, on the invoice row locked with FOR UPDATE, so two
-reviewers clicking at the same time cannot both decide.
+(at least one failed check) is approved only with a written override reason. The endpoints
+check these rules under the invoice's advisory lock, then resume the invoice's paused graph
+thread with the decision; the graph's decide node writes the status and the audit rows in one
+transaction. The lock makes two reviewers clicking at the same time decide one after the other,
+so the second one gets a 409.
 """
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, StringConstraints
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from invoiceguard_api.auth import CurrentUser, current_user
+from invoiceguard_api.checkpoints import lock_invoice
 from invoiceguard_api.db import DbSession
 from invoiceguard_api.invoices import ErrorOut, InvoiceOut, get_invoice_or_404
-from invoiceguard_api.models import (
-    AuditEvent,
-    Check,
-    CheckStatus,
-    Invoice,
-    InvoiceStatus,
-    User,
-)
+from invoiceguard_api.models import AuditEvent, Invoice, InvoiceStatus, User
+from invoiceguard_api.processing import IN_REVIEW, Decision, Services, apply_decision, failed_checks
 
 router = APIRouter(prefix="/invoices", tags=["review"], dependencies=[Depends(current_user)])
 
@@ -33,15 +31,9 @@ router = APIRouter(prefix="/invoices", tags=["review"], dependencies=[Depends(cu
 Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
 
 APPROVABLE = frozenset({InvoiceStatus.READY, InvoiceStatus.BLOCKED})
-# Not while processing: the background task would overwrite the decision with its result.
-REJECTABLE = frozenset(
-    {
-        InvoiceStatus.READY,
-        InvoiceStatus.BLOCKED,
-        InvoiceStatus.FAILED,
-        InvoiceStatus.AWAITING_EXTRACTION,
-    }
-)
+# Every status a thread waits at review in (ready, blocked, failed, awaiting_extraction); not
+# while processing: the run would overwrite the decision with its result.
+REJECTABLE = IN_REVIEW
 
 DECISION_RESPONSES: dict[int | str, dict[str, Any]] = {
     status.HTTP_404_NOT_FOUND: {"model": ErrorOut, "description": "Unknown invoice"},
@@ -75,60 +67,47 @@ class AuditEventOut(BaseModel):
 
 
 def _lock(session: Session, invoice_id: uuid.UUID) -> Invoice:
-    invoice = session.get(Invoice, invoice_id, with_for_update=True, populate_existing=True)
+    """The invoice under its advisory lock, held until the request's transaction ends."""
+    lock_invoice(session, invoice_id)
+    invoice = session.get(Invoice, invoice_id, populate_existing=True)
     if invoice is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Invoice not found.")
     return invoice
-
-
-def _event(
-    user: User,
-    action: str,
-    invoice: Invoice,
-    new_status: InvoiceStatus,
-    reason: str | None,
-    **details: Any,
-) -> AuditEvent:
-    return AuditEvent(
-        actor=user.email,
-        user_id=user.id,
-        action=action,
-        entity_type="invoice",
-        entity_id=str(invoice.id),
-        status_before=invoice.status.value,
-        status_after=new_status.value,
-        reason=reason,
-        details=details,
-    )
 
 
 def _conflict(message: str) -> HTTPException:
     return HTTPException(status.HTTP_409_CONFLICT, message)
 
 
-def _failed_checks(session: Session, invoice_id: uuid.UUID) -> list[str]:
-    return list(
-        session.scalars(
-            select(Check.type)
-            .where(Check.invoice_id == invoice_id, Check.status == CheckStatus.FAILED)
-            .order_by(Check.type)
-        )
-    )
+def _decision(
+    user: User, invoice: Invoice, action: Literal["approve", "reject"], reason: str | None
+) -> Decision:
+    return {
+        "action": action,
+        "user_id": str(user.id),
+        "actor": user.email,
+        "status_before": invoice.status.value,
+        "reason": reason,
+    }
 
 
-def _decide(
-    session: Session, invoice: Invoice, new_status: InvoiceStatus, reason: str | None
-) -> InvoiceOut:
-    invoice.status = new_status
-    invoice.status_reason = reason
-    session.commit()
+def _resume(session: Session, request: Request, invoice: Invoice, decision: Decision) -> InvoiceOut:
+    state = request.app.state
+    services = Services(state.session_factory, state.storage, state.validator, state.extractor)
+    apply_decision(services, invoice.id, decision)
+    # The graph committed on its own connection; read the result, then release the lock.
     session.refresh(invoice)
+    session.commit()
     return InvoiceOut.model_validate(invoice)
 
 
 @router.post("/{invoice_id}/approve", responses=DECISION_RESPONSES)
 def approve_invoice(
-    invoice_id: uuid.UUID, body: ApproveIn, session: DbSession, user: CurrentUser
+    invoice_id: uuid.UUID,
+    body: ApproveIn,
+    session: DbSession,
+    user: CurrentUser,
+    request: Request,
 ) -> InvoiceOut:
     """Approve a `ready` invoice, or a `blocked` one with `override_reason`."""
     invoice = _lock(session, invoice_id)
@@ -140,31 +119,22 @@ def approve_invoice(
     override = body.override_reason
     if invoice.status is InvoiceStatus.READY and override is not None:
         raise _conflict("The invoice has no failed checks to override; approve it without one.")
-    if invoice.status is InvoiceStatus.BLOCKED:
-        failed = _failed_checks(session, invoice.id)
-        if override is None:
-            raise _conflict(
-                f"The invoice is blocked by failed checks ({', '.join(failed)}); approving it "
-                "needs an override reason."
-            )
-        # The override first, then the approval it allowed; the identity id keeps this order.
-        session.add(
-            _event(
-                user,
-                "invoice.override",
-                invoice,
-                InvoiceStatus.APPROVED,
-                override,
-                failed_checks=failed,
-            )
+    if invoice.status is InvoiceStatus.BLOCKED and override is None:
+        failed = ", ".join(failed_checks(session, invoice.id))
+        raise _conflict(
+            f"The invoice is blocked by failed checks ({failed}); approving it needs an override "
+            "reason."
         )
-    session.add(_event(user, "invoice.approved", invoice, InvoiceStatus.APPROVED, override))
-    return _decide(session, invoice, InvoiceStatus.APPROVED, override)
+    return _resume(session, request, invoice, _decision(user, invoice, "approve", override))
 
 
 @router.post("/{invoice_id}/reject", responses=DECISION_RESPONSES)
 def reject_invoice(
-    invoice_id: uuid.UUID, body: RejectIn, session: DbSession, user: CurrentUser
+    invoice_id: uuid.UUID,
+    body: RejectIn,
+    session: DbSession,
+    user: CurrentUser,
+    request: Request,
 ) -> InvoiceOut:
     """Reject an invoice with a reason; it is then out of the review queue."""
     invoice = _lock(session, invoice_id)
@@ -173,8 +143,7 @@ def reject_invoice(
             f"The invoice is {invoice.status.value}; only ready, blocked, failed or "
             "awaiting_extraction invoices can be rejected."
         )
-    session.add(_event(user, "invoice.rejected", invoice, InvoiceStatus.REJECTED, body.reason))
-    return _decide(session, invoice, InvoiceStatus.REJECTED, body.reason)
+    return _resume(session, request, invoice, _decision(user, invoice, "reject", body.reason))
 
 
 @router.get(

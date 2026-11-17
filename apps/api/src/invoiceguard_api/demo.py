@@ -1,5 +1,6 @@
-"""Reset the public demo (ADR-014): delete every invoice, export and stored file, restore the
-master data and process the sample invoices again, so each visitor finds the same queue.
+"""Reset the public demo (ADR-014): delete every invoice, export, stored file and graph thread,
+restore the master data and process the sample invoices again, so each visitor finds the same
+queue.
 
 Deletes data, so it runs only with INVOICEGUARD_DEMO_MODE=true. The audit log is append-only and
 is kept; the reset itself is an audit event. LLM costs stay in `model_calls` (the invoice link is
@@ -24,7 +25,7 @@ from invoiceguard_api.invoices import add_received
 from invoiceguard_api.logging import configure_logging
 from invoiceguard_api.main import make_extractor
 from invoiceguard_api.models import AuditEvent, DatevExport, Invoice
-from invoiceguard_api.processing import process_invoice
+from invoiceguard_api.processing import delete_threads, process_invoice
 from invoiceguard_api.seed import seed_demo_data
 from invoiceguard_api.settings import get_settings
 from invoiceguard_api.storage import FileStorage
@@ -41,9 +42,12 @@ def sample_invoices() -> list[tuple[str, bytes]]:
     return [(entry.name, entry.read_bytes()) for entry in sorted(samples, key=lambda e: e.name)]
 
 
-def _clear(session: Session, storage: FileStorage) -> tuple[int, int]:
-    """Delete invoices (fields and checks cascade) and exports, then their files."""
-    paths = session.scalars(select(Invoice.storage_path)).all()
+def _clear(
+    session_factory: sessionmaker[Session], session: Session, storage: FileStorage
+) -> tuple[int, int]:
+    """Delete invoices (fields and checks cascade) and exports, then their files and threads."""
+    rows = session.execute(select(Invoice.id, Invoice.storage_path)).all()
+    paths = [row.storage_path for row in rows]
     exports = session.scalar(select(func.count(DatevExport.id))) or 0
     # Invoices first: they point at the export that contains them.
     session.execute(delete(Invoice))
@@ -61,6 +65,7 @@ def _clear(session: Session, storage: FileStorage) -> tuple[int, int]:
     session.commit()
     for path in paths:
         storage.delete(path)
+    delete_threads(session_factory, [row.id for row in rows])
     return len(paths), exports
 
 
@@ -75,7 +80,7 @@ def reset_demo(
     The samples are processed here, one after another, not by the API's background tasks.
     """
     with session_factory() as session:
-        invoices, exports = _clear(session, storage)
+        invoices, exports = _clear(session_factory, session, storage)
         logger.info("Deleted %d invoices and %d DATEV exports", invoices, exports)
         ids = []
         for name, content in sample_invoices():

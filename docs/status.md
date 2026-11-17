@@ -71,13 +71,24 @@
     Checked from outside: Let's Encrypt certificate, HTTP → HTTPS 308, HSTS and headers, ports 3000/5432/8000/8081
     closed, browser login with a Secure, HttpOnly, SameSite=Lax cookie; reset gives 3 ready and 2 blocked with KoSIT
     passed on all XRechnung samples; nightly reset at 03:00 UTC
+- R2 — Agent, MCP servers, approval gate (in progress)
+  - Processing graph (R2-2, ADR-015 updated): processing runs as a LangGraph graph per invoice (`read` / `extract` →
+    `checks` → `review` → `decide`), thread ID = invoice ID, checkpointed by `PostgresSaver` (sync) in its own
+    `langgraph` schema (migration 0007 calls the checkpointer's setup; strict serializer, plain JSON state). Every
+    run ends paused at `review` (`interrupt()` first); approve and reject keep paths, rules and responses, take a
+    `pg_advisory_xact_lock` on the invoice and resume with `Command(resume=...)`; only `decide` writes `approved` /
+    `rejected` and the audit rows, in one transaction, and refuses a decision on a changed status. Graph runs take
+    the same lock. A failed resume leaves the status unchanged; the retry pauses the thread at review again first.
+    Startup pauses waiting invoices without a paused thread at review (the 8 dev invoices from R1 got one); the demo
+    reset deletes the threads. `langgraph` 1.2.20, `langgraph-checkpoint-postgres` 3.2.0. No behaviour change: all
+    existing API tests and the Playwright test pass unedited; new tests for restart during review, two simultaneous
+    approvals, a failed and retried resume, a run without resume, and the graph's edges
 
 ## Open decisions
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
 - R2 (planned 2026-11-16, ADR-015, ADR-016), one PR each:
-  - R2-2 Processing graph, PostgreSQL checkpointer, approval as `interrupt()`; no behaviour change
   - R2-3 Four-eyes override: roles `reviewer` / `approver`, status `override_requested`
   - R2-4 Security events and a heuristic prompt-injection scan
   - R2-5 Read-only MCP servers `mcp-erp` and `mcp-registry`, one database role each
@@ -86,7 +97,10 @@
 
 ## Known limitations
 - Review (ADR-012): one reviewer role, the override of a blocked invoice is the same reviewer's written reason (no
-  second person yet); decisions are final; approval is a status change, not yet a pause in the graph (R2).
+  second person yet, R2-3); decisions are final.
+- Graph (ADR-015): startup reads the thread of every invoice waiting for review (one query each); each graph run
+  opens its own database connection for the checkpointer; a decision waits while a run (an LLM extraction) holds
+  the invoice's lock.
 - Login lockout is per account: anyone who knows a demo email can lock it for 15 minutes, and the `429` reveals that
   the account exists. No per-IP rate limit (ingress in R4).
 - The audit trigger stops UPDATE and DELETE through the app's database user, not the table owner (TRUNCATE, dropping
@@ -139,5 +153,9 @@
 - Docker publishes ports past `ufw`: firewall a Docker host outside the VM (cloud firewall) or publish nothing but
   the proxy.
 - A JVM sizes its heap from the container's memory limit; without one it sees the whole server.
+- A test that pins the exact set of tables turns "add a library's tables" into a design decision: an own schema
+  for the checkpointer kept the application schema exact and makes its data easy to find, back up or drop.
+- A resume is only a resume while the thread is paused: after a failed step the thread is past the pause, and
+  `Command(resume=...)` silently does nothing. Check the pause before resuming.
 - End-to-end tests against a long-lived stack must set their own preconditions: the first local E2E run exported
   2018 sample invoices, because a DATEV file holds one fiscal year and the oldest goes first.

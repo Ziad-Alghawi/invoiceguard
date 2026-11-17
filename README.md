@@ -70,7 +70,8 @@ the user's session. The public demo runs this stack on one VPS with Docker Compo
 | Validation | KoSIT validator with the XRechnung configuration |
 | Quality | ruff, mypy (strict), pytest, ESLint, Prettier, Vitest, Playwright, pre-commit with detect-secrets |
 | Delivery | Docker (multi-stage, non-root), Docker Compose, GitHub Actions, Caddy, Hetzner Cloud |
-| Planned | LangGraph, MCP servers, Langfuse, Helm, Argo CD (R2 to R4) |
+| Workflow | LangGraph with the PostgreSQL checkpointer; approval is an `interrupt()` |
+| Planned | MCP servers, Langfuse, Helm, Argo CD (R2 to R4) |
 
 ## How it works
 
@@ -102,7 +103,10 @@ the user's session. The public demo runs this stack on one VPS with Docker Compo
    works through the queue and opens an invoice: check results with evidence, extracted fields (low-confidence LLM
    fields highlighted with the printed text), the original file and the audit history. A **`ready`** invoice can be
    approved; a **`blocked`** one only with a written override reason; any of them can be rejected with a reason
-   ([ADR-012](docs/decisions/ADR-012-review-decisions-in-r1.md)). The API enforces these rules, not the UI. Every
+   ([ADR-012](docs/decisions/ADR-012-review-decisions-in-r1.md)). The API enforces these rules, not the UI. Each
+   invoice is a LangGraph thread that pauses at review with `interrupt()`; a decision resumes it, and only the
+   graph's last step writes `approved` or `rejected`
+   ([ADR-015](docs/decisions/ADR-015-processing-graph-approval-interrupt.md)). Every
    login, failed login, logout, upload, status change, override and decision is written to an append-only audit
    log (a database trigger rejects changes).
 5. **Export** approved invoices to accounting with **Export to DATEV** on the queue
@@ -197,6 +201,8 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
 - [ADR-012: Review decisions in R1: a status change by one reviewer, override with a reason](docs/decisions/ADR-012-review-decisions-in-r1.md)
 - [ADR-013: DATEV-style booking export (EXTF Buchungsstapel), one row per invoice](docs/decisions/ADR-013-datev-style-export.md)
 - [ADR-014: R1 demo on one VPS with Docker Compose and Caddy](docs/decisions/ADR-014-demo-hosting-single-vps.md)
+- [ADR-015: Processing graph with LangGraph, approval as `interrupt()`](docs/decisions/ADR-015-processing-graph-approval-interrupt.md)
+- [ADR-016: Four-eyes override of blocked invoices and reopening rejected invoices](docs/decisions/ADR-016-four-eyes-override-and-reopen.md)
 
 ## Roadmap
 
@@ -231,7 +237,7 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
   (`INVOICEGUARD_LLM_DAILY_BUDGET_USD`) but no per-invoice cap yet (R2), and PDFs held back by the cap are only
   picked up again when the API restarts.
 - Review (R1): one reviewer role; overriding a blocked invoice needs a reason from the same reviewer, not a second
-  person, and approval is a status change, not yet a pause in the agent graph (both come in R2, ADR-012). Decisions
+  person (four-eyes override comes in R2, ADR-016). Decisions
   are final. The lockout is per account, so anyone who knows a demo email can lock it for 15 minutes; there is no
   per-IP rate limit. The UI has no upload page yet (upload through the API).
 - DATEV export: not certified and not yet imported into a real DATEV installation. One row per invoice, so invoices
