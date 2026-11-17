@@ -147,11 +147,21 @@ not pointing at the server yet, or port 80 closed in the firewall).
 
 ## 6. Update
 
+From your own machine, after the change is merged to `main`:
+
+```sh
+make deploy       # ssh $DEPLOY_HOST "cd /opt/invoiceguard && git pull && make prod-up"
+```
+
+`DEPLOY_HOST` is set in your local `.env` (for example `deploy@<IP>`; it stays empty on the server). Without it,
+`make deploy` stops with a message and does nothing. `make prod-up` rebuilds changed images and recreates changed
+containers; migrations run at api start. The same by hand:
+
 ```sh
 ssh deploy@<IP>
 cd /opt/invoiceguard
 git pull
-make prod-up      # rebuilds changed images, recreates changed containers; migrations run at api start
+make prod-up
 ```
 
 If `infra/edge/sites/invoiceguard.caddy` changed: copy it to `/opt/edge/sites/` and reload Caddy (above).

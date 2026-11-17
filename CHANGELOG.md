@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `make deploy`: pulls `main` and runs `make prod-up` on the demo server over SSH; the target comes from
+  `DEPLOY_HOST` in the local `.env`, and the command refuses to run without it (`docs/deploy.md` section 6).
 - Processing graph (R2-2, ADR-015): processing runs as a LangGraph graph per invoice (`read` / `extract` → `checks` →
   `review` → `decide`, thread ID = invoice ID), checkpointed by `PostgresSaver` in the `langgraph` schema (migration
   0007). Every run pauses at `review` with `interrupt()`; approve and reject resume it with `Command(resume=...)`

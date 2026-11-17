@@ -19,7 +19,7 @@ export INVOICEGUARD_SEED_USER_EMAIL
 export INVOICEGUARD_SEED_USER_PASSWORD
 export INVOICEGUARD_SEED_USER_NAME
 
-.PHONY: dev down seed seed-user check test e2e eval prod-up prod-down demo-reset
+.PHONY: dev down seed seed-user check test e2e eval prod-up prod-down demo-reset deploy
 
 dev: ## Build and start api + web + db + validator, wait until all are healthy
 ifeq ($(wildcard .env),)
@@ -49,6 +49,12 @@ prod-down: ## Demo server: stop the stack (volumes with data are kept)
 demo-reset: ## Demo server: delete all invoices, reload the samples, reset the demo login
 	$(PROD) exec api invoiceguard-demo-reset
 	$(PROD) exec -e INVOICEGUARD_SEED_USER_EMAIL -e INVOICEGUARD_SEED_USER_PASSWORD 		-e INVOICEGUARD_SEED_USER_NAME api invoiceguard-seed-user
+
+deploy: ## From your machine: pull and restart the demo over SSH (DEPLOY_HOST in .env, docs/deploy.md)
+ifeq ($(strip $(DEPLOY_HOST)),)
+	$(error DEPLOY_HOST is empty: set it in .env, for example DEPLOY_HOST=deploy@<server IP> (see docs/deploy.md, section 6))
+endif
+	ssh $(DEPLOY_HOST) "cd /opt/invoiceguard && git pull && make prod-up"
 
 check: ## Lint, format check and type check (api + web)
 	$(API) uv run ruff check
