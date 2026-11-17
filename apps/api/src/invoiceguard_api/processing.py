@@ -2,15 +2,17 @@
 thread ID is the invoice ID, and the state is checkpointed in PostgreSQL (checkpoints.py).
 
     START ─┬─ read ────┬─ checks ─┬─ review ─ decide ─ END
-           ├─ extract ─┴──────────┤
-           └──────────────────────┘
+           ├─ extract ─┴──────────┤     ▲          │
+           └──────────────────────┘     └──────────┘ while the invoice stays in review
 
 - read: reads the XML and validates it with KoSIT (ADR-009). A PDF without XML ends in
   `awaiting_extraction`, a file that cannot be read in `failed`; both go straight to review.
 - extract: the LLM extraction of a plain PDF (ADR-010), awaiting_extraction → processing.
 - checks: stores the fields and runs the checks; any failed check ends in `blocked`, else `ready`.
 - review: pauses with `interrupt()`. Only a reviewer's decision resumes it (review.py).
-- decide: writes `approved` or `rejected` and the reviewer's audit rows in one transaction.
+- decide: writes the decision's status and its audit row in one transaction: `approved`,
+  `rejected`, or for the four-eyes override (ADR-016) `override_requested` (then the thread
+  pauses at review again for an approver) and back to `blocked` when the approver declines.
 
 Every run ends paused at review, whatever its outcome, because a reviewer can reject failed and
 waiting invoices too. A new run on a thread (extraction after waiting, a re-run after a restart)
@@ -60,6 +62,8 @@ from invoiceguard_api.models import (
     InvoiceField,
     InvoiceStatus,
     ModelCall,
+    User,
+    UserRole,
 )
 from invoiceguard_api.parsing import (
     NoEmbeddedXml,
@@ -97,16 +101,33 @@ IN_REVIEW = frozenset(
         InvoiceStatus.BLOCKED,
         InvoiceStatus.FAILED,
         InvoiceStatus.AWAITING_EXTRACTION,
+        InvoiceStatus.OVERRIDE_REQUESTED,
     }
 )
 
 Start = Literal["read", "extract", "review"]
+Action = Literal["approve", "reject", "request_override", "confirm_override", "decline_override"]
+# The status each decision writes; reject is allowed in every review status.
+NEW_STATUS: dict[Action, InvoiceStatus] = {
+    "approve": InvoiceStatus.APPROVED,
+    "reject": InvoiceStatus.REJECTED,
+    "request_override": InvoiceStatus.OVERRIDE_REQUESTED,
+    "confirm_override": InvoiceStatus.APPROVED,
+    "decline_override": InvoiceStatus.BLOCKED,
+}
+AUDIT_ACTION: dict[Action, str] = {
+    "approve": "invoice.approved",
+    "reject": "invoice.rejected",
+    "request_override": "invoice.override_requested",
+    "confirm_override": "invoice.override_confirmed",
+    "decline_override": "invoice.override_declined",
+}
 
 
 class Decision(TypedDict):
     """A reviewer's decision, the value that resumes a thread paused at review."""
 
-    action: Literal["approve", "reject"]
+    action: Action
     user_id: str
     actor: str
     # The status the reviewer decided on; decide refuses to write if it has changed since.
@@ -153,6 +174,11 @@ class Services:
 
 class StaleDecision(Exception):
     """The invoice is no longer in the status the reviewer decided on; nothing was written."""
+
+
+class ForbiddenDecision(Exception):
+    """The user may not make this decision (not an approver, or their own override request);
+    nothing was written. The endpoints check this first; decide checks it again."""
 
 
 # --- Status and audit writes -------------------------------------------------------------------
@@ -217,6 +243,20 @@ def _fail_internal(session: Session, invoice: Invoice, step: str) -> None:
 def _status(session_factory: sessionmaker[Session], invoice_id: uuid.UUID) -> InvoiceStatus | None:
     with session_factory() as session:
         return session.scalar(select(Invoice.status).where(Invoice.id == invoice_id))
+
+
+def override_requester(session: Session, invoice_id: uuid.UUID) -> uuid.UUID | None:
+    """The user who made the invoice's latest override request, from the audit log."""
+    return session.scalar(
+        select(AuditEvent.user_id)
+        .where(
+            AuditEvent.entity_type == "invoice",
+            AuditEvent.entity_id == str(invoice_id),
+            AuditEvent.action == AUDIT_ACTION["request_override"],
+        )
+        .order_by(AuditEvent.id.desc())
+        .limit(1)
+    )
 
 
 def failed_checks(session: Session, invoice_id: uuid.UUID) -> list[str]:
@@ -427,37 +467,35 @@ def _review_node(state: RunState) -> RunState:
     return {"decision": decision}
 
 
-def _decision_events(session: Session, invoice: Invoice, decision: Decision) -> list[AuditEvent]:
-    new_status = (
-        InvoiceStatus.APPROVED if decision["action"] == "approve" else InvoiceStatus.REJECTED
+def _check_override_decider(session: Session, invoice: Invoice, decision: Decision) -> None:
+    """Four eyes (ADR-016): only an approver, and never the requester, decides an override."""
+    user = session.get(User, uuid.UUID(decision["user_id"]))
+    if user is None or user.role is not UserRole.APPROVER:
+        raise ForbiddenDecision(f"{decision['actor']} is not an approver")
+    if override_requester(session, invoice.id) == user.id:
+        raise ForbiddenDecision(f"{decision['actor']} requested this override")
+
+
+def _decision_event(session: Session, invoice: Invoice, decision: Decision) -> AuditEvent:
+    action = decision["action"]
+    details: dict[str, Any] = {}
+    if action in ("request_override", "confirm_override", "decline_override"):
+        details["failed_checks"] = failed_checks(session, invoice.id)
+    return AuditEvent(
+        actor=decision["actor"],
+        user_id=uuid.UUID(decision["user_id"]),
+        action=AUDIT_ACTION[action],
+        entity_type="invoice",
+        entity_id=str(invoice.id),
+        status_before=invoice.status.value,
+        status_after=NEW_STATUS[action].value,
+        reason=decision["reason"],
+        details=details,
     )
-
-    def event(action: str, **details: Any) -> AuditEvent:
-        return AuditEvent(
-            actor=decision["actor"],
-            user_id=uuid.UUID(decision["user_id"]),
-            action=action,
-            entity_type="invoice",
-            entity_id=str(invoice.id),
-            status_before=invoice.status.value,
-            status_after=new_status.value,
-            reason=decision["reason"],
-            details=details,
-        )
-
-    if decision["action"] == "reject":
-        return [event("invoice.rejected")]
-    if invoice.status is InvoiceStatus.BLOCKED:
-        # The override first, then the approval it allowed; the identity id keeps this order.
-        return [
-            event("invoice.override", failed_checks=failed_checks(session, invoice.id)),
-            event("invoice.approved"),
-        ]
-    return [event("invoice.approved")]
 
 
 def _decide_node(state: RunState, runtime: Runtime[Services]) -> RunState:
-    """The only place that writes `approved` or `rejected`: status and audit rows, one commit."""
+    """The only place that writes a decision: the status and one audit row, one commit."""
     decision = state["decision"]
     with runtime.context.session_factory() as session:
         invoice = session.get(
@@ -467,14 +505,20 @@ def _decide_node(state: RunState, runtime: Runtime[Services]) -> RunState:
             raise StaleDecision(
                 f"Invoice {state['invoice_id']} is no longer {decision['status_before']}"
             )
-        session.add_all(_decision_events(session, invoice, decision))
-        invoice.status = (
-            InvoiceStatus.APPROVED if decision["action"] == "approve" else InvoiceStatus.REJECTED
-        )
+        if decision["action"] in ("confirm_override", "decline_override"):
+            _check_override_decider(session, invoice, decision)
+        session.add(_decision_event(session, invoice, decision))
+        invoice.status = NEW_STATUS[decision["action"]]
         invoice.status_reason = decision["reason"]
         session.commit()
         logger.info("Invoice %s is %s by %s", invoice.id, invoice.status.value, decision["actor"])
     return {}
+
+
+def _after_decide(state: RunState) -> str:
+    # A decision that leaves the invoice in review (an override request waiting for the
+    # approver, a declined override back in `blocked`) pauses the thread at review again.
+    return "review" if NEW_STATUS[state["decision"]["action"]] in IN_REVIEW else END
 
 
 def _start(state: RunState) -> Start:
@@ -497,7 +541,7 @@ def _build_graph() -> StateGraph[RunState, Services, RunState, RunState]:
     graph.add_conditional_edges("extract", _after_reading, ["checks", "review"])
     graph.add_edge("checks", "review")
     graph.add_edge("review", "decide")
-    graph.add_edge("decide", END)
+    graph.add_conditional_edges("decide", _after_decide, ["review", END])
     return graph
 
 

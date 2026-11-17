@@ -14,7 +14,7 @@ from conftest import REVIEWER_EMAIL, REVIEWER_PASSWORD
 from invoiceguard_api import seed_user
 from invoiceguard_api.auth import SESSION_COOKIE, token_hash
 from invoiceguard_api.main import create_app
-from invoiceguard_api.models import AuditEvent, User, UserSession
+from invoiceguard_api.models import AuditEvent, User, UserRole, UserSession
 from invoiceguard_api.settings import Settings, get_settings
 
 SOME_ID = uuid.uuid4()
@@ -26,6 +26,9 @@ PROTECTED = [
     ("GET", f"/invoices/{SOME_ID}/audit"),
     ("POST", f"/invoices/{SOME_ID}/approve"),
     ("POST", f"/invoices/{SOME_ID}/reject"),
+    ("POST", f"/invoices/{SOME_ID}/override"),
+    ("POST", f"/invoices/{SOME_ID}/override/confirm"),
+    ("POST", f"/invoices/{SOME_ID}/override/decline"),
     ("GET", "/auth/me"),
 ]
 MAX_FAILURES = 5
@@ -81,6 +84,7 @@ def test_login_sets_an_httponly_session_cookie(
         "id": str(reviewer.id),
         "email": REVIEWER_EMAIL,
         "display_name": "Anna Becker",
+        "role": "reviewer",
     }
     cookie = response.headers["set-cookie"]
     assert cookie.startswith(f"{SESSION_COOKIE}=")
@@ -261,6 +265,113 @@ def test_upsert_user_creates_then_resets_a_user(db_session: Session, engine: Eng
     assert updated.password_hash.startswith("$argon2id$")
     actions = [event.action for event in db_session.scalars(select(AuditEvent))]
     assert actions == ["user.created", "user.updated"]
+
+
+# Made up for the tests only.
+SEED_PASSWORD = "a-long-demo-password"  # pragma: allowlist secret
+APPROVER_PASSWORD = "another-long-password"  # pragma: allowlist secret
+
+
+@pytest.fixture(autouse=True)
+def no_seed_env_from_the_shell(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`make test` exports the developer's seed variables; these tests set their own."""
+    for name in ("ROLE", "NAME"):
+        monkeypatch.delenv(f"INVOICEGUARD_SEED_USER_{name}", raising=False)
+    for name in ("EMAIL", "PASSWORD", "NAME"):
+        monkeypatch.delenv(f"INVOICEGUARD_SEED_APPROVER_{name}", raising=False)
+
+
+def run_seed_user(monkeypatch: pytest.MonkeyPatch, database_url: str, **env: str) -> None:
+    monkeypatch.setenv("INVOICEGUARD_DATABASE_URL", database_url)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    get_settings.cache_clear()
+    try:
+        seed_user.main()
+    finally:
+        get_settings.cache_clear()
+
+
+def test_seed_user_sets_the_role(engine: Engine, db_session: Session) -> None:
+    user = seed_user.upsert_user(
+        db_session, "erik@example.com", "Erik", SEED_PASSWORD, UserRole.APPROVER
+    )
+    db_session.commit()
+
+    assert user.role is UserRole.APPROVER
+    event = db_session.scalars(select(AuditEvent)).one()
+    assert event.details == {"email": "erik@example.com", "role": "approver"}
+
+    again = seed_user.upsert_user(db_session, "erik@example.com", "Erik", SEED_PASSWORD)
+    assert again.role is UserRole.REVIEWER
+
+
+def test_seed_user_seeds_a_reviewer_and_an_approver(
+    anon_client: TestClient, monkeypatch: pytest.MonkeyPatch, database_url: str
+) -> None:
+    run_seed_user(
+        monkeypatch,
+        database_url,
+        INVOICEGUARD_SEED_USER_EMAIL="rita@example.com",
+        INVOICEGUARD_SEED_USER_PASSWORD=SEED_PASSWORD,
+        INVOICEGUARD_SEED_APPROVER_EMAIL="paul@example.com",
+        INVOICEGUARD_SEED_APPROVER_PASSWORD=APPROVER_PASSWORD,
+    )
+
+    reviewer = login(anon_client, "rita@example.com", SEED_PASSWORD).json()
+    approver = login(anon_client, "paul@example.com", APPROVER_PASSWORD).json()
+    assert (reviewer["role"], reviewer["display_name"]) == ("reviewer", "Demo Reviewer")
+    assert (approver["role"], approver["display_name"]) == ("approver", "Demo Approver")
+
+
+def test_seed_user_role_comes_from_the_environment(
+    anon_client: TestClient, monkeypatch: pytest.MonkeyPatch, database_url: str
+) -> None:
+    run_seed_user(
+        monkeypatch,
+        database_url,
+        INVOICEGUARD_SEED_USER_EMAIL="sven@example.com",
+        INVOICEGUARD_SEED_USER_PASSWORD=SEED_PASSWORD,
+        INVOICEGUARD_SEED_USER_ROLE="approver",
+    )
+
+    response = login(anon_client, "sven@example.com", SEED_PASSWORD)
+    assert response.json()["role"] == "approver"
+
+
+@pytest.mark.parametrize(
+    ("env", "expected"),
+    [
+        ({"INVOICEGUARD_SEED_USER_ROLE": "admin"}, "INVOICEGUARD_SEED_USER_ROLE"),
+        ({"INVOICEGUARD_SEED_APPROVER_EMAIL": "paul@example.com"}, "APPROVER_PASSWORD"),
+        (
+            {
+                "INVOICEGUARD_SEED_APPROVER_EMAIL": "Rita@Example.com",
+                "INVOICEGUARD_SEED_APPROVER_PASSWORD": APPROVER_PASSWORD,
+            },
+            "must differ",
+        ),
+    ],
+)
+def test_seed_user_refuses_a_bad_role_or_approver(
+    monkeypatch: pytest.MonkeyPatch,
+    database_url: str,
+    tmp_path: Path,
+    env: dict[str, str],
+    expected: str,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(SystemExit) as exit_info:
+        run_seed_user(
+            monkeypatch,
+            database_url,
+            INVOICEGUARD_SEED_USER_EMAIL="rita@example.com",
+            INVOICEGUARD_SEED_USER_PASSWORD=SEED_PASSWORD,
+            **env,
+        )
+
+    assert expected in str(exit_info.value)
+    assert APPROVER_PASSWORD not in str(exit_info.value)
 
 
 def test_seeded_user_can_log_in(

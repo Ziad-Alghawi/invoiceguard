@@ -9,7 +9,9 @@ async function CurrentUser() {
   const user = await apiGet<User>("/auth/me");
   return (
     <form action={logout} className="flex items-center gap-3 text-sm">
-      <span className="text-muted-foreground">{user.display_name}</span>
+      <span className="text-muted-foreground">
+        {user.display_name} · {user.role}
+      </span>
       <button type="submit" className="underline underline-offset-4">
         Log out
       </button>

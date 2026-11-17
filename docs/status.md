@@ -1,7 +1,7 @@
 # Status
 
 **Current milestone:** R2 — Agent, MCP servers, approval gate
-**Last updated:** 2026-11-16
+**Last updated:** 2026-11-17
 
 ## Done
 - R0 — Foundation (complete)
@@ -83,21 +83,35 @@
     reset deletes the threads. `langgraph` 1.2.20, `langgraph-checkpoint-postgres` 3.2.0. No behaviour change: all
     existing API tests and the Playwright test pass unedited; new tests for restart during review, two simultaneous
     approvals, a failed and retried resume, a run without resume, and the graph's edges
+  - Four-eyes override (R2-3, ADR-016 updated): `users.role` (`reviewer` / `approver`, existing users became reviewers)
+    and the status `override_requested` (migration 0008). A blocked invoice is approved only in two steps by two
+    people: any user requests an override with a reason (`POST /invoices/{id}/override`), then a different user
+    with the approver role confirms (`approved`) or declines (`blocked`) it with a reason (`/override/confirm`,
+    `/override/decline`); reviewers and the requester get `403`. `/approve` takes `ready` invoices only and refuses
+    the R1 `override_reason` field. Each step resumes the paused thread under the advisory lock; `decide` writes
+    the status and one audit row (`invoice.override_requested` / `_confirmed` / `_declined`) in one transaction,
+    checks role and requester again (requester from the audit log), and routes back to `review` while the invoice
+    stays in review. `make seed-user` seeds a reviewer and an approver (`INVOICEGUARD_SEED_USER_ROLE`,
+    `INVOICEGUARD_SEED_APPROVER_*`); the demo login page shows both. Web: request, confirm and decline in the
+    decision panel, the role in the header, an "Override requested" queue tab. Tests for 403s, one audit row per
+    step, two approvers at once (one decision), a restart during `override_requested`, a lost pause restored by
+    startup; new Playwright test for the whole flow (the E2E files now run one at a time)
+  - `make deploy`: pulls and runs `make prod-up` on the demo server over SSH (`DEPLOY_HOST` in the local `.env`)
 
 ## Open decisions
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
 - R2 (planned 2026-11-16, ADR-015, ADR-016), one PR each:
-  - R2-3 Four-eyes override: roles `reviewer` / `approver`, status `override_requested`
   - R2-4 Security events and a heuristic prompt-injection scan
   - R2-5 Read-only MCP servers `mcp-erp` and `mcp-registry`, one database role each
   - R2-6 Exception agent with a German supplier email draft and a per-invoice cost cap; saved result on the demo
   - R2-7 Web upload page (demo: XML and sample picker only) and reopening rejected invoices
 
 ## Known limitations
-- Review (ADR-012): one reviewer role, the override of a blocked invoice is the same reviewer's written reason (no
-  second person yet, R2-3); decisions are final.
+- Review (ADR-016): decisions are final until reopening (R2-7). On the public demo one visitor can use both the
+  reviewer and the approver account, so four eyes there shows the mechanism, not real separation of duties.
+  Roles are set by `make seed-user`; there is no user administration.
 - Graph (ADR-015): startup reads the thread of every invoice waiting for review (one query each); each graph run
   opens its own database connection for the checkpointer; a decision waits while a run (an LLM extraction) holds
   the invoice's lock.
@@ -157,5 +171,9 @@
   for the checkpointer kept the application schema exact and makes its data easy to find, back up or drop.
 - A resume is only a resume while the thread is paused: after a failed step the thread is past the pause, and
   `Command(resume=...)` silently does nothing. Check the pause before resuming.
+- A paused workflow must pause again after every decision that leaves the item in review (a declined override
+  is `blocked` again): a status the UI can act on needs a thread waiting for it.
+- Playwright runs spec files in parallel workers by default; end-to-end tests that share one stack and a global
+  action (the DATEV export takes every approved invoice) need `workers: 1`.
 - End-to-end tests against a long-lived stack must set their own preconditions: the first local E2E run exported
   2018 sample invoices, because a DATEV file holds one fiscal year and the oldest goes first.

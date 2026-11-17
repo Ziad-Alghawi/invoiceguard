@@ -51,9 +51,20 @@ class InvoiceStatus(enum.StrEnum):
     READY = "ready"
     BLOCKED = "blocked"
     FAILED = "failed"
+    # A reviewer asked to approve a blocked invoice; a different user with the approver role
+    # confirms (approved) or declines (back to blocked) it (ADR-016).
+    OVERRIDE_REQUESTED = "override_requested"
     # Set only by a logged-in reviewer (ADR-012); final.
     APPROVED = "approved"
     REJECTED = "rejected"
+
+
+class UserRole(enum.StrEnum):
+    """What a user may decide (ADR-016); an approver can do everything a reviewer can."""
+
+    REVIEWER = "reviewer"
+    # Also confirms or declines the override of a blocked invoice that someone else requested.
+    APPROVER = "approver"
 
 
 class SourceType(enum.StrEnum):
@@ -249,7 +260,7 @@ class Check(Base):
 
 
 class User(Base):
-    """A seeded reviewer (ADR-006); there is no sign-up."""
+    """A seeded user (ADR-006); there is no sign-up."""
 
     __tablename__ = "users"
 
@@ -259,6 +270,9 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(255))
     # Argon2id hash in PHC string format, never the password.
     password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[UserRole] = mapped_column(
+        _str_enum(UserRole, "user_role"), default=UserRole.REVIEWER
+    )
     # Failed logins in a row; reset by a successful login or when a lockout starts (ADR-011).
     failed_logins: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

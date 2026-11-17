@@ -2,55 +2,111 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ActionState } from "@/app/actions";
-import { DecisionPanel } from "@/components/decision-panel";
+import {
+  DecisionPanel,
+  type OverrideRequest,
+} from "@/components/decision-panel";
+import type { InvoiceStatus } from "@/lib/invoices";
 
 afterEach(cleanup);
 
 type Action = (state: ActionState, formData: FormData) => Promise<ActionState>;
 
 function actions() {
+  const done = { error: null };
   return {
-    approve: vi.fn<Action>().mockResolvedValue({ error: null }),
-    reject: vi.fn<Action>().mockResolvedValue({ error: null }),
+    approve: vi.fn<() => Promise<ActionState>>().mockResolvedValue(done),
+    reject: vi.fn<Action>().mockResolvedValue(done),
+    requestOverride: vi.fn<Action>().mockResolvedValue(done),
+    confirmOverride: vi.fn<Action>().mockResolvedValue(done),
+    declineOverride: vi.fn<Action>().mockResolvedValue(done),
   };
+}
+
+const NO_REQUEST: OverrideRequest = { requestedBy: null, blocker: null };
+const OWN_REQUEST =
+  "You requested it, so a different approver has to decide it.";
+
+function panel(
+  status: InvoiceStatus,
+  override: OverrideRequest = NO_REQUEST,
+  calls = actions(),
+) {
+  return render(
+    <DecisionPanel
+      status={status}
+      failedChecks={status === "ready" ? [] : ["iban"]}
+      override={override}
+      actions={calls}
+    />,
+  );
 }
 
 describe("DecisionPanel", () => {
   it("offers a plain approve for a ready invoice", () => {
-    render(<DecisionPanel status="ready" failedChecks={[]} {...actions()} />);
+    panel("ready");
 
     expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
     expect(screen.queryByLabelText("Override reason")).toBeNull();
     expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
   });
 
-  it("asks for an override reason and confirmation on a blocked invoice", () => {
-    render(
-      <DecisionPanel status="blocked" failedChecks={["iban"]} {...actions()} />,
-    );
+  it("offers an override request, not an approval, on a blocked invoice", () => {
+    panel("blocked");
 
     expect(screen.getByText(/Blocked by failed checks: iban\./)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
     const reason =
       screen.getByLabelText<HTMLTextAreaElement>("Override reason");
     expect(reason.required).toBe(true);
-    const confirm = screen.getByRole<HTMLInputElement>("checkbox");
-    expect(confirm.required).toBe(true);
+    expect(screen.getByRole<HTMLInputElement>("checkbox").required).toBe(true);
     expect(
-      screen.getByRole("button", { name: "Approve with override" }),
+      screen.getByRole("button", { name: "Request override" }),
     ).toBeTruthy();
   });
 
-  it("sends the reject reason and shows the API's refusal", async () => {
-    const { approve, reject } = actions();
-    reject.mockResolvedValue({ error: "The invoice is approved; ..." });
-    render(
-      <DecisionPanel
-        status="ready"
-        failedChecks={[]}
-        approve={approve}
-        reject={reject}
-      />,
+  it("lets an approver confirm or decline someone else's request", async () => {
+    const calls = actions();
+    panel(
+      "override_requested",
+      { requestedBy: "anna@example.com", blocker: null },
+      calls,
     );
+
+    expect(
+      screen.getByText(/Override requested by anna@example\.com/),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Decline override" }),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Approver reason"), {
+      target: { value: "Call notes checked." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm override" }));
+
+    await vi.waitFor(() =>
+      expect(calls.confirmOverride).toHaveBeenCalledOnce(),
+    );
+    const formData = calls.confirmOverride.mock.calls[0][1];
+    expect(formData.get("approver_reason")).toBe("Call notes checked.");
+    expect(calls.declineOverride).not.toHaveBeenCalled();
+  });
+
+  it("tells the requester or a reviewer why they cannot decide it", () => {
+    panel("override_requested", {
+      requestedBy: "anna@example.com",
+      blocker: OWN_REQUEST,
+    });
+
+    expect(screen.getByText(OWN_REQUEST)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /override/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
+  });
+
+  it("sends the reject reason and shows the API's refusal", async () => {
+    const calls = actions();
+    calls.reject.mockResolvedValue({ error: "The invoice is approved; ..." });
+    panel("ready", NO_REQUEST, calls);
 
     fireEvent.change(screen.getByLabelText("Reject reason"), {
       target: { value: "Duplicate of 2026-IT-0814" },
@@ -60,21 +116,25 @@ describe("DecisionPanel", () => {
     expect((await screen.findByRole("alert")).textContent).toBe(
       "The invoice is approved; ...",
     );
-    expect(reject).toHaveBeenCalledOnce();
-    const formData = reject.mock.calls[0][1];
-    expect(formData.get("reason")).toBe("Duplicate of 2026-IT-0814");
-    expect(approve).not.toHaveBeenCalled();
+    expect(calls.reject).toHaveBeenCalledOnce();
+    expect(calls.reject.mock.calls[0][1].get("reason")).toBe(
+      "Duplicate of 2026-IT-0814",
+    );
+    expect(calls.approve).not.toHaveBeenCalled();
   });
 
   it("offers only reject for a failed invoice and nothing after a decision", () => {
-    const { rerender } = render(
-      <DecisionPanel status="failed" failedChecks={[]} {...actions()} />,
-    );
+    const { rerender } = panel("failed");
     expect(screen.queryByRole("button", { name: /Approve/ })).toBeNull();
     expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
 
     rerender(
-      <DecisionPanel status="approved" failedChecks={[]} {...actions()} />,
+      <DecisionPanel
+        status="approved"
+        failedChecks={[]}
+        override={NO_REQUEST}
+        actions={actions()}
+      />,
     );
     expect(screen.queryByRole("button")).toBeNull();
     expect(

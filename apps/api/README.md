@@ -24,14 +24,17 @@ Everything except `/health`, `/ready` and `/auth/login` needs a login (`401` wit
 | `GET /ready` | Readiness: the database answers (`503` with `{"status": "unavailable"}` if not). |
 | `POST /auth/login` | JSON `{"email", "password"}`. Sets the session cookie `invoiceguard_session` and returns the user; `401` for wrong credentials, `429` with `Retry-After` while the account is locked. |
 | `POST /auth/logout` | Ends the session on the server and clears the cookie (`204`). |
-| `GET /auth/me` | The logged-in user. |
 | `POST /invoices` | Multipart upload (`file`) of an XRechnung/ZUGFeRD XML or PDF. Stores the file, creates the invoice with status `received`, writes an audit event (actor: the user), schedules processing and returns `202` with a `Location` header. |
 | `GET /invoices` | Invoices, newest first (`limit` 1-200, default 50; `offset`; repeat `status` to filter, for example `?status=ready&status=blocked`). The `X-Total-Count` header holds the number of matches. |
 | `GET /invoices/{id}` | One invoice with its `status`, `status_reason`, `fields` (code, name, line, value, source, confidence, `low_confidence`, evidence), `checks` (type, status, message, evidence; worst first), `file_url`, and `llm_calls` / `llm_cost_usd` (LLM calls for this invoice and their cost in USD), or `404`. Poll this after an upload while the status is `received` or `processing`, and also `awaiting_extraction` when LLM extraction is configured (then it is only a step before extraction). |
 | `GET /invoices/{id}/file` | The uploaded file as a download (`Content-Disposition: attachment`, `nosniff`). |
-| `POST /invoices/{id}/approve` | JSON `{"override_reason": null}`. Approves a `ready` invoice; a `blocked` one only with a non-empty `override_reason`. Otherwise `409`. |
-| `POST /invoices/{id}/reject` | JSON `{"reason": "..."}` (required, not blank). Rejects a `ready`, `blocked`, `failed` or `awaiting_extraction` invoice; otherwise `409`. |
-| `GET /invoices/{id}/audit` | The invoice's audit history, oldest first: upload, status changes, override, decision (who, when, status before and after, reason). |
+| `GET /auth/me` | The logged-in user with their `role` (`reviewer` or `approver`). |
+| `POST /invoices/{id}/approve` | JSON `{}`. Approves a `ready` invoice; anything else `409` (a `blocked` one needs the override below). Other fields: `422`. |
+| `POST /invoices/{id}/reject` | JSON `{"reason": "..."}` (required, not blank). Rejects a `ready`, `blocked`, `failed`, `awaiting_extraction` or `override_requested` invoice; otherwise `409`. |
+| `POST /invoices/{id}/override` | JSON `{"reason": "..."}`. Any user requests the override of a `blocked` invoice: `override_requested`. Otherwise `409`. |
+| `POST /invoices/{id}/override/confirm` | JSON `{"reason": "..."}`. An approver who did not request it confirms: `approved`. `403` for a reviewer or the requester, `409` unless `override_requested`. |
+| `POST /invoices/{id}/override/decline` | JSON `{"reason": "..."}`. Same rules; the invoice is `blocked` again. |
+| `GET /invoices/{id}/audit` | The invoice's audit history, oldest first: upload, status changes, override steps, decision (who, when, status before and after, reason). |
 
 Upload rules:
 
@@ -47,19 +50,23 @@ Upload rules:
 Seeded users only, no sign-up ([ADR-006](../../docs/decisions/ADR-006-demo-auth.md),
 [ADR-011](../../docs/decisions/ADR-011-session-cookie-auth.md)). `invoiceguard-seed-user` (or `make seed-user` from the
 repo root) creates or resets one user from `INVOICEGUARD_SEED_USER_EMAIL`, `INVOICEGUARD_SEED_USER_PASSWORD` (at least 12
-characters) and `INVOICEGUARD_SEED_USER_NAME`; run it once per user. Passwords are stored as Argon2id hashes.
+characters), `INVOICEGUARD_SEED_USER_NAME` and `INVOICEGUARD_SEED_USER_ROLE` (`reviewer`, the default, or `approver`),
+plus an approver from `INVOICEGUARD_SEED_APPROVER_EMAIL`, `_PASSWORD` and `_NAME` when that email is set. Passwords
+are stored as Argon2id hashes.
 
 - Sessions are rows in `sessions` (only the SHA-256 of the cookie token) with a fixed lifetime
   (`INVOICEGUARD_SESSION_TTL_MINUTES`, default 480). The cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` when
   `INVOICEGUARD_ENV=prod`.
 - `INVOICEGUARD_LOGIN_MAX_FAILURES` (default 5) wrong passwords in a row lock the account for
   `INVOICEGUARD_LOGIN_LOCKOUT_MINUTES` (default 15).
-- Decisions follow [ADR-012](../../docs/decisions/ADR-012-review-decisions-in-r1.md): `ready -> approved`,
-  `blocked -> approved` only with an override reason, `ready / blocked / failed / awaiting_extraction -> rejected` with
-  a reason. `approved` and `rejected` are final.
+- Decisions follow [ADR-016](../../docs/decisions/ADR-016-four-eyes-override-and-reopen.md): `ready -> approved`
+  (one person); `blocked -> override_requested` (any user, with a reason), then `-> approved` or `-> blocked` by a
+  different user with the approver role (with a reason); `ready / blocked / failed / awaiting_extraction /
+  override_requested -> rejected` with a reason. `approved` and `rejected` are final.
 - Audit actions: `auth.login`, `auth.logout`, `auth.login_failed` (reason `wrong_password`, `unknown_email` or
   `locked`), `auth.locked`, `user.created`, `user.updated`, `invoice.received`, `invoice.status_changed`,
-  `invoice.override`, `invoice.approved`, `invoice.rejected`.
+  `invoice.override_requested`, `invoice.override_confirmed`, `invoice.override_declined`, `invoice.approved`,
+  `invoice.rejected` (`invoice.override` in rows from before R2-3).
 
 ## Processing
 After the upload, a background task ([processing.py](src/invoiceguard_api/processing.py), ADR-007) runs the

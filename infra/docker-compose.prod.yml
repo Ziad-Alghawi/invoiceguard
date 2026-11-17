@@ -45,10 +45,12 @@ services:
     logging: *logging
     ports: !reset []
     environment:
-      # The shared demo account, shown on the login page (ADR-006); the same values that
-      # `make demo-reset` seeds.
+      # The shared demo accounts, shown on the login page (ADR-006, ADR-016); the same values that
+      # `make demo-reset` seeds. The approver is optional: without it, overrides cannot be confirmed.
       DEMO_LOGIN_EMAIL: ${INVOICEGUARD_SEED_USER_EMAIL:?set INVOICEGUARD_SEED_USER_EMAIL in .env}
       DEMO_LOGIN_PASSWORD: ${INVOICEGUARD_SEED_USER_PASSWORD:?set INVOICEGUARD_SEED_USER_PASSWORD in .env}
+      DEMO_APPROVER_EMAIL: ${INVOICEGUARD_SEED_APPROVER_EMAIL:-}
+      DEMO_APPROVER_PASSWORD: ${INVOICEGUARD_SEED_APPROVER_PASSWORD:-}
     networks:
       default:
       edge:

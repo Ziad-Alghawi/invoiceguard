@@ -7,6 +7,7 @@ export type InvoiceStatus =
   | "ready"
   | "blocked"
   | "failed"
+  | "override_requested"
   | "approved"
   | "rejected";
 
@@ -62,12 +63,23 @@ export type AuditEvent = {
   details: Record<string, unknown>;
 };
 
-export type User = { id: string; email: string; display_name: string };
+export type Role = "reviewer" | "approver";
+
+export type User = {
+  id: string;
+  email: string;
+  display_name: string;
+  role: Role;
+};
 
 /** The queue tabs: each is one or more statuses passed to `GET /invoices?status=`. */
 export const QUEUE_FILTERS = {
-  review: { label: "To review", statuses: ["ready", "blocked"] },
+  review: {
+    label: "To review",
+    statuses: ["ready", "blocked", "override_requested"],
+  },
   blocked: { label: "Blocked", statuses: ["blocked"] },
+  override: { label: "Override requested", statuses: ["override_requested"] },
   approved: { label: "Approved", statuses: ["approved"] },
   rejected: { label: "Rejected", statuses: ["rejected"] },
   other: {
@@ -86,9 +98,14 @@ export function isQueueFilter(value: unknown): value is QueueFilter {
   return typeof value === "string" && Object.hasOwn(QUEUE_FILTERS, value);
 }
 
-/** Statuses a reviewer can decide on, as the API enforces them. */
+/** Decisions a user can make, as the API enforces them (ADR-016). */
 export function canApprove(status: InvoiceStatus): boolean {
-  return status === "ready" || status === "blocked";
+  return status === "ready";
+}
+
+/** A blocked invoice is approved only through a four-eyes override. */
+export function canRequestOverride(status: InvoiceStatus): boolean {
+  return status === "blocked";
 }
 
 export function canReject(status: InvoiceStatus): boolean {
@@ -96,8 +113,31 @@ export function canReject(status: InvoiceStatus): boolean {
     status === "ready" ||
     status === "blocked" ||
     status === "failed" ||
-    status === "awaiting_extraction"
+    status === "awaiting_extraction" ||
+    status === "override_requested"
   );
+}
+
+/** The email of whoever made the latest override request, from the audit history. */
+export function overrideRequester(history: AuditEvent[]): string | null {
+  const requests = history.filter(
+    (event) => event.action === "invoice.override_requested",
+  );
+  return requests.at(-1)?.actor ?? null;
+}
+
+/** Why the user cannot confirm or decline the override, or null when they can. */
+export function overrideBlocker(
+  user: User,
+  requestedBy: string | null,
+): string | null {
+  if (user.role !== "approver") {
+    return "Only a user with the approver role can confirm or decline it.";
+  }
+  if (requestedBy === user.email) {
+    return "You requested it, so a different approver has to decide it.";
+  }
+  return null;
 }
 
 /** "payee_iban" → "Payee IBAN". */

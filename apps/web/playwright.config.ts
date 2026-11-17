@@ -7,6 +7,9 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "e2e",
   fullyParallel: false,
+  // The spec files share one stack, and the DATEV export takes every approved invoice: an
+  // approval in another file running at the same time would land in this run's export.
+  workers: 1,
   forbidOnly: !!process.env.CI,
   // No retries: a flaky end-to-end test should be seen, not hidden.
   retries: 0,

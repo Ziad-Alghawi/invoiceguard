@@ -88,7 +88,9 @@ def review_events(db_session: Session, invoice_id: str) -> list[AuditEvent]:
             select(AuditEvent)
             .where(
                 AuditEvent.entity_id == invoice_id,
-                AuditEvent.action.in_(["invoice.approved", "invoice.rejected", "invoice.override"]),
+                AuditEvent.action.like("invoice.%"),
+                AuditEvent.user_id.is_not(None),
+                AuditEvent.action != "invoice.received",
             )
             .order_by(AuditEvent.id)
         )
@@ -117,55 +119,25 @@ def test_approve_ready_invoice(
     assert (event.status_before, event.status_after, event.reason) == ("ready", "approved", None)
 
 
-def test_approve_blocked_invoice_without_override_is_refused(
+def test_approving_a_blocked_invoice_needs_the_four_eyes_override(
     client: TestClient, blocked_id: str, db_session: Session
 ) -> None:
     response = client.post(f"/invoices/{blocked_id}/approve", json={})
 
     assert response.status_code == 409
     assert "blocked by failed checks (iban)" in response.json()["detail"]
-    assert "override reason" in response.json()["detail"]
+    assert "request an override" in response.json()["detail"]
     assert status_of(client, blocked_id) == "blocked"
     assert review_events(db_session, blocked_id) == []
 
 
-@pytest.mark.parametrize("reason", ["", "   "])
-def test_blank_override_reason_is_422(client: TestClient, blocked_id: str, reason: str) -> None:
-    response = client.post(f"/invoices/{blocked_id}/approve", json={"override_reason": reason})
+def test_the_old_single_person_override_field_is_refused(
+    client: TestClient, blocked_id: str
+) -> None:
+    response = client.post(f"/invoices/{blocked_id}/approve", json={"override_reason": "Phone."})
 
     assert response.status_code == 422
     assert status_of(client, blocked_id) == "blocked"
-
-
-def test_approve_blocked_invoice_with_override(
-    client: TestClient, blocked_id: str, reviewer: User, db_session: Session
-) -> None:
-    reason = "  IBAN change confirmed by phone with the supplier's accounting (Mr. Kurz).  "
-
-    response = client.post(f"/invoices/{blocked_id}/approve", json={"override_reason": reason})
-
-    assert response.status_code == 200
-    assert response.json()["status"] == "approved"
-    assert response.json()["status_reason"] == reason.strip()
-    override, approved = review_events(db_session, blocked_id)
-    assert override.action == "invoice.override"
-    assert (override.status_before, override.status_after) == ("blocked", "approved")
-    assert override.reason == reason.strip()
-    assert override.details == {"failed_checks": ["iban"]}
-    assert override.user_id == reviewer.id
-    assert approved.action == "invoice.approved"
-    assert (approved.status_before, approved.status_after) == ("blocked", "approved")
-    assert approved.reason == reason.strip()
-
-
-def test_override_on_a_ready_invoice_is_refused(client: TestClient, ready_id: str) -> None:
-    response = client.post(
-        f"/invoices/{ready_id}/approve", json={"override_reason": "just because"}
-    )
-
-    assert response.status_code == 409
-    assert "no failed checks to override" in response.json()["detail"]
-    assert status_of(client, ready_id) == "ready"
 
 
 @pytest.mark.parametrize(
@@ -179,12 +151,12 @@ def test_override_on_a_ready_invoice_is_refused(client: TestClient, ready_id: st
         InvoiceStatus.REJECTED,
     ],
 )
-def test_only_ready_or_blocked_invoices_can_be_approved(
+def test_only_ready_invoices_can_be_approved(
     quiet_client: TestClient, engine: Engine, db_session: Session, status: InvoiceStatus
 ) -> None:
     invoice_id = add_invoice(engine, status)
 
-    response = quiet_client.post(f"/invoices/{invoice_id}/approve", json={"override_reason": "x"})
+    response = quiet_client.post(f"/invoices/{invoice_id}/approve", json={})
 
     assert response.status_code == 409
     assert response.json()["detail"].startswith(f"The invoice is {status.value};")
@@ -258,9 +230,18 @@ def test_reject_is_refused_while_processing_or_after_a_decision(
     assert status_of(quiet_client, invoice_id) == status.value
 
 
-@pytest.mark.parametrize("action", ["approve", "reject"])
-def test_decision_on_unknown_invoice_is_404(client: TestClient, action: str) -> None:
-    response = client.post(f"/invoices/{uuid.uuid4()}/{action}", json={"reason": "x"})
+@pytest.mark.parametrize(
+    ("action", "body"),
+    [
+        ("approve", {}),
+        ("reject", {"reason": "x"}),
+        ("override", {"reason": "x"}),
+    ],
+)
+def test_decision_on_unknown_invoice_is_404(
+    client: TestClient, action: str, body: dict[str, str]
+) -> None:
+    response = client.post(f"/invoices/{uuid.uuid4()}/{action}", json=body)
 
     assert response.status_code == 404
 
@@ -271,7 +252,7 @@ def test_decision_on_unknown_invoice_is_404(client: TestClient, action: str) -> 
 def test_audit_history_shows_upload_processing_and_decision(
     client: TestClient, blocked_id: str
 ) -> None:
-    client.post(f"/invoices/{blocked_id}/approve", json={"override_reason": "Confirmed by phone."})
+    client.post(f"/invoices/{blocked_id}/override", json={"reason": "Confirmed by phone."})
 
     history = client.get(f"/invoices/{blocked_id}/audit").json()
 
@@ -283,8 +264,7 @@ def test_audit_history_shows_upload_processing_and_decision(
         ("invoice.received", REVIEWER_EMAIL, None, None),
         ("invoice.status_changed", "system", "received", "processing"),
         ("invoice.status_changed", "system", "processing", "blocked"),
-        ("invoice.override", REVIEWER_EMAIL, "blocked", "approved"),
-        ("invoice.approved", REVIEWER_EMAIL, "blocked", "approved"),
+        ("invoice.override_requested", REVIEWER_EMAIL, "blocked", "override_requested"),
     ]
     assert history[2]["reason"] == "Failed checks: iban."
     assert history[3]["reason"] == "Confirmed by phone."

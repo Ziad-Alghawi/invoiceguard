@@ -58,15 +58,18 @@ export async function logout(): Promise<void> {
   redirect("/login");
 }
 
+type DecisionPath =
+  "approve" | "reject" | "override" | "override/confirm" | "override/decline";
+
 async function decide(
   invoiceId: string,
-  action: "approve" | "reject",
+  path: DecisionPath,
   body: Record<string, string>,
 ): Promise<ActionState> {
   if (!isInvoiceId(invoiceId)) {
     return { error: "Unknown invoice." };
   }
-  const response = await apiFetch(`/invoices/${invoiceId}/${action}`, {
+  const response = await apiFetch(`/invoices/${invoiceId}/${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -81,18 +84,7 @@ async function decide(
   return { error: null };
 }
 
-export async function approve(
-  invoiceId: string,
-  _previous: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const overrideReason = text(formData, "override_reason");
-  if (formData.has("override_reason")) {
-    if (formData.get("confirm") !== "on") {
-      return { error: "Confirm that you checked the failed checks." };
-    }
-    return decide(invoiceId, "approve", { override_reason: overrideReason });
-  }
+export async function approve(invoiceId: string): Promise<ActionState> {
   return decide(invoiceId, "approve", {});
 }
 
@@ -102,6 +94,42 @@ export async function reject(
   formData: FormData,
 ): Promise<ActionState> {
   return decide(invoiceId, "reject", { reason: text(formData, "reason") });
+}
+
+/** Four eyes (ADR-016), step 1: ask to approve a blocked invoice, with a reason. */
+export async function requestOverride(
+  invoiceId: string,
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (formData.get("confirm") !== "on") {
+    return { error: "Confirm that you checked the failed checks." };
+  }
+  return decide(invoiceId, "override", {
+    reason: text(formData, "override_reason"),
+  });
+}
+
+/** Four eyes, step 2 (approver, not the requester): confirm the override. */
+export async function confirmOverride(
+  invoiceId: string,
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return decide(invoiceId, "override/confirm", {
+    reason: text(formData, "approver_reason"),
+  });
+}
+
+/** Four eyes, step 2 (approver, not the requester): decline it; the invoice is blocked again. */
+export async function declineOverride(
+  invoiceId: string,
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return decide(invoiceId, "override/decline", {
+    reason: text(formData, "approver_reason"),
+  });
 }
 
 type ExportCreated = {

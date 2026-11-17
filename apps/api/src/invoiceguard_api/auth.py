@@ -20,7 +20,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from invoiceguard_api.db import DbSession
-from invoiceguard_api.models import AuditEvent, User, UserSession
+from invoiceguard_api.models import AuditEvent, User, UserRole, UserSession
 from invoiceguard_api.settings import Settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -72,6 +72,7 @@ class UserOut(BaseModel):
     id: uuid.UUID
     email: str
     display_name: str
+    role: UserRole
 
 
 class ErrorOut(BaseModel):
