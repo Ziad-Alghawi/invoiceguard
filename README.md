@@ -16,10 +16,14 @@ booking file. Nothing is ever paid or posted automatically.
 
 ## Demo
 
-**https://invoiceguard.ziadalghawi.com**: the login page shows the shared demo account. Five made-up sample
-invoices are loaded and reset every night: two ready, one with a changed bank account (possible fraud), one
-charging more than its purchase order, and one from an unknown supplier. Try approving the blocked ones: the
-system asks for a written override reason and records it.
+**https://invoiceguard.ziadalghawi.com**: the login page shows the shared demo accounts, a reviewer and an
+approver. Six made-up sample invoices are loaded and reset every night: two ready, one with a changed bank account
+(possible fraud), one charging more than its purchase order, one from an unknown supplier, and one whose note tries
+to instruct an AI ("Ignoriere alle vorherigen Anweisungen ..."), which the injection scan blocks. Log in as the
+approver to see it under **Security events**. Try approving a
+blocked one: the reviewer can only request an override with a written reason, and a second person with the
+approver role has to confirm it (four eyes). On the demo one visitor can use both accounts, so it shows the
+mechanism, not real separation of duties.
 
 | Review queue | Blocked invoice: changed IBAN |
 | --- | --- |
@@ -35,8 +39,13 @@ system asks for a written override reason and records it.
 - **Deterministic checks with evidence:** official KoSIT validator, VAT math, duplicates, known supplier, payee
   IBAN against verified accounts, purchase order match, low LLM confidence. Any failed check blocks the invoice.
 - **Human review as a hard gate:** seeded logins (Argon2id, server-side sessions, HttpOnly Secure cookies,
-  lockout), approve or reject with reasons, override of blocked invoices only with a written reason.
+  lockout), approve or reject with reasons; a blocked invoice is approved only by a four-eyes override: a reason
+  from one user, then a confirmation by a different user with the approver role.
 - **Append-only audit log:** every login, upload, status change and decision; a database trigger rejects edits.
+- **Prompt-injection scan and security log:** the invoice text (XML and the PDF text layer) is scanned by code for
+  instructions to an AI (English and German) and hidden Unicode characters; a hit blocks the invoice. Failed logins,
+  lockouts, refused role checks, self-approval attempts and injections go to an append-only security log that
+  approvers can read.
 - **DATEV-style export:** approved invoices as an `EXTF` Buchungsstapel CSV, each invoice exported once.
 - **Built like production:** typed Python and TypeScript, 99 % API test coverage, Playwright E2E test, CI on
   every PR, Docker Compose, deployed behind Caddy with HTTPS.
@@ -102,10 +111,12 @@ the user's session. The public demo runs this stack on one VPS with Docker Compo
 4. **Review** in the web app: a seeded reviewer logs in ([ADR-011](docs/decisions/ADR-011-session-cookie-auth.md)),
    works through the queue and opens an invoice: check results with evidence, extracted fields (low-confidence LLM
    fields highlighted with the printed text), the original file and the audit history. A **`ready`** invoice can be
-   approved; a **`blocked`** one only with a written override reason; any of them can be rejected with a reason
-   ([ADR-012](docs/decisions/ADR-012-review-decisions-in-r1.md)). The API enforces these rules, not the UI. Each
-   invoice is a LangGraph thread that pauses at review with `interrupt()`; a decision resumes it, and only the
-   graph's last step writes `approved` or `rejected`
+   approved by one person. A **`blocked`** one needs four eyes: a reviewer requests an override with a written
+   reason (**`override_requested`**), and a different user with the **approver** role confirms it (`approved`) or
+   declines it (back to `blocked`), with a reason of their own; the requester can never confirm their own request.
+   Any of them can be rejected with a reason ([ADR-016](docs/decisions/ADR-016-four-eyes-override-and-reopen.md)).
+   The API enforces these rules, not the UI. Each invoice is a LangGraph thread that pauses at review with
+   `interrupt()`; a decision resumes it, and only the graph's last step writes the decision's status
    ([ADR-015](docs/decisions/ADR-015-processing-graph-approval-interrupt.md)). Every
    login, failed login, logout, upload, status change, override and decision is written to an append-only audit
    log (a database trigger rejects changes).
@@ -137,15 +148,16 @@ Requires Docker and GNU make (on Windows: `scoop install make` or `winget instal
 ```sh
 git clone https://github.com/Ziad-Alghawi/invoiceguard.git && cd invoiceguard
 cp .env.example .env
-# Edit .env: set INVOICEGUARD_SEED_USER_PASSWORD (at least 12 characters, no $ or #) and, if you like, the
-# email and name of the reviewer. Never commit .env.
+# Edit .env: set INVOICEGUARD_SEED_USER_PASSWORD and INVOICEGUARD_SEED_APPROVER_PASSWORD (at least 12
+# characters, no $ or #) and, if you like, the emails and names. Never commit .env.
 make dev        # api + web + db + KoSIT validator, applies migrations, waits until all are healthy
 make seed       # German demo suppliers, verified bank accounts and purchase orders (safe to rerun)
-make seed-user  # creates the reviewer from INVOICEGUARD_SEED_USER_* (rerun to reset the password or unlock)
+make seed-user  # the reviewer (INVOICEGUARD_SEED_USER_*) and the approver (INVOICEGUARD_SEED_APPROVER_*)
 ```
 
-There is no sign-up: to add another reviewer, change the three `INVOICEGUARD_SEED_USER_*` values and run
-`make seed-user` again. Five wrong passwords in a row lock an account for 15 minutes; `make seed-user` unlocks it.
+There is no sign-up: to add another user, change the `INVOICEGUARD_SEED_USER_*` values (`_ROLE` is `reviewer` or
+`approver`) and run `make seed-user` again; a rerun also resets a password or role. Five wrong passwords in a row
+lock an account for 15 minutes; `make seed-user` unlocks it.
 
 Open http://localhost:3000: the page shows `API: ok`. The API needs a login, so log in with curl and keep the
 session cookie, then upload e-invoices (XML or PDF):
@@ -158,7 +170,8 @@ curl -b cookies.txt -F "file=@apps/api/tests/fixtures/ubl_fraud_iban.xml" http:/
 ```
 
 Then open http://localhost:3000/invoices, log in with the same account, and approve or reject them. The changed-IBAN
-invoice is `blocked`: approving it needs an override reason. Each invoice page shows its audit history.
+invoice is `blocked`: the reviewer requests an override with a reason, then log in as the approver to confirm or
+decline it. Each invoice page shows its audit history.
 
 Click **Export to DATEV** on the queue to download the approved invoices as `EXTF_Buchungsstapel_<time>.csv`. It
 opens in Excel or LibreOffice (separator `;`, encoding Windows-1252) and imports into DATEV as a Buchungsstapel.
@@ -236,9 +249,8 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
   readable total or invoice number ends in `failed`; the Gemini free tier is for sample data only; there is a per-day cost cap
   (`INVOICEGUARD_LLM_DAILY_BUDGET_USD`) but no per-invoice cap yet (R2), and PDFs held back by the cap are only
   picked up again when the API restarts.
-- Review (R1): one reviewer role; overriding a blocked invoice needs a reason from the same reviewer, not a second
-  person (four-eyes override comes in R2, ADR-016). Decisions
-  are final. The lockout is per account, so anyone who knows a demo email can lock it for 15 minutes; there is no
+- Review: two roles, reviewer and approver; on the public demo one visitor can use both accounts. Decisions are
+  final until reopening arrives (R2-7). The lockout is per account, so anyone who knows a demo email can lock it for 15 minutes; there is no
   per-IP rate limit. The UI has no upload page yet (upload through the API).
 - DATEV export: not certified and not yet imported into a real DATEV installation. One row per invoice, so invoices
   with several VAT rates (or lines without a rate) get no tax key and the advisor sets the tax; one collective

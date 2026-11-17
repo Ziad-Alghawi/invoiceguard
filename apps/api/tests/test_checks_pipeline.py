@@ -67,6 +67,7 @@ def test_clean_invoice_ends_ready(upload: Upload, samples: dict[str, bytes]) -> 
         "supplier_known": "passed",
         "iban": "passed",
         "po_match": "passed",
+        "prompt_injection": "passed",
     }
     # Worst first, so the reviewer sees problems at the top.
     assert detail["checks"][0]["type"] == "kosit"
@@ -97,7 +98,7 @@ def test_changed_iban_ends_blocked_with_evidence(
     assert event is not None
     assert (event.status_after, event.reason) == ("blocked", "Failed checks: iban.")
     assert event.details["checks"] == {
-        "passed": 4,
+        "passed": 5,
         "warning": 0,
         "failed": 1,
         "skipped": 1,
@@ -143,6 +144,7 @@ def test_unseeded_database_warns_but_does_not_block(
         "supplier_known": "warning",
         "iban": "warning",
         "po_match": "warning",
+        "prompt_injection": "passed",
     }
 
 

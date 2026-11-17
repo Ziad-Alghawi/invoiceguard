@@ -20,7 +20,16 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from invoiceguard_api.db import DbSession
-from invoiceguard_api.models import AuditEvent, User, UserSession
+from invoiceguard_api.models import (
+    AuditEvent,
+    SecurityEvent,
+    SecuritySeverity,
+    User,
+    UserRole,
+    UserSession,
+)
+from invoiceguard_api.security import ACCOUNT_LOCKED, security_event
+from invoiceguard_api.security import LOGIN_FAILED as LOGIN_FAILED_EVENT
 from invoiceguard_api.settings import Settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -72,6 +81,7 @@ class UserOut(BaseModel):
     id: uuid.UUID
     email: str
     display_name: str
+    role: UserRole
 
 
 class ErrorOut(BaseModel):
@@ -103,18 +113,40 @@ def _settings(request: Request) -> Settings:
     return settings
 
 
+def _login_failed(reason: str, user: User | None = None, **details: Any) -> SecurityEvent:
+    """A failed login for the security log (R2-4), next to its audit event."""
+    return security_event(
+        LOGIN_FAILED_EVENT,
+        SecuritySeverity.LOW,
+        user_id=None if user is None else user.id,
+        reason=reason,
+        **details,
+    )
+
+
 def _failed(session: Session, user: User, now: datetime, settings: Settings) -> None:
     """Count a wrong password; the last allowed one starts a lockout."""
     user.failed_logins += 1
     session.add(_event("auth.login_failed", str(user.id), reason="wrong_password"))
+    session.add(_login_failed("wrong_password", user, failed_logins=user.failed_logins))
     if user.failed_logins >= settings.login_max_failures:
         user.locked_until = now + timedelta(minutes=settings.login_lockout_minutes)
+        reason = f"{user.failed_logins} failed logins in a row"
         session.add(
             _event(
                 "auth.locked",
                 str(user.id),
                 actor=SYSTEM_ACTOR,
-                reason=f"{user.failed_logins} failed logins in a row",
+                reason=reason,
+                locked_until=user.locked_until.isoformat(),
+            )
+        )
+        session.add(
+            security_event(
+                ACCOUNT_LOCKED,
+                SecuritySeverity.MEDIUM,
+                user_id=user.id,
+                reason=reason,
                 locked_until=user.locked_until.isoformat(),
             )
         )
@@ -142,12 +174,14 @@ def login(body: LoginIn, session: DbSession, request: Request, response: Respons
         # Same work as a wrong password, so timing does not reveal which emails exist.
         _verify(_dummy_hash(), password)
         session.add(_event("auth.login_failed", "unknown", reason="unknown_email", email=email))
+        session.add(_login_failed("unknown_email", email=email))
         session.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, LOGIN_FAILED)
 
     if user.locked_until is not None and user.locked_until > now:
         # The password is not checked while locked, so guessing gains nothing.
         session.add(_event("auth.login_failed", str(user.id), reason="locked"))
+        session.add(_login_failed("locked", user))
         session.commit()
         retry_after = max(1, int((user.locked_until - now).total_seconds()))
         raise HTTPException(

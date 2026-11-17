@@ -124,6 +124,9 @@ Edit `.env` (`nano .env`). Never commit it or copy it anywhere else:
 | `INVOICEGUARD_SEED_USER_EMAIL` | `demo@example.com` (shown on the login page) |
 | `INVOICEGUARD_SEED_USER_PASSWORD` | output of `openssl rand -hex 12` (shown on the login page on purpose; random so it is no password used anywhere else) |
 | `INVOICEGUARD_SEED_USER_NAME` | `Demo Reviewer` |
+| `INVOICEGUARD_SEED_APPROVER_EMAIL` | `approver@example.com` (shown on the login page; confirms overrides, ADR-016) |
+| `INVOICEGUARD_SEED_APPROVER_PASSWORD` | output of `openssl rand -hex 12` (shown on the login page, like the reviewer's) |
+| `INVOICEGUARD_SEED_APPROVER_NAME` | `Demo Approver` |
 | `INVOICEGUARD_LLM_API_KEY` | optional: a separate Gemini key with a low quota set in Google AI Studio. Empty: plain PDFs wait |
 | `INVOICEGUARD_LLM_DAILY_BUDGET_USD` | optional; the prod override defaults to `0.50` |
 
@@ -132,10 +135,10 @@ API's database URL from the `POSTGRES_*` values.
 
 ```sh
 make prod-up      # builds the images, starts db, validator, api and web on `edge`, waits until healthy
-make demo-reset   # master data, five sample invoices, the demo login
+make demo-reset   # master data, six sample invoices, the demo logins (reviewer and approver)
 ```
 
-Open https://invoiceguard.ziadalghawi.com: the login page shows the demo account. If the certificate is missing,
+Open https://invoiceguard.ziadalghawi.com: the login page shows the demo accounts. If the certificate is missing,
 look at `cd /opt/edge && docker compose logs caddy` (usually DNS
 not pointing at the server yet, or port 80 closed in the firewall).
 
@@ -147,11 +150,21 @@ not pointing at the server yet, or port 80 closed in the firewall).
 
 ## 6. Update
 
+From your own machine, after the change is merged to `main`:
+
+```sh
+make deploy       # ssh $DEPLOY_HOST "cd /opt/invoiceguard && git pull && make prod-up"
+```
+
+`DEPLOY_HOST` is set in your local `.env` (for example `deploy@<IP>`; it stays empty on the server). Without it,
+`make deploy` stops with a message and does nothing. `make prod-up` rebuilds changed images and recreates changed
+containers; migrations run at api start. The same by hand:
+
 ```sh
 ssh deploy@<IP>
 cd /opt/invoiceguard
 git pull
-make prod-up      # rebuilds changed images, recreates changed containers; migrations run at api start
+make prod-up
 ```
 
 If `infra/edge/sites/invoiceguard.caddy` changed: copy it to `/opt/edge/sites/` and reload Caddy (above).

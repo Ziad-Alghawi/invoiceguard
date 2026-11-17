@@ -3,13 +3,36 @@
 import { useActionState } from "react";
 
 import type { ActionState } from "@/app/actions";
-import { canApprove, canReject, type InvoiceStatus } from "@/lib/invoices";
+import {
+  canApprove,
+  canReject,
+  canRequestOverride,
+  type InvoiceStatus,
+} from "@/lib/invoices";
 
 type Action = (state: ActionState, formData: FormData) => Promise<ActionState>;
+
+export type DecisionActions = {
+  approve: () => Promise<ActionState>;
+  reject: Action;
+  requestOverride: Action;
+  confirmOverride: Action;
+  declineOverride: Action;
+};
+
+export type OverrideRequest = {
+  /** Email of the user who requested it. */
+  requestedBy: string | null;
+  /** Why this user cannot confirm or decline it; null when they can. */
+  blocker: string | null;
+};
 
 const INITIAL: ActionState = { error: null };
 const BUTTON =
   "inline-flex h-9 items-center justify-center rounded-md px-4 text-sm font-medium disabled:opacity-50";
+const PRIMARY = `${BUTTON} bg-primary text-primary-foreground`;
+const DANGER = `${BUTTON} bg-destructive text-white`;
+const OUTLINE = `${BUTTON} border bg-background`;
 const TEXTAREA = "w-full rounded-md border bg-background p-2 text-sm";
 
 function ErrorText({ state }: { state: ActionState }) {
@@ -20,30 +43,60 @@ function ErrorText({ state }: { state: ActionState }) {
   ) : null;
 }
 
+function ReasonField({ label, name }: { label: string; name: string }) {
+  return (
+    <label className="flex flex-col gap-1 text-sm">
+      {label}
+      <textarea
+        name={name}
+        required
+        maxLength={2000}
+        rows={3}
+        className={TEXTAREA}
+      />
+    </label>
+  );
+}
+
 /**
- * Approve and reject forms. A blocked invoice needs an override reason and a confirmation;
- * the API enforces the same rules (ADR-012), this only guides the reviewer.
+ * The decisions the user can make on the invoice. A ready invoice is approved by one person; a
+ * blocked one needs a four-eyes override: a reason from one user, then a confirmation by a
+ * different user with the approver role (ADR-016). The API enforces the same rules; this only
+ * guides the user.
  */
 export function DecisionPanel({
   status,
   failedChecks,
-  approve,
-  reject,
+  override,
+  actions,
 }: {
   status: InvoiceStatus;
   failedChecks: string[];
-  approve: Action;
-  reject: Action;
+  override: OverrideRequest;
+  actions: DecisionActions;
 }) {
   const [approveState, approveAction, approving] = useActionState(
-    approve,
+    actions.approve,
+    INITIAL,
+  );
+  const [requestState, requestAction, requesting] = useActionState(
+    actions.requestOverride,
+    INITIAL,
+  );
+  const [confirmState, confirmAction, confirming] = useActionState(
+    actions.confirmOverride,
+    INITIAL,
+  );
+  const [declineState, declineAction, declining] = useActionState(
+    actions.declineOverride,
     INITIAL,
   );
   const [rejectState, rejectAction, rejecting] = useActionState(
-    reject,
+    actions.reject,
     INITIAL,
   );
-  const busy = approving || rejecting;
+  const busy = approving || requesting || confirming || declining || rejecting;
+  const overrideRequested = status === "override_requested";
 
   if (!canApprove(status) && !canReject(status)) {
     return (
@@ -52,47 +105,74 @@ export function DecisionPanel({
       </p>
     );
   }
-  const blocked = status === "blocked";
 
   return (
     <div className="flex flex-col gap-4">
       {canApprove(status) && (
-        <form
-          action={approveAction}
-          aria-label="Approve"
-          className="flex flex-col gap-2"
-        >
-          {blocked && (
-            <>
-              <p className="text-sm text-destructive">
-                Blocked by failed checks: {failedChecks.join(", ")}. Approving
-                overrides them and needs a reason.
-              </p>
-              <label className="flex flex-col gap-1 text-sm">
-                Override reason
-                <textarea
-                  name="override_reason"
-                  required
-                  maxLength={2000}
-                  rows={3}
-                  className={TEXTAREA}
-                />
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="confirm" required />I checked the
-                failed checks and approve anyway.
-              </label>
-            </>
-          )}
-          <button
-            type="submit"
-            disabled={busy}
-            className={`${BUTTON} ${blocked ? "bg-destructive text-white" : "bg-primary text-primary-foreground"}`}
-          >
-            {blocked ? "Approve with override" : "Approve"}
+        <form action={approveAction} aria-label="Approve">
+          <button type="submit" disabled={busy} className={PRIMARY}>
+            Approve
           </button>
           <ErrorText state={approveState} />
         </form>
+      )}
+      {canRequestOverride(status) && (
+        <form
+          action={requestAction}
+          aria-label="Request override"
+          className="flex flex-col gap-2"
+        >
+          <p className="text-sm text-destructive">
+            Blocked by failed checks: {failedChecks.join(", ")}. Approving it
+            needs an override: your reason, then a confirmation by a second
+            person with the approver role.
+          </p>
+          <ReasonField label="Override reason" name="override_reason" />
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="confirm" required />I checked the
+            failed checks and ask to approve anyway.
+          </label>
+          <button type="submit" disabled={busy} className={DANGER}>
+            Request override
+          </button>
+          <ErrorText state={requestState} />
+        </form>
+      )}
+      {overrideRequested && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm">
+            Override requested by {override.requestedBy ?? "another user"} for
+            the failed checks: {failedChecks.join(", ")}. It waits for a second
+            person with the approver role.
+          </p>
+          {override.blocker === null ? (
+            <form aria-label="Decide override" className="flex flex-col gap-2">
+              <ReasonField label="Approver reason" name="approver_reason" />
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  formAction={confirmAction}
+                  disabled={busy}
+                  className={DANGER}
+                >
+                  Confirm override
+                </button>
+                <button
+                  type="submit"
+                  formAction={declineAction}
+                  disabled={busy}
+                  className={OUTLINE}
+                >
+                  Decline override
+                </button>
+              </div>
+              <ErrorText state={confirmState} />
+              <ErrorText state={declineState} />
+            </form>
+          ) : (
+            <p className="text-sm text-muted-foreground">{override.blocker}</p>
+          )}
+        </div>
       )}
       {canReject(status) && (
         <form
@@ -100,21 +180,8 @@ export function DecisionPanel({
           aria-label="Reject"
           className="flex flex-col gap-2"
         >
-          <label className="flex flex-col gap-1 text-sm">
-            Reject reason
-            <textarea
-              name="reason"
-              required
-              maxLength={2000}
-              rows={3}
-              className={TEXTAREA}
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={busy}
-            className={`${BUTTON} border bg-background`}
-          >
+          <ReasonField label="Reject reason" name="reason" />
+          <button type="submit" disabled={busy} className={OUTLINE}>
             Reject
           </button>
           <ErrorText state={rejectState} />

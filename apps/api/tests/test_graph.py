@@ -219,7 +219,8 @@ def test_a_decision_resumes_the_paused_thread(
     invoice_id = upload(client, finished, samples["ubl_xrechnung"])
     assert paused_for_review(graph, uuid.UUID(invoice_id))
 
-    response = client.post(f"/invoices/{invoice_id}/{action}", json={"reason": "Not ours."})
+    body = {} if action == "approve" else {"reason": "Not ours."}
+    response = client.post(f"/invoices/{invoice_id}/{action}", json=body)
 
     assert response.status_code == 200
     state = graph.get_state(config(invoice_id))
@@ -304,15 +305,15 @@ def test_a_failed_resume_changes_nothing_and_can_be_repeated(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     invoice_id = upload(client, finished, samples["ubl_xrechnung"])
-    events = processing._decision_events
+    events = processing._decision_event
     failures = iter([RuntimeError("database gone")])
 
-    def fail_once(*args: Any) -> list[AuditEvent]:
+    def fail_once(*args: Any) -> AuditEvent:
         if (error := next(failures, None)) is not None:
             raise error
         return events(*args)
 
-    monkeypatch.setattr(processing, "_decision_events", fail_once)
+    monkeypatch.setattr(processing, "_decision_event", fail_once)
 
     with pytest.raises(RuntimeError, match="database gone"):
         client.post(f"/invoices/{invoice_id}/reject", json={"reason": "First try."})

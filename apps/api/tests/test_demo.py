@@ -11,7 +11,14 @@ from sqlalchemy.orm import Session
 from invoiceguard_api import demo
 from invoiceguard_api.checks import KositValidator
 from invoiceguard_api.db import make_session_factory
-from invoiceguard_api.models import AuditEvent, DatevExport, Invoice, Supplier, User
+from invoiceguard_api.models import (
+    AuditEvent,
+    DatevExport,
+    Invoice,
+    SecurityEvent,
+    Supplier,
+    User,
+)
 from invoiceguard_api.settings import Settings, get_settings
 from invoiceguard_api.storage import FileStorage
 
@@ -22,6 +29,8 @@ EXPECTED = {
     "03_logistik_over_po.xml": ("blocked", "Failed checks: po_match."),
     "04_buerobedarf_cii.xml": ("ready", None),
     "05_unknown_supplier_zugferd.xml": ("ready", None),
+    # A note that tries to instruct an AI (R2-4); every other check passes.
+    "06_it_service_injected_note.xml": ("blocked", "Failed checks: prompt_injection."),
 }
 
 
@@ -87,7 +96,14 @@ def test_reset_deletes_invoices_exports_and_files_and_keeps_the_audit_log(
     [reset_event] = db_session.scalars(
         select(AuditEvent).where(AuditEvent.action == "demo.reset").order_by(AuditEvent.id)
     ).all()[-1:]
-    assert reset_event.details == {"deleted_invoices": 5, "deleted_exports": 1}
+    assert reset_event.details == {"deleted_invoices": 6, "deleted_exports": 1}
+    # The security log is append-only too: the first load's injection event stays, the reload
+    # adds one for the new invoice.
+    injections = db_session.scalars(
+        select(SecurityEvent).where(SecurityEvent.type == "injection_suspected")
+    ).all()
+    assert len(injections) == 2
+    assert injections[0].invoice_id in old_ids
 
 
 def test_storage_delete_ignores_a_missing_file(tmp_path: Path) -> None:

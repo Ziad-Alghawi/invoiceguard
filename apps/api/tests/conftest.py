@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from invoiceguard_api.auth import SESSION_COOKIE, hash_password, token_hash
 from invoiceguard_api.db import make_engine, make_session_factory
 from invoiceguard_api.main import create_app
-from invoiceguard_api.models import Base, User, UserSession
+from invoiceguard_api.models import Base, User, UserRole, UserSession
 from invoiceguard_api.seed import seed_demo_data
 from invoiceguard_api.settings import Settings
 
@@ -130,19 +130,66 @@ def reviewer_password_hash() -> str:
     return hash_password(REVIEWER_PASSWORD)
 
 
-@pytest.fixture
-def reviewer(engine: Engine, reviewer_password_hash: str) -> User:
-    """The seeded reviewer, password REVIEWER_PASSWORD."""
+def add_user(
+    engine: Engine,
+    email: str,
+    display_name: str,
+    password_hash: str,
+    role: UserRole = UserRole.REVIEWER,
+) -> User:
     with make_session_factory(engine)() as session:
         user = User(
-            email=REVIEWER_EMAIL,
-            display_name="Anna Becker",
-            password_hash=reviewer_password_hash,
+            email=email,
+            display_name=display_name,
+            password_hash=password_hash,
+            role=role,
             failed_logins=0,
         )
         session.add(user)
         session.commit()
         return user
+
+
+def session_for(engine: Engine, user: User) -> str:
+    """A session cookie value for the user, stored as a login would store it."""
+    token = secrets.token_urlsafe(32)
+    with make_session_factory(engine)() as session:
+        session.add(
+            UserSession(
+                token_hash=token_hash(token),
+                user_id=user.id,
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
+            )
+        )
+        session.commit()
+    return token
+
+
+def logged_in(client: TestClient, token: str) -> TestClient:
+    """Another client on the same app (no second startup), with its own session cookie."""
+    other = TestClient(client.app)
+    other.cookies.set(SESSION_COOKIE, token)
+    return other
+
+
+@pytest.fixture
+def reviewer(engine: Engine, reviewer_password_hash: str) -> User:
+    """The seeded reviewer, password REVIEWER_PASSWORD."""
+    return add_user(engine, REVIEWER_EMAIL, "Anna Becker", reviewer_password_hash)
+
+
+@pytest.fixture
+def approver(engine: Engine, reviewer_password_hash: str) -> User:
+    """A user with the approver role (ADR-016), password REVIEWER_PASSWORD."""
+    return add_user(
+        engine, "paul.wagner@example.com", "Paul Wagner", reviewer_password_hash, UserRole.APPROVER
+    )
+
+
+@pytest.fixture
+def approver_client(client: TestClient, engine: Engine, approver: User) -> TestClient:
+    """A client on the same app as `client`, logged in as `approver`."""
+    return logged_in(client, session_for(engine, approver))
 
 
 @pytest.fixture
@@ -155,17 +202,7 @@ def anon_client(settings: Settings, engine: Engine) -> Iterator[TestClient]:
 @pytest.fixture
 def session_token(engine: Engine, reviewer: User) -> str:
     """A session cookie value for `reviewer`, stored as a login would store it."""
-    token = secrets.token_urlsafe(32)
-    with make_session_factory(engine)() as session:
-        session.add(
-            UserSession(
-                token_hash=token_hash(token),
-                user_id=reviewer.id,
-                expires_at=datetime.now(UTC) + timedelta(hours=1),
-            )
-        )
-        session.commit()
-    return token
+    return session_for(engine, reviewer)
 
 
 @pytest.fixture

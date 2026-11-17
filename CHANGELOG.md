@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Security events and prompt-injection scan (R2-4): append-only `security_events` table (migration 0009) for failed
+  logins, lockouts, refused role checks, self-approval attempts and injection hits; `GET /security-events` and the
+  web page `/security` for approvers. Heuristic scan of the invoice text (XML and PDF text layer, English and German
+  instruction phrases, invisible Unicode characters, no LLM); a hit fails the new `prompt_injection` check, blocks
+  the invoice and logs an `injection_suspected` event. Demo sample 06 with an injected note. Playwright test for the
+  poisoned upload and the security page.
+- Four-eyes override (R2-3, ADR-016): user roles `reviewer` / `approver` and the status `override_requested`
+  (migration 0008, existing users become reviewers). `POST /invoices/{id}/override` (any user, reason required),
+  `/override/confirm` and `/override/decline` (a different user with the approver role, reason required; `403`
+  for reviewers and the requester). Each step resumes the paused graph thread under the per-invoice lock, and the
+  `decide` node writes the status and one audit row (`invoice.override_requested`, `invoice.override_confirmed`,
+  `invoice.override_declined`), checking the role and the requester again. `GET /auth/me` returns the role.
+  `make seed-user` also seeds an approver from `INVOICEGUARD_SEED_APPROVER_*` and takes
+  `INVOICEGUARD_SEED_USER_ROLE`. Web: override request, confirm and decline in the decision panel, role in the
+  header, "Override requested" queue tab, both demo accounts on the login page (`DEMO_APPROVER_*`). Playwright
+  test for the override flow.
+- `make deploy`: pulls `main` and runs `make prod-up` on the demo server over SSH; the target comes from
+  `DEPLOY_HOST` in the local `.env`, and the command refuses to run without it (`docs/deploy.md` section 6).
 - Processing graph (R2-2, ADR-015): processing runs as a LangGraph graph per invoice (`read` / `extract` → `checks` →
   `review` → `decide`, thread ID = invoice ID), checkpointed by `PostgresSaver` in the `langgraph` schema (migration
   0007). Every run pauses at `review` with `interrupt()`; approve and reject resume it with `Command(resume=...)`
@@ -140,6 +158,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fraud sample ends `blocked` with the IBAN evidence.
 
 ### Changed
+- `POST /invoices/{id}/approve` approves `ready` invoices only; a blocked invoice needs the four-eyes override
+  (ADR-016), and the R1 field `override_reason` is refused with `422`.
+- The Playwright tests run in one worker: the spec files share one stack and the DATEV export.
 - `GET /ready` checks the database and returns `503` when it is unreachable.
 - The api container applies migrations on start, waits for a healthy `db` and stores uploads in the `uploads` volume.
 - uvicorn starts the app through the `create_app` factory (`--factory`), so importing the module does not read settings.

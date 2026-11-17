@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type AuditEvent,
   canApprove,
   canReject,
+  canRequestOverride,
   confidencePercent,
   fieldLabel,
   isInvoiceId,
   isQueueFilter,
+  overrideBlocker,
+  overrideRequester,
+  type User,
 } from "@/lib/invoices";
 
 describe("fieldLabel", () => {
@@ -26,15 +31,61 @@ describe("confidencePercent", () => {
 });
 
 describe("decision rules", () => {
-  it("match the API: approve ready or blocked, reject also failed or waiting", () => {
+  it("match the API: approve ready, override blocked, reject any review status", () => {
     expect(canApprove("ready")).toBe(true);
-    expect(canApprove("blocked")).toBe(true);
-    expect(canApprove("failed")).toBe(false);
+    expect(canApprove("blocked")).toBe(false);
+    expect(canApprove("override_requested")).toBe(false);
     expect(canApprove("approved")).toBe(false);
+    expect(canRequestOverride("blocked")).toBe(true);
+    expect(canRequestOverride("ready")).toBe(false);
     expect(canReject("failed")).toBe(true);
     expect(canReject("awaiting_extraction")).toBe(true);
+    expect(canReject("override_requested")).toBe(true);
     expect(canReject("processing")).toBe(false);
     expect(canReject("rejected")).toBe(false);
+  });
+});
+
+function event(action: string, actor: string): AuditEvent {
+  return {
+    id: 1,
+    at: "2026-11-17T10:00:00Z",
+    actor,
+    action,
+    status_before: null,
+    status_after: null,
+    reason: null,
+    details: {},
+  };
+}
+
+describe("four eyes", () => {
+  const approver: User = {
+    id: "1",
+    email: "paul@example.com",
+    display_name: "Paul",
+    role: "approver",
+  };
+
+  it("finds the latest override requester in the history", () => {
+    expect(overrideRequester([])).toBeNull();
+    expect(
+      overrideRequester([
+        event("invoice.override_requested", "anna@example.com"),
+        event("invoice.override_declined", "paul@example.com"),
+        event("invoice.override_requested", "ida@example.com"),
+      ]),
+    ).toBe("ida@example.com");
+  });
+
+  it("lets only an approver who did not request it decide", () => {
+    expect(overrideBlocker(approver, "anna@example.com")).toBeNull();
+    expect(overrideBlocker(approver, "paul@example.com")).toMatch(
+      /different approver/,
+    );
+    expect(
+      overrideBlocker({ ...approver, role: "reviewer" }, "anna@example.com"),
+    ).toMatch(/approver role/);
   });
 });
 

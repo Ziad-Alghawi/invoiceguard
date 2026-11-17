@@ -11,6 +11,7 @@ from decimal import Decimal
 from typing import Any, Literal
 
 from invoiceguard_api.extraction.model import FieldConfidence
+from invoiceguard_api.injection import InjectionScan
 from invoiceguard_api.models import CheckStatus
 from invoiceguard_api.parsing import ParsedInvoice
 
@@ -101,3 +102,5 @@ class CheckContext:
     # LLM extraction only (ADR-010); empty for invoices read from XML.
     confidences: tuple[FieldConfidence, ...] = ()
     confidence_threshold: Decimal = Decimal(1)
+    # The prompt-injection scan of the document text (R2-4); None when it did not run.
+    injection: InjectionScan | None = None

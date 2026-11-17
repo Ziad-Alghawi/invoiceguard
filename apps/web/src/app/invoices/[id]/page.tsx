@@ -2,7 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
-import { approve, reject } from "@/app/actions";
+import {
+  approve,
+  confirmOverride,
+  declineOverride,
+  reject,
+  requestOverride,
+} from "@/app/actions";
 import { AuditHistory } from "@/components/audit-history";
 import { CheckList } from "@/components/check-list";
 import { DecisionPanel } from "@/components/decision-panel";
@@ -14,6 +20,9 @@ import {
   formatDateTime,
   type InvoiceDetail,
   isInvoiceId,
+  overrideBlocker,
+  overrideRequester,
+  type User,
 } from "@/lib/invoices";
 
 function Section({
@@ -31,11 +40,12 @@ function Section({
   );
 }
 
-async function load(id: string): Promise<[InvoiceDetail, AuditEvent[]]> {
+async function load(id: string): Promise<[InvoiceDetail, AuditEvent[], User]> {
   try {
     return await Promise.all([
       apiGet<InvoiceDetail>(`/invoices/${id}`),
       apiGet<AuditEvent[]>(`/invoices/${id}/audit`),
+      apiGet<User>("/auth/me"),
     ]);
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
@@ -50,7 +60,8 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
   if (!isInvoiceId(id)) {
     notFound();
   }
-  const [invoice, history] = await load(id);
+  const [invoice, history, user] = await load(id);
+  const requestedBy = overrideRequester(history);
   const failedChecks = invoice.checks
     .filter((check) => check.status === "failed")
     .map((check) => check.type);
@@ -100,8 +111,17 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
           <DecisionPanel
             status={invoice.status}
             failedChecks={failedChecks}
-            approve={approve.bind(null, invoice.id)}
-            reject={reject.bind(null, invoice.id)}
+            override={{
+              requestedBy,
+              blocker: overrideBlocker(user, requestedBy),
+            }}
+            actions={{
+              approve: approve.bind(null, invoice.id),
+              reject: reject.bind(null, invoice.id),
+              requestOverride: requestOverride.bind(null, invoice.id),
+              confirmOverride: confirmOverride.bind(null, invoice.id),
+              declineOverride: declineOverride.bind(null, invoice.id),
+            }}
           />
         </Section>
         <Section title="History">

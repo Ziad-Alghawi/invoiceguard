@@ -30,6 +30,7 @@ from invoiceguard_api.checks.model import (
     ValidationMessage,
     VerifiedIban,
 )
+from invoiceguard_api.injection import scan
 from invoiceguard_api.models import CheckStatus, InvoiceStatus, SourceType
 from invoiceguard_api.parsing import ParsedInvoice, ParsedLine, VatBreakdown, parse_invoice
 from invoiceguard_api.seed import ORDERS, SUPPLIERS, VERIFIED_BY
@@ -103,7 +104,8 @@ def line(invoice: ParsedInvoice, position: int, **update: Any) -> tuple[ParsedLi
 
 @pytest.mark.parametrize("sample", ["ubl_xrechnung", "cii_xrechnung"])
 def test_clean_samples_pass_every_check_but_kosit(samples: dict[str, bytes], sample: str) -> None:
-    results = run_checks(context(parse_invoice(samples[sample], SourceType.XML)))
+    xml = samples[sample]
+    results = run_checks(context(parse_invoice(xml, SourceType.XML), injection=scan(xml=xml)))
 
     assert {(r.type, r.status) for r in results} == {
         ("kosit", CheckStatus.SKIPPED),
@@ -112,6 +114,7 @@ def test_clean_samples_pass_every_check_but_kosit(samples: dict[str, bytes], sam
         ("supplier_known", CheckStatus.PASSED),
         ("iban", CheckStatus.PASSED),
         ("po_match", CheckStatus.PASSED),
+        ("prompt_injection", CheckStatus.PASSED),
     }
     assert final_status(results) is InvoiceStatus.READY
 

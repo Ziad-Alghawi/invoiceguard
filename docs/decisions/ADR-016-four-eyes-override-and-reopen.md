@@ -1,7 +1,8 @@
 # ADR-016: Four-eyes override of blocked invoices, and reopening rejected invoices
 
 - **Status:** Accepted
-- **Date:** 2026-11-16
+- **Date:** 2026-11-16 (updated 2026-11-17 with R2-3: confirm needs a reason too, one audit row per step,
+  how the graph and the endpoints enforce it, seeding)
 
 ## Context
 
@@ -25,12 +26,29 @@ can do everything a reviewer can.
    the graph pauses again (ADR-015). The audit log gets `invoice.override_requested` with the reason and the
    failed checks.
 2. A **different** user with the `approver` role confirms it (→ `approved`, audit
-   `invoice.override_confirmed`) or declines it with a reason (→ `blocked`, audit
-   `invoice.override_declined`). The person who requested the override can never confirm it, whatever
-   their role.
+   `invoice.override_confirmed`) or declines it (→ `blocked`, audit `invoice.override_declined`), in both
+   cases with a written reason of their own, so each step records who decided and why. The person who
+   requested the override can never confirm or decline it, whatever their role.
 
 Approving a `ready` invoice stays a one-person decision. Rejecting stays possible in every review state,
 including `override_requested`.
+
+**How it is enforced (R2-3).**
+
+- Endpoints: `POST /invoices/{id}/override` (request), `/override/confirm` and `/override/decline`, each
+  with a required `reason`. `POST /approve` accepts only `ready` invoices; its R1 field `override_reason`
+  is refused (`422`), so an old client cannot approve a blocked invoice alone. A reviewer gets `403` on
+  confirm and decline, and so does the requester; a wrong status is `409`.
+- Each step is a resume of the paused thread (ADR-015) under the per-invoice advisory lock, and only the
+  `decide` node writes the status and **one** audit row, in one transaction (R1 wrote two rows for an
+  override: `invoice.override` and `invoice.approved`). After a decision that leaves the invoice in review
+  (`override_requested`, or `blocked` after a decline), `decide` routes back to `review`, so the thread
+  pauses again; `decide` is still only reachable from `review`.
+- The requester is read from the audit log (the latest `invoice.override_requested`), not from the graph
+  state, so the rule holds after a restart and for a thread that startup recovery paused again. `decide`
+  checks the role and the requester a second time, so a call that skips the endpoint writes nothing.
+- Existing users became reviewers (migration 0008). `make seed-user` takes `INVOICEGUARD_SEED_USER_ROLE`
+  and, when `INVOICEGUARD_SEED_APPROVER_EMAIL` is set, also seeds that approver.
 
 **Reopening.** Any reviewer can reopen a `rejected` invoice with a written reason
 (`POST /invoices/{id}/reopen`, audit `invoice.reopened`). This starts a new graph run with fresh checks,

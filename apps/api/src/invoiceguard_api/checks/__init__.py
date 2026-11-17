@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from invoiceguard_api.checks import (
     duplicate,
     iban,
+    injection,
     kosit,
     low_confidence,
     po_match,
@@ -44,6 +45,7 @@ _CHECKS: tuple[Callable[[CheckContext], CheckResult | list[CheckResult]], ...] =
     iban.check,
     po_match.check,
     low_confidence.check,
+    injection.check,
 )
 
 

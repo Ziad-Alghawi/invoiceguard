@@ -20,6 +20,7 @@ TABLES = {
     "users",
     "sessions",
     "datev_exports",
+    "security_events",
 }
 
 

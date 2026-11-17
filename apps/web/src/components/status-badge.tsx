@@ -15,6 +15,7 @@ const STYLES: Record<InvoiceStatus | CheckStatus, string> = {
   rejected: NEUTRAL,
   warning: WARN,
   awaiting_extraction: WARN,
+  override_requested: WARN,
   received: NEUTRAL,
   processing: NEUTRAL,
   skipped: NEUTRAL,

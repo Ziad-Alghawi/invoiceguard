@@ -33,6 +33,8 @@ from invoiceguard_api.models import (
     InvoiceField,
     ModelCall,
     ModelCallStatus,
+    SecurityEvent,
+    SecuritySeverity,
 )
 from invoiceguard_api.settings import Settings
 
@@ -116,6 +118,7 @@ def test_plain_pdf_goes_from_received_to_ready_with_llm_fields(
         "iban": "passed",
         "po_match": "passed",
         "low_confidence": "passed",
+        "prompt_injection": "passed",
     }
     assert _status_flow(db_session, detail["id"]) == [
         ("received", "processing"),
@@ -334,8 +337,23 @@ def test_injected_instructions_in_the_pdf_change_nothing(
         calls[0].error is not None and "approved: Extra inputs are not permitted" in calls[0].error
     )
     # The injected IBAN is a value like any other: the registry check blocks it.
-    assert (detail["status"], detail["status_reason"]) == ("blocked", "Failed checks: iban.")
+    assert (detail["status"], detail["status_reason"]) == (
+        "blocked",
+        "Failed checks: iban, prompt_injection.",
+    )
     assert _check(detail, "iban")["evidence"]["invoice_iban"] == FRAUD_IBAN
+    # The scan of the PDF's text layer finds the instructions and logs a security event (R2-4).
+    injection = _check(detail, "prompt_injection")
+    assert injection["status"] == "failed"
+    assert injection["evidence"]["sources"] == ["pdf_text"]
+    rules = {finding["rule"] for finding in injection["evidence"]["findings"]}
+    assert {"ignore_instructions", "addressed_to_ai", "concealment"} <= rules
+    [event] = db_session.scalars(select(SecurityEvent)).all()
+    assert (event.type, event.severity, str(event.invoice_id)) == (
+        "injection_suspected",
+        SecuritySeverity.HIGH,
+        detail["id"],
+    )
 
 
 def _log_cost(db_session: Session, cost: str, at: datetime) -> None:
