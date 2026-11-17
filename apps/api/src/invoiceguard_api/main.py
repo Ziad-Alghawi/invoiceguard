@@ -24,6 +24,7 @@ from invoiceguard_api.llm import LLMClient
 from invoiceguard_api.logging import configure_logging
 from invoiceguard_api.processing import recover_unfinished
 from invoiceguard_api.review import router as review_router
+from invoiceguard_api.security_events import router as security_events_router
 from invoiceguard_api.settings import Settings, get_settings
 from invoiceguard_api.storage import FileStorage
 
@@ -99,4 +100,5 @@ def create_app(settings: Settings | None = None, llm_client: LLMClient | None = 
     app.include_router(invoices_router)
     app.include_router(review_router)
     app.include_router(exports_router)
+    app.include_router(security_events_router)
     return app

@@ -174,7 +174,7 @@ def test_ready_event_records_syntax_and_warnings(
         "warnings": ["multiple_payee_ibans: 2 found, stored the first"],
         # Unseeded database: supplier and order unknown (warnings), no validator (skipped).
         "checks": {
-            "passed": 2,
+            "passed": 3,
             "warning": 4,
             "failed": 0,
             "skipped": 1,
@@ -405,7 +405,15 @@ def test_two_simultaneous_runs_process_the_invoice_once(
         ("processing", "ready"),
     ]
     assert _check_types(db_session, invoice_id) == Counter(
-        ["kosit", "vat_math", "duplicate", "supplier_known", "iban", "po_match"]
+        [
+            "kosit",
+            "vat_math",
+            "duplicate",
+            "supplier_known",
+            "iban",
+            "po_match",
+            "prompt_injection",
+        ]
     )
     rows = db_session.scalars(select(InvoiceField).where(InvoiceField.invoice_id == invoice_id))
     assert len(rows.all()) == len(fields(db_session, invoice_id))

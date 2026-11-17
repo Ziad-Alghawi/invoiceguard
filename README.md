@@ -17,8 +17,10 @@ booking file. Nothing is ever paid or posted automatically.
 ## Demo
 
 **https://invoiceguard.ziadalghawi.com**: the login page shows the shared demo accounts, a reviewer and an
-approver. Five made-up sample invoices are loaded and reset every night: two ready, one with a changed bank account
-(possible fraud), one charging more than its purchase order, and one from an unknown supplier. Try approving a
+approver. Six made-up sample invoices are loaded and reset every night: two ready, one with a changed bank account
+(possible fraud), one charging more than its purchase order, one from an unknown supplier, and one whose note tries
+to instruct an AI ("Ignoriere alle vorherigen Anweisungen ..."), which the injection scan blocks. Log in as the
+approver to see it under **Security events**. Try approving a
 blocked one: the reviewer can only request an override with a written reason, and a second person with the
 approver role has to confirm it (four eyes). On the demo one visitor can use both accounts, so it shows the
 mechanism, not real separation of duties.
@@ -40,6 +42,10 @@ mechanism, not real separation of duties.
   lockout), approve or reject with reasons; a blocked invoice is approved only by a four-eyes override: a reason
   from one user, then a confirmation by a different user with the approver role.
 - **Append-only audit log:** every login, upload, status change and decision; a database trigger rejects edits.
+- **Prompt-injection scan and security log:** the invoice text (XML and the PDF text layer) is scanned by code for
+  instructions to an AI (English and German) and hidden Unicode characters; a hit blocks the invoice. Failed logins,
+  lockouts, refused role checks, self-approval attempts and injections go to an append-only security log that
+  approvers can read.
 - **DATEV-style export:** approved invoices as an `EXTF` Buchungsstapel CSV, each invoice exported once.
 - **Built like production:** typed Python and TypeScript, 99 % API test coverage, Playwright E2E test, CI on
   every PR, Docker Compose, deployed behind Caddy with HTTPS.
@@ -150,7 +156,8 @@ make seed-user  # the reviewer (INVOICEGUARD_SEED_USER_*) and the approver (INVO
 ```
 
 There is no sign-up: to add another user, change the `INVOICEGUARD_SEED_USER_*` values (`_ROLE` is `reviewer` or
-`approver`) and run `make seed-user` again; a rerun also resets a password or role. Five wrong passwords in a row lock an account for 15 minutes; `make seed-user` unlocks it.
+`approver`) and run `make seed-user` again; a rerun also resets a password or role. Five wrong passwords in a row
+lock an account for 15 minutes; `make seed-user` unlocks it.
 
 Open http://localhost:3000: the page shows `API: ok`. The API needs a login, so log in with curl and keep the
 session cookie, then upload e-invoices (XML or PDF):

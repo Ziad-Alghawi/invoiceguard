@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Security events and prompt-injection scan (R2-4): append-only `security_events` table (migration 0009) for failed
+  logins, lockouts, refused role checks, self-approval attempts and injection hits; `GET /security-events` and the
+  web page `/security` for approvers. Heuristic scan of the invoice text (XML and PDF text layer, English and German
+  instruction phrases, invisible Unicode characters, no LLM); a hit fails the new `prompt_injection` check, blocks
+  the invoice and logs an `injection_suspected` event. Demo sample 06 with an injected note. Playwright test for the
+  poisoned upload and the security page.
 - Four-eyes override (R2-3, ADR-016): user roles `reviewer` / `approver` and the status `override_requested`
   (migration 0008, existing users become reviewers). `POST /invoices/{id}/override` (any user, reason required),
   `/override/confirm` and `/override/decline` (a different user with the approver role, reason required; `403`

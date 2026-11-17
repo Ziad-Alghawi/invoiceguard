@@ -135,7 +135,7 @@ API's database URL from the `POSTGRES_*` values.
 
 ```sh
 make prod-up      # builds the images, starts db, validator, api and web on `edge`, waits until healthy
-make demo-reset   # master data, five sample invoices, the demo logins (reviewer and approver)
+make demo-reset   # master data, six sample invoices, the demo logins (reviewer and approver)
 ```
 
 Open https://invoiceguard.ziadalghawi.com: the login page shows the demo accounts. If the certificate is missing,

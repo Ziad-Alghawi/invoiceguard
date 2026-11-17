@@ -340,6 +340,46 @@ class AuditEvent(Base):
     __table_args__ = (Index("ix_audit_events_entity", "entity_type", "entity_id"),)
 
 
+class SecuritySeverity(enum.StrEnum):
+    # Expected noise, worth counting: a mistyped password.
+    LOW = "low"
+    # Someone tried something they may not do: a 403, an account lockout.
+    MEDIUM = "medium"
+    # An attack on the process itself: self-approval, a prompt injection in an invoice.
+    HIGH = "high"
+
+
+class SecurityEvent(Base):
+    """Append-only log of security-relevant events (R2-4), for approvers to review.
+
+    Next to the audit log (what happened to an entity) it records attempts that changed
+    nothing: failed logins, lockouts, refused role checks, self-approval attempts and prompt
+    injections found in invoices. A database trigger rejects UPDATE and DELETE (migration 0009).
+    """
+
+    __tablename__ = "security_events"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # For example login_failed, account_locked, forbidden, self_approval_attempt,
+    # injection_suspected (see security.py).
+    type: Mapped[str] = mapped_column(String(50))
+    severity: Mapped[SecuritySeverity] = mapped_column(
+        _str_enum(SecuritySeverity, "security_severity")
+    )
+    # No foreign key: the demo reset deletes invoices, and this log keeps its rows.
+    invoice_id: Mapped[uuid.UUID | None]
+    # The user who acted, or whose account was targeted (failed login, lockout).
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    details: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+
+    __table_args__ = (
+        Index("ix_security_events_at", "at"),
+        Index("ix_security_events_type", "type"),
+        Index("ix_security_events_invoice_id", "invoice_id"),
+    )
+
+
 class ModelCall(Base):
     """One LLM call with its tokens, cost and latency (ADR-004), also when it failed.
 

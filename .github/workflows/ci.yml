@@ -182,6 +182,7 @@ jobs:
           03_logistik_over_po.xml blocked
           04_buerobedarf_cii.xml ready
           05_unknown_supplier_zugferd.xml ready
+          06_it_service_injected_note.xml blocked
           TXT
       - name: Container logs
         if: failure()

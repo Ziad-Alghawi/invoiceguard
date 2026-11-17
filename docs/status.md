@@ -97,13 +97,23 @@
     step, two approvers at once (one decision), a restart during `override_requested`, a lost pause restored by
     startup; new Playwright test for the whole flow (the E2E files now run one at a time)
   - `make deploy`: pulls and runs `make prod-up` on the demo server over SSH (`DEPLOY_HOST` in the local `.env`)
+  - Security events and injection scan (R2-4): `security_events` table (migration 0009; type, severity, invoice, user,
+    details, time; append-only by a trigger, no foreign key to invoices so a demo reset keeps the rows). Logged:
+    failed logins (unknown email, wrong password, while locked), lockouts, refused role checks (`403`),
+    self-approval attempts, prompt-injection hits. Heuristic scan (`injection.py`, no LLM) of the XML element text
+    and attributes and the PDF text layer (first 20 pages): instruction phrases in English and German after NFKC,
+    case folding and removal of invisible characters, plus invisible Unicode (zero-width, bidi controls, tags). A
+    hit fails the new `prompt_injection` check (invoice `blocked`) and writes an `injection_suspected` event in the
+    same transaction; no text layer = check `skipped`. No false positives on the test fixtures, the clean demo
+    samples or the printed test invoice; business phrases such as "ignorieren Sie diese Mahnung" are tested as
+    negatives. Poisoned demo sample 06 (a note to an AI, KoSIT-valid). `GET /security-events` and a web page
+    `/security`, approvers only. New Playwright test for the poisoned upload and the security page
 
 ## Open decisions
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
 - R2 (planned 2026-11-16, ADR-015, ADR-016), one PR each:
-  - R2-4 Security events and a heuristic prompt-injection scan
   - R2-5 Read-only MCP servers `mcp-erp` and `mcp-registry`, one database role each
   - R2-6 Exception agent with a German supplier email draft and a per-invoice cost cap; saved result on the demo
   - R2-7 Web upload page (demo: XML and sample picker only) and reopening rejected invoices
@@ -115,6 +125,10 @@
 - Graph (ADR-015): startup reads the thread of every invoice waiting for review (one query each); each graph run
   opens its own database connection for the checkpointer; a decision waits while a run (an LLM extraction) holds
   the invoice's lock.
+- Injection scan (R2-4): heuristics only, so new wordings or other languages get through (R3's attack set measures
+  this; an LLM classifier only if it is needed, ADR-002). It cannot see text drawn white or tiny, text in images
+  (scans without a text layer are `skipped`), or invisible PDF text (render mode 3, skipped on purpose: OCR'd scans
+  use it). The security log has no alerting or retention yet.
 - Login lockout is per account: anyone who knows a demo email can lock it for 15 minutes, and the `429` reveals that
   the account exists. No per-IP rate limit (ingress in R4).
 - The audit trigger stops UPDATE and DELETE through the app's database user, not the table owner (TRUNCATE, dropping
@@ -171,6 +185,8 @@
   for the checkpointer kept the application schema exact and makes its data easy to find, back up or drop.
 - A resume is only a resume while the thread is paused: after a failed step the thread is past the pause, and
   `Command(resume=...)` silently does nothing. Check the pause before resuming.
+- Tools can write characters you cannot see: test strings with zero-width or bidi characters ended up as literal
+  characters in the source (a "Trojan Source" risk). Keep them as `\u` escapes and check new files for non-ASCII.
 - A paused workflow must pause again after every decision that leaves the item in review (a declined override
   is `blocked` again): a status the UI can act on needs a thread waiting for it.
 - Playwright runs spec files in parallel workers by default; end-to-end tests that share one stack and a global

@@ -27,7 +27,7 @@ import logging
 import uuid
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Literal, TypedDict
@@ -53,6 +53,8 @@ from invoiceguard_api.checks import (
 from invoiceguard_api.checks.model import Validation
 from invoiceguard_api.extraction import Extraction, PdfExtractor
 from invoiceguard_api.extraction.model import FieldConfidence
+from invoiceguard_api.injection import InjectionScan
+from invoiceguard_api.injection import scan as scan_injection
 from invoiceguard_api.models import (
     AuditEvent,
     Check,
@@ -62,6 +64,8 @@ from invoiceguard_api.models import (
     InvoiceField,
     InvoiceStatus,
     ModelCall,
+    SecuritySeverity,
+    SourceType,
     User,
     UserRole,
 )
@@ -73,6 +77,7 @@ from invoiceguard_api.parsing import (
     read_invoice_xml,
 )
 from invoiceguard_api.parsing.fields import to_field_rows
+from invoiceguard_api.security import INJECTION, security_event
 from invoiceguard_api.storage import FileStorage
 
 logger = logging.getLogger(__name__)
@@ -156,6 +161,9 @@ class Reading:
     confidence_threshold: Decimal = Decimal(1)
     # Added to the audit event of the final status (the extraction's model and cost).
     details: dict[str, Any] | None = None
+    # The prompt-injection scan of the document text (R2-4); None for a reading from a
+    # checkpoint written before the scan existed.
+    injection: InjectionScan | None = None
 
 
 READING = TypeAdapter(Reading)
@@ -319,10 +327,26 @@ def _check_and_finish(session: Session, invoice: Invoice, reading: Reading) -> N
     session.execute(delete(InvoiceField).where(InvoiceField.invoice_id == invoice.id))
     session.add_all(fields)
     context = load_context(
-        session, invoice.id, parsed, reading.validation, extraction, reading.confidence_threshold
+        session,
+        invoice.id,
+        parsed,
+        reading.validation,
+        extraction,
+        reading.confidence_threshold,
+        reading.injection,
     )
     results = run_checks(context)
     replace_results(session, invoice.id, results)
+    if reading.injection is not None and reading.injection.findings:
+        session.add(
+            security_event(
+                INJECTION,
+                SecuritySeverity.HIGH,
+                invoice_id=invoice.id,
+                sources=list(reading.injection.sources),
+                findings=[asdict(finding) for finding in reading.injection.findings],
+            )
+        )
     summary = summarise(results)
     status = final_status(results)
     reason = (
@@ -350,7 +374,8 @@ def _read_xml(
     invoice: Invoice,
 ) -> Reading | None:
     try:
-        xml = invoice_xml(storage.read(invoice.storage_path), invoice.source_type)
+        content = storage.read(invoice.storage_path)
+        xml = invoice_xml(content, invoice.source_type)
         parsed = read_invoice_xml(xml)
     except NoEmbeddedXml:
         reason = AWAITING_EXTRACTION_REASON if extraction_on else EXTRACTION_OFF_REASON
@@ -359,16 +384,19 @@ def _read_xml(
     except ParseError as error:
         _finish(session, invoice, InvoiceStatus.FAILED, str(error))
         return None
+    # A ZUGFeRD PDF shows its printed text to people: scan that as well as the XML.
+    pdf = content if invoice.source_type is SourceType.PDF else None
     # The claim is committed and nothing is written yet, so the call (up to the validator
     # timeout) holds no row locks.
-    return Reading(parsed, validator.validate(xml))
+    return Reading(parsed, validator.validate(xml), injection=scan_injection(xml=xml, pdf=pdf))
 
 
 def _extract(
     session: Session, storage: FileStorage, extractor: PdfExtractor, invoice: Invoice
 ) -> Reading | None:
     # The claim is committed, so the model calls (seconds each) hold no row locks.
-    result = extractor.extract(storage.read(invoice.storage_path))
+    pdf = storage.read(invoice.storage_path)
+    result = extractor.extract(pdf)
     session.add_all(
         ModelCall(
             invoice_id=invoice.id,
@@ -400,6 +428,7 @@ def _extract(
         result.extraction.confidences,
         extractor.confidence_threshold,
         {"extraction": summary},
+        scan_injection(pdf=pdf),
     )
 
 

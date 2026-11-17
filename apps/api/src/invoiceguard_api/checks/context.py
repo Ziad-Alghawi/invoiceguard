@@ -18,6 +18,7 @@ from invoiceguard_api.checks.model import (
 )
 from invoiceguard_api.checks.supplier import normalise_vat_id
 from invoiceguard_api.extraction.model import Extraction
+from invoiceguard_api.injection import InjectionScan
 from invoiceguard_api.models import Invoice, InvoiceField, PurchaseOrder, Supplier
 from invoiceguard_api.parsing import ParsedInvoice
 
@@ -129,9 +130,11 @@ def load_context(
     validation: Validation,
     extraction: Extraction | None = None,
     confidence_threshold: Decimal = Decimal(1),
+    injection: InjectionScan | None = None,
 ) -> CheckContext:
     """The context for one invoice; `extraction` only for fields extracted by an LLM."""
     return CheckContext(
+        injection=injection,
         invoice=parsed,
         validation=validation,
         supplier=_supplier(session, parsed.seller_vat_id),

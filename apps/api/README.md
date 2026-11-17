@@ -35,6 +35,7 @@ Everything except `/health`, `/ready` and `/auth/login` needs a login (`401` wit
 | `POST /invoices/{id}/override/confirm` | JSON `{"reason": "..."}`. An approver who did not request it confirms: `approved`. `403` for a reviewer or the requester, `409` unless `override_requested`. |
 | `POST /invoices/{id}/override/decline` | JSON `{"reason": "..."}`. Same rules; the invoice is `blocked` again. |
 | `GET /invoices/{id}/audit` | The invoice's audit history, oldest first: upload, status changes, override steps, decision (who, when, status before and after, reason). |
+| `GET /security-events` | Approvers only (others `403`, which is logged too): the security log, newest first, with `type` (repeat to filter), `severity`, `invoice_id`, `user_id`, `user_email` and `details`; `limit` 1-200, `offset`, `X-Total-Count`. |
 
 Upload rules:
 
@@ -67,6 +68,10 @@ are stored as Argon2id hashes.
   `locked`), `auth.locked`, `user.created`, `user.updated`, `invoice.received`, `invoice.status_changed`,
   `invoice.override_requested`, `invoice.override_confirmed`, `invoice.override_declined`, `invoice.approved`,
   `invoice.rejected` (`invoice.override` in rows from before R2-3).
+- Security events (`security_events`, append-only by a trigger, R2-4): `login_failed` (low; reason `unknown_email`,
+  `wrong_password` or `locked`), `account_locked` (medium), `forbidden` (medium: a role check refused the request),
+  `self_approval_attempt` (high: the requester tried to decide their own override), `injection_suspected` (high:
+  the prompt-injection scan found something in an invoice). Never a password.
 
 ## Processing
 After the upload, a background task ([processing.py](src/invoiceguard_api/processing.py), ADR-007) runs the

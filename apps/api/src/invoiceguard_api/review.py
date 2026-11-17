@@ -24,7 +24,14 @@ from invoiceguard_api.auth import CurrentUser, current_user
 from invoiceguard_api.checkpoints import lock_invoice
 from invoiceguard_api.db import DbSession
 from invoiceguard_api.invoices import ErrorOut, InvoiceOut, get_invoice_or_404
-from invoiceguard_api.models import AuditEvent, Invoice, InvoiceStatus, User, UserRole
+from invoiceguard_api.models import (
+    AuditEvent,
+    Invoice,
+    InvoiceStatus,
+    SecuritySeverity,
+    User,
+    UserRole,
+)
 from invoiceguard_api.processing import (
     IN_REVIEW,
     Action,
@@ -34,6 +41,7 @@ from invoiceguard_api.processing import (
     failed_checks,
     override_requester,
 )
+from invoiceguard_api.security import SELF_APPROVAL, forbidden_event, refuse, security_event
 
 router = APIRouter(prefix="/invoices", tags=["review"], dependencies=[Depends(current_user)])
 
@@ -94,10 +102,6 @@ def _lock(session: Session, invoice_id: uuid.UUID) -> Invoice:
 
 def _conflict(message: str) -> HTTPException:
     return HTTPException(status.HTTP_409_CONFLICT, message)
-
-
-def _forbidden(message: str) -> HTTPException:
-    return HTTPException(status.HTTP_403_FORBIDDEN, message)
 
 
 def _require_status(invoice: Invoice, expected: InvoiceStatus, action: str) -> None:
@@ -196,14 +200,30 @@ def _decide_override(
     action: Action,
     reason: str,
 ) -> InvoiceOut:
-    """Confirm or decline a requested override: an approver, never the requester."""
+    """Confirm or decline a requested override: an approver, never the requester. Both
+    refusals are written to the security log (R2-4)."""
     if user.role is not UserRole.APPROVER:
-        raise _forbidden("Only a user with the approver role can decide an override.")
+        raise refuse(
+            session,
+            forbidden_event(request, user, UserRole.APPROVER),
+            "Only a user with the approver role can decide an override.",
+        )
     invoice = _lock(session, invoice_id)
     _require_status(invoice, InvoiceStatus.OVERRIDE_REQUESTED, "have an override decided")
     if override_requester(session, invoice.id) == user.id:
-        raise _forbidden(
-            "You requested this override; a different approver has to decide it (four eyes)."
+        attempt = security_event(
+            SELF_APPROVAL,
+            SecuritySeverity.HIGH,
+            invoice_id=invoice.id,
+            user_id=user.id,
+            action=action,
+            path=request.url.path,
+        )
+        # Committing also releases the invoice lock; nothing else was written.
+        raise refuse(
+            session,
+            attempt,
+            "You requested this override; a different approver has to decide it (four eyes).",
         )
     return _resume(session, request, invoice, _decision(user, invoice, action, reason))
 
