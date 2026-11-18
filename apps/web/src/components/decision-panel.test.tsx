@@ -20,6 +20,7 @@ function actions() {
     requestOverride: vi.fn<Action>().mockResolvedValue(done),
     confirmOverride: vi.fn<Action>().mockResolvedValue(done),
     declineOverride: vi.fn<Action>().mockResolvedValue(done),
+    reopen: vi.fn<Action>().mockResolvedValue(done),
   };
 }
 
@@ -140,5 +141,22 @@ describe("DecisionPanel", () => {
     expect(
       screen.getByText("No decision possible while the invoice is approved."),
     ).toBeTruthy();
+  });
+
+  it("offers reopen with a reason on a rejected invoice only", async () => {
+    const calls = actions();
+    panel("rejected", NO_REQUEST, calls);
+
+    expect(screen.queryByRole("button", { name: /Approve/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reject" })).toBeNull();
+    const reason = screen.getByLabelText<HTMLTextAreaElement>("Reopen reason");
+    expect(reason.required).toBe(true);
+    fireEvent.change(reason, { target: { value: "Rejected by mistake." } });
+    fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
+
+    await vi.waitFor(() => expect(calls.reopen).toHaveBeenCalledTimes(1));
+    expect(calls.reopen.mock.calls[0][1].get("reopen_reason")).toBe(
+      "Rejected by mistake.",
+    );
   });
 });

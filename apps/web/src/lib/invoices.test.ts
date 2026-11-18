@@ -4,6 +4,7 @@ import {
   type AuditEvent,
   canApprove,
   canReject,
+  canReopen,
   canRequestOverride,
   confidencePercent,
   fieldLabel,
@@ -43,6 +44,12 @@ describe("decision rules", () => {
     expect(canReject("override_requested")).toBe(true);
     expect(canReject("processing")).toBe(false);
     expect(canReject("rejected")).toBe(false);
+  });
+
+  it("reopen rejected invoices only, never approved ones", () => {
+    expect(canReopen("rejected")).toBe(true);
+    expect(canReopen("approved")).toBe(false);
+    expect(canReopen("ready")).toBe(false);
   });
 });
 

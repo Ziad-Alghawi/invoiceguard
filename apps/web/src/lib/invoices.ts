@@ -118,6 +118,11 @@ export function canReject(status: InvoiceStatus): boolean {
   );
 }
 
+/** Only a rejected invoice can be reopened; an approved one never (ADR-016). */
+export function canReopen(status: InvoiceStatus): boolean {
+  return status === "rejected";
+}
+
 /** The email of whoever made the latest override request, from the audit history. */
 export function overrideRequester(history: AuditEvent[]): string | null {
   const requests = history.filter(

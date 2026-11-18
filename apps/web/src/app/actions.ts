@@ -59,7 +59,12 @@ export async function logout(): Promise<void> {
 }
 
 type DecisionPath =
-  "approve" | "reject" | "override" | "override/confirm" | "override/decline";
+  | "approve"
+  | "reject"
+  | "override"
+  | "override/confirm"
+  | "override/decline"
+  | "reopen";
 
 async function decide(
   invoiceId: string,
@@ -129,6 +134,17 @@ export async function declineOverride(
 ): Promise<ActionState> {
   return decide(invoiceId, "override/decline", {
     reason: text(formData, "approver_reason"),
+  });
+}
+
+/** Reopens a rejected invoice with a reason (ADR-016): its checks run again, then it is in review. */
+export async function reopen(
+  invoiceId: string,
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return decide(invoiceId, "reopen", {
+    reason: text(formData, "reopen_reason"),
   });
 }
 

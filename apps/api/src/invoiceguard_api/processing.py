@@ -5,6 +5,8 @@ thread ID is the invoice ID, and the state is checkpointed in PostgreSQL (checkp
            ├─ extract ─┴──────────┤     ▲          │
            └──────────────────────┘     └──────────┘ while the invoice stays in review
 
+    and decide ─ read when a rejected invoice is reopened.
+
 - read: reads the XML and validates it with KoSIT (ADR-009). A PDF without XML ends in
   `awaiting_extraction`, a file that cannot be read in `failed`; both go straight to review.
 - extract: the LLM extraction of a plain PDF (ADR-010), awaiting_extraction → processing.
@@ -13,6 +15,8 @@ thread ID is the invoice ID, and the state is checkpointed in PostgreSQL (checkp
 - decide: writes the decision's status and its audit row in one transaction: `approved`,
   `rejected`, or for the four-eyes override (ADR-016) `override_requested` (then the thread
   pauses at review again for an approver) and back to `blocked` when the approver declines.
+  Reopening a rejected invoice (ADR-016) writes `processing`, clears the old fields and check
+  results and goes on to read, so the checks run again on today's master data.
 
 Every run ends paused at review, whatever its outcome, because a reviewer can reject failed and
 waiting invoices too. A new run on a thread (extraction after waiting, a re-run after a restart)
@@ -111,7 +115,9 @@ IN_REVIEW = frozenset(
 )
 
 Start = Literal["read", "extract", "review"]
-Action = Literal["approve", "reject", "request_override", "confirm_override", "decline_override"]
+Action = Literal[
+    "approve", "reject", "request_override", "confirm_override", "decline_override", "reopen"
+]
 # The status each decision writes; reject is allowed in every review status.
 NEW_STATUS: dict[Action, InvoiceStatus] = {
     "approve": InvoiceStatus.APPROVED,
@@ -119,6 +125,7 @@ NEW_STATUS: dict[Action, InvoiceStatus] = {
     "request_override": InvoiceStatus.OVERRIDE_REQUESTED,
     "confirm_override": InvoiceStatus.APPROVED,
     "decline_override": InvoiceStatus.BLOCKED,
+    "reopen": InvoiceStatus.PROCESSING,
 }
 AUDIT_ACTION: dict[Action, str] = {
     "approve": "invoice.approved",
@@ -126,6 +133,7 @@ AUDIT_ACTION: dict[Action, str] = {
     "request_override": "invoice.override_requested",
     "confirm_override": "invoice.override_confirmed",
     "decline_override": "invoice.override_declined",
+    "reopen": "invoice.reopened",
 }
 
 
@@ -182,6 +190,11 @@ class Services:
 
 class StaleDecision(Exception):
     """The invoice is no longer in the status the reviewer decided on; nothing was written."""
+
+
+class ReopenRefused(Exception):
+    """Only a rejected invoice is reopened (never an approved one, ADR-016); nothing was
+    written. The endpoint checks this first; decide checks it again."""
 
 
 class ForbiddenDecision(Exception):
@@ -536,6 +549,12 @@ def _decide_node(state: RunState, runtime: Runtime[Services]) -> RunState:
             )
         if decision["action"] in ("confirm_override", "decline_override"):
             _check_override_decider(session, invoice, decision)
+        if decision["action"] == "reopen":
+            if invoice.status is not InvoiceStatus.REJECTED:
+                raise ReopenRefused(f"Invoice {invoice.id} is {invoice.status.value}")
+            # Read and checks write them again; until then nothing out of date is shown.
+            session.execute(delete(InvoiceField).where(InvoiceField.invoice_id == invoice.id))
+            session.execute(delete(Check).where(Check.invoice_id == invoice.id))
         session.add(_decision_event(session, invoice, decision))
         invoice.status = NEW_STATUS[decision["action"]]
         invoice.status_reason = decision["reason"]
@@ -545,6 +564,9 @@ def _decide_node(state: RunState, runtime: Runtime[Services]) -> RunState:
 
 
 def _after_decide(state: RunState) -> str:
+    # A reopened invoice is read and checked again, then pauses at review.
+    if state["decision"]["action"] == "reopen":
+        return "read"
     # A decision that leaves the invoice in review (an override request waiting for the
     # approver, a declined override back in `blocked`) pauses the thread at review again.
     return "review" if NEW_STATUS[state["decision"]["action"]] in IN_REVIEW else END
@@ -570,7 +592,7 @@ def _build_graph() -> StateGraph[RunState, Services, RunState, RunState]:
     graph.add_conditional_edges("extract", _after_reading, ["checks", "review"])
     graph.add_edge("checks", "review")
     graph.add_edge("review", "decide")
-    graph.add_conditional_edges("decide", _after_decide, ["review", END])
+    graph.add_conditional_edges("decide", _after_decide, ["review", "read", END])
     return graph
 
 

@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Reopening rejected invoices (R2-7, ADR-016 updated): `POST /invoices/{id}/reopen` with a required reason, for
+  reviewers and approvers; approved invoices are never reopened (`409`). The decision resumes the invoice's thread
+  under the advisory lock; `decide` writes `rejected → processing` and one `invoice.reopened` audit row in one
+  transaction, clears the old fields and checks, and routes to `read` (new edge), so the invoice is checked again on
+  the current master data and pauses at review. Plain PDFs are extracted again (with a key and budget); blocked
+  results are investigated as after an upload. Web: "Reopen" form with a reason on rejected invoices. Tests for one
+  audit row, fresh checks after a master-data change, `409` for approved, `422` without a reason, two reopens at
+  once; Playwright test rejects and reopens an invoice.
 - Upload page (R2-7): `/upload` for every logged-in user, linked in the header. The browser sends the file with
   upload progress to a route handler (`/upload/file`), which passes it on to `POST /invoices` with the session;
   the page then waits for processing and links to the new invoice. Clear messages for a wrong type, a too large

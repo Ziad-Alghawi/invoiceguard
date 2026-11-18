@@ -408,8 +408,13 @@ def test_a_lost_pause_is_restored_and_the_requester_still_comes_from_the_audit_l
     assert response.json()["status"] == "approved"
 
 
-def test_decide_leads_back_to_review_or_ends() -> None:
+def test_decide_leads_back_to_review_to_read_or_ends() -> None:
     edges = processing.GRAPH.compile().get_graph().edges
 
-    assert {edge.target for edge in edges if edge.source == "decide"} == {"review", "__end__"}
+    # read: a reopened invoice is read and checked again (test_reopen.py).
+    assert {edge.target for edge in edges if edge.source == "decide"} == {
+        "review",
+        "read",
+        "__end__",
+    }
     assert {edge.source for edge in edges if edge.target == "decide"} == {"review"}

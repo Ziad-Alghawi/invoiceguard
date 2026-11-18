@@ -1,5 +1,5 @@
-"""Human review (ADR-003, ADR-012, ADR-015, ADR-016): approve, reject and the four-eyes
-override of a blocked invoice, and the audit history.
+"""Human review (ADR-003, ADR-012, ADR-015, ADR-016): approve, reject, the four-eyes
+override of a blocked invoice, reopening a rejected invoice, and the audit history.
 
 A logged-in user decides; nothing else sets a decision's status. A `ready` invoice is approved
 by one person. A `blocked` invoice (at least one failed check) needs two: a reviewer requests an
@@ -9,17 +9,22 @@ check these rules under the invoice's advisory lock, then resume the invoice's p
 thread with the decision; the graph's decide node checks the four-eyes rule again and writes
 the status and the audit row in one transaction. The lock makes two users clicking at the same
 time decide one after the other, so the second one gets a 409.
+
+Any user can reopen a `rejected` invoice with a reason: the same resume, after which the graph
+reads and checks the invoice again and pauses it at review. An approved invoice is never
+reopened: it may already be in a DATEV export.
 """
 
 import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, StringConstraints
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from invoiceguard_api.agent.service import investigate_if_blocked
 from invoiceguard_api.auth import CurrentUser, current_user
 from invoiceguard_api.checkpoints import lock_invoice
 from invoiceguard_api.db import DbSession
@@ -38,6 +43,7 @@ from invoiceguard_api.processing import (
     Decision,
     Services,
     apply_decision,
+    extract_invoice,
     failed_checks,
     override_requester,
 )
@@ -250,6 +256,41 @@ def decline_override(
 ) -> InvoiceOut:
     """Approver only: decline an override request; the invoice is `blocked` again."""
     return _decide_override(session, request, user, invoice_id, "decline_override", body.reason)
+
+
+@router.post("/{invoice_id}/reopen", responses=DECISION_RESPONSES)
+def reopen_invoice(
+    invoice_id: uuid.UUID,
+    body: ReasonIn,
+    session: DbSession,
+    user: CurrentUser,
+    request: Request,
+    background_tasks: BackgroundTasks,
+) -> InvoiceOut:
+    """Reopen a `rejected` invoice with a reason: its checks run again on the current master
+    data and it is back in review. An approved invoice can never be reopened (409).
+
+    A PDF without embedded XML is extracted again afterwards (with a model key, within the
+    daily budget); poll `GET /invoices/{id}` while it is `awaiting_extraction` or `processing`.
+    """
+    invoice = _lock(session, invoice_id)
+    if invoice.status is InvoiceStatus.APPROVED:
+        raise _conflict(
+            "Approved invoices cannot be reopened: they may already be in a DATEV export."
+        )
+    _require_status(invoice, InvoiceStatus.REJECTED, "be reopened")
+    reopened = _resume(session, request, invoice, _decision(user, invoice, "reopen", body.reason))
+    state = request.app.state
+    # Background tasks run one after another: the agent sees the extracted invoice (ADR-018).
+    if reopened.status is InvoiceStatus.AWAITING_EXTRACTION and state.extractor is not None:
+        background_tasks.add_task(
+            extract_invoice, state.session_factory, state.storage, state.extractor, invoice.id
+        )
+    if state.settings.agent_auto_investigate:
+        background_tasks.add_task(
+            investigate_if_blocked, state.session_factory, state.agent, invoice.id
+        )
+    return reopened
 
 
 @router.get(
