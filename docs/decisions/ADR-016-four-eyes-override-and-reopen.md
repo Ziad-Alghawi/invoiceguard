@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-16 (updated 2026-11-17 with R2-3: confirm needs a reason too, one audit row per step,
-  how the graph and the endpoints enforce it, seeding)
+  how the graph and the endpoints enforce it, seeding; updated 2026-11-18 with R2-7: how reopening is enforced)
 
 ## Context
 
@@ -55,6 +55,26 @@ including `override_requested`.
 because master data such as the verified IBAN may have changed, and ends in review again. `approved`
 invoices cannot be reopened, because they may already be in a DATEV export. Uploading the same file again
 is still refused (409); the response points to the existing invoice.
+
+**How reopening is enforced (R2-7).**
+
+- `POST /invoices/{id}/reopen` with a required `reason` (`422` without one), open to both roles. Under the
+  per-invoice advisory lock: `approved` is `409` with its own message, every other status but `rejected` is `409`.
+- A rejected invoice's thread has ended, so the resume first starts a run that pauses at `review` (as for any
+  thread that is not paused there, ADR-015), then resumes it with `Command(resume=...)`. `decide` writes
+  `rejected → processing` and **one** audit row, `invoice.reopened` with the reason, and deletes the old fields and
+  check results, all in one transaction; it refuses a reopen of anything but `rejected` a second time. Then it
+  routes to `read` (a new edge `decide → read`), so the invoice is read, validated and checked again on the current
+  master data, and the thread pauses at `review`. The rerun writes the usual system `invoice.status_changed` row
+  (`processing → ready` or `blocked`), as after an upload.
+- The run happens inside the request, like every decision, so the response already carries the new status (the
+  KoSIT call is part of it). A crash during the rerun leaves the invoice in `processing`, which startup recovery
+  resets and processes again.
+- A plain PDF goes from `read` to `awaiting_extraction`, and the endpoint queues the LLM extraction again (with a
+  model key, within the daily budget), because the checks need the parsed invoice, which only reading or
+  extraction produces. On the demo there are no such invoices (ADR-014). A reopened invoice that ends `blocked` is
+  investigated by the exception agent as after an upload (ADR-018); its cost cap counts all runs.
+- Web: a "Reopen" form with a required reason on rejected invoices; the history shows `invoice.reopened`.
 
 This supersedes two parts of ADR-012: the single reviewer role and "decisions are final".
 

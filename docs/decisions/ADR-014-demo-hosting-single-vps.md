@@ -1,7 +1,7 @@
 # ADR-014: R1 demo on one VPS with Docker Compose and Caddy
 
 - **Status:** Accepted
-- **Date:** 2026-11-14
+- **Date:** 2026-11-14 (updated 2026-11-18 with R2-7: upload page, demo upload rules)
 
 ## Context
 
@@ -32,6 +32,13 @@ stack** we test in CI, plus a production override (`infra/docker-compose.prod.ym
 - **Demo safety:** a daily LLM spending cap (`INVOICEGUARD_LLM_DAILY_BUDGET_USD`, default 0.50 in the override)
   summed from `model_calls`; once reached, PDFs wait in `awaiting_extraction`. The web app has no upload page and
   the API is not public, so visitors cannot upload at all in R1; the cap is the backstop for when that changes.
+- **Demo uploads (R2-7):** the web app has an upload page now (through the web server, the API stays private). With
+  `INVOICEGUARD_DEMO_MODE=true` the API refuses a PDF without embedded e-invoice XML (`422` with a clear message,
+  nothing stored), so no visitor's PDF is sent to a model, even if a key is ever set (ADR-010 data protection).
+  XRechnung XML and ZUGFeRD / Factur-X PDFs are processed by code only. Limits: 10 MiB per file (API) and 12 MB per
+  request (Caddy), and `INVOICEGUARD_UPLOAD_MAX_PER_HOUR` uploads per user (default 30 in the override; `429`),
+  counted from the audit log. The demo accounts are shared, so the hourly limit caps all visitors together. Uploaded
+  invoices are deleted with everything else by the nightly reset.
 - **Demo data:** `make demo-reset` (only with `INVOICEGUARD_DEMO_MODE=true`) deletes all invoices, exports and
   files, restores the master data, loads five sample invoices and resets the demo login. A nightly cron job runs
   it. The audit log stays append-only: the reset is recorded as an event, earlier events are kept.

@@ -6,6 +6,7 @@ import {
   approve,
   confirmOverride,
   declineOverride,
+  reopen,
   investigate,
   reject,
   requestOverride,
@@ -139,6 +140,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
               requestOverride: requestOverride.bind(null, invoice.id),
               confirmOverride: confirmOverride.bind(null, invoice.id),
               declineOverride: declineOverride.bind(null, invoice.id),
+              reopen: reopen.bind(null, invoice.id),
             }}
           />
         </Section>

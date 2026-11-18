@@ -6,6 +6,7 @@ import type { ActionState } from "@/app/actions";
 import {
   canApprove,
   canReject,
+  canReopen,
   canRequestOverride,
   type InvoiceStatus,
 } from "@/lib/invoices";
@@ -18,6 +19,7 @@ export type DecisionActions = {
   requestOverride: Action;
   confirmOverride: Action;
   declineOverride: Action;
+  reopen: Action;
 };
 
 export type OverrideRequest = {
@@ -95,14 +97,43 @@ export function DecisionPanel({
     actions.reject,
     INITIAL,
   );
-  const busy = approving || requesting || confirming || declining || rejecting;
+  const [reopenState, reopenAction, reopening] = useActionState(
+    actions.reopen,
+    INITIAL,
+  );
+  const busy =
+    approving ||
+    requesting ||
+    confirming ||
+    declining ||
+    rejecting ||
+    reopening;
   const overrideRequested = status === "override_requested";
 
   if (!canApprove(status) && !canReject(status)) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No decision possible while the invoice is {status.replace("_", " ")}.
-      </p>
+      <div className="flex flex-col gap-2">
+        <p className="text-sm text-muted-foreground">
+          No decision possible while the invoice is {status.replace("_", " ")}.
+        </p>
+        {canReopen(status) && (
+          <form
+            action={reopenAction}
+            aria-label="Reopen"
+            className="flex flex-col gap-2"
+          >
+            <p className="text-sm">
+              Rejected by mistake? Reopen it: the checks run again on the
+              current master data, and it waits for review.
+            </p>
+            <ReasonField label="Reopen reason" name="reopen_reason" />
+            <button type="submit" disabled={busy} className={OUTLINE}>
+              Reopen
+            </button>
+            <ErrorText state={reopenState} />
+          </form>
+        )}
+      </div>
     );
   }
 

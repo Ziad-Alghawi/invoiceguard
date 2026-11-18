@@ -14,5 +14,11 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/invoices/:path*", "/exports/:path*", "/security/:path*"],
+  // "/upload" alone: its route handler /upload/file checks the session itself (route.ts).
+  matcher: [
+    "/invoices/:path*",
+    "/exports/:path*",
+    "/security/:path*",
+    "/upload",
+  ],
 };

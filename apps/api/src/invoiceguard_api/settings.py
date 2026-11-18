@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     database_url: DatabaseUrl
     storage_dir: Path = Path("data/uploads")
     max_upload_bytes: int = Field(default=10 * MIB, gt=0)
+    # Uploads per user in the last hour, counted from the audit log; more get 429. Unset: no limit.
+    upload_max_per_hour: int | None = Field(default=None, gt=0)
     # KoSIT validator service (ADR-009). Unset: the KoSIT check is skipped, nothing else changes.
     validator_url: AnyHttpUrl | None = None
     validator_timeout_seconds: float = Field(default=20.0, gt=0)
@@ -89,7 +91,8 @@ class Settings(BaseSettings):
         Decimal(7): "8",
     }
 
-    # The public demo (ADR-014): allows `invoiceguard-demo-reset`, which deletes every invoice.
+    # The public demo (ADR-014): allows `invoiceguard-demo-reset`, which deletes every invoice,
+    # and refuses PDF uploads without embedded e-invoice XML (no visitor PDF goes to a model).
     demo_mode: bool = False
 
     @property

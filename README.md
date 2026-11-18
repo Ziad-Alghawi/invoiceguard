@@ -120,7 +120,8 @@ the user's session. The public demo runs this stack on one VPS with Docker Compo
    approved by one person. A **`blocked`** one needs four eyes: a reviewer requests an override with a written
    reason (**`override_requested`**), and a different user with the **approver** role confirms it (`approved`) or
    declines it (back to `blocked`), with a reason of their own; the requester can never confirm their own request.
-   Any of them can be rejected with a reason ([ADR-016](docs/decisions/ADR-016-four-eyes-override-and-reopen.md)).
+   Any of them can be rejected with a reason, and a rejected invoice can be reopened with a reason: its checks run
+   again and it is back in review; an approved one never ([ADR-016](docs/decisions/ADR-016-four-eyes-override-and-reopen.md)).
    The API enforces these rules, not the UI. Each invoice is a LangGraph thread that pauses at review with
    `interrupt()`; a decision resumes it, and only the graph's last step writes the decision's status
    ([ADR-015](docs/decisions/ADR-015-processing-graph-approval-interrupt.md)). Every
@@ -273,9 +274,12 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
   readable total or invoice number ends in `failed`; the Gemini free tier is for sample data only; there is a per-day cost cap
   (`INVOICEGUARD_LLM_DAILY_BUDGET_USD`) but no per-invoice cap yet (R2), and PDFs held back by the cap are only
   picked up again when the API restarts.
-- Review: two roles, reviewer and approver; on the public demo one visitor can use both accounts. Decisions are
-  final until reopening arrives (R2-7). The lockout is per account, so anyone who knows a demo email can lock it for 15 minutes; there is no
-  per-IP rate limit. The UI has no upload page yet (upload through the API).
+- Review: two roles, reviewer and approver; on the public demo one visitor can use both accounts. Approvals are
+  final; only rejected invoices can be reopened. The lockout is per account, so anyone who knows a demo email can
+  lock it for 15 minutes; there is no per-IP rate limit.
+- Upload: one file at a time on the upload page. The public demo accepts XRechnung XML and ZUGFeRD / Factur-X PDFs
+  with embedded XML only (no visitor's PDF goes to a model), at most 30 uploads per hour per shared demo
+  account, and the nightly reset deletes every upload.
 - DATEV export: not certified and not yet imported into a real DATEV installation. One row per invoice, so invoices
   with several VAT rates (or lines without a rate) get no tax key and the advisor sets the tax; one collective
   creditor and one expense account for all invoices until booking suggestions (R3); no exchange rate for non-EUR

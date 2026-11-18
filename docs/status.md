@@ -1,6 +1,6 @@
 # Status
 
-**Current milestone:** R2 — Agent, MCP servers, approval gate
+**Current milestone:** R3 — Evals, RAG, CI gate (next; R2 complete)
 **Last updated:** 2026-11-18
 
 ## Done
@@ -71,7 +71,7 @@
     Checked from outside: Let's Encrypt certificate, HTTP → HTTPS 308, HSTS and headers, ports 3000/5432/8000/8081
     closed, browser login with a Secure, HttpOnly, SameSite=Lax cookie; reset gives 3 ready and 2 blocked with KoSIT
     passed on all XRechnung samples; nightly reset at 03:00 UTC
-- R2 — Agent, MCP servers, approval gate (in progress)
+- R2 — Agent, MCP servers, approval gate (complete)
   - Processing graph (R2-2, ADR-015 updated): processing runs as a LangGraph graph per invoice (`read` / `extract` →
     `checks` → `review` → `decide`), thread ID = invoice ID, checkpointed by `PostgresSaver` (sync) in its own
     `langgraph` schema (migration 0007 calls the checkpointer's setup; strict serializer, plain JSON state). Every
@@ -136,13 +136,31 @@
       duplicate warning listing ~100 invoice IDs on the dev database: 8.4k input tokens per call, $0.029 for a
       failed run), now capped per check; and Gemini left out optional schema fields, so `finish` came back without
       the email twice. Every field of the action is now required (nullable)
+  - Upload page (R2-7, ADR-014 updated): `/upload` for reviewers and approvers. The browser sends the file with
+    `XMLHttpRequest` (upload progress) to a route handler, which passes it to `POST /invoices` with the session (not
+    behind `proxy.ts`, whose body buffering has its own size limit); then the page polls the status and links to the
+    invoice. Messages for wrong type (`415`), too large (`413`), duplicate (`409`, link to the existing invoice), demo
+    PDF without XML (`422`) and the hourly limit (`429`). Demo mode refuses PDFs without embedded XML at upload,
+    nothing stored; `INVOICEGUARD_UPLOAD_MAX_PER_HOUR` (default 30 on the demo) counts uploads per user from the audit
+    log. Tests for XML and ZUGFeRD on the demo, plain and unreadable PDFs, the limit per user and hour; Playwright test
+    uploads an XML on the page and finds it in the queue
+  - Reopening rejected invoices (R2-7, ADR-016 updated): `POST /invoices/{id}/reopen` with a required reason, any
+    role; `approved` → `409` (it may be exported), other statuses but `rejected` → `409`. Resumes the thread under the
+    advisory lock (a finished thread first pauses at review again); `decide` writes `rejected → processing`, one
+    `invoice.reopened` row, and clears the old fields and checks in one transaction, then routes to `read` (new edge),
+    so KoSIT and every check run again on the current master data and the thread pauses at review. Plain PDFs are
+    extracted again afterwards (key and budget), blocked results investigated as after an upload. Web: "Reopen" form
+    on rejected invoices; the history shows the reopen. Tests: one audit row, fresh checks after a changed IBAN in the
+    registry (ready → blocked), `409` for approved, `422` without a reason, two reopens at once (one `200`, one `409`,
+    three runs), decide refuses a reopen without the endpoint; Playwright test rejects and reopens an invoice
+  - R2 done-when met: the poisoned sample is caught and shown (R2-4), the agent explains an exception with evidence
+    (R2-6), every approval resumes the paused graph (R2-2, R2-3); all R1 and R2 Playwright tests pass
 
 ## Open decisions
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
-- R2 (planned 2026-11-16, ADR-015, ADR-016), one PR each:
-  - R2-7 Web upload page (demo: XML and sample picker only) and reopening rejected invoices
+- R3 — Evals, RAG, CI gate (PLAN.md §11): plan the tasks and ADRs first, as for R2
 
 ## Known limitations
 - Exception agent (ADR-018): the cost cap is checked before each call, so the last call can overshoot it; the
@@ -152,8 +170,9 @@
 - MCP servers (ADR-017): no authentication between the api and the servers (reachable only inside the stack); one
   database connection per tool call; the migration needs a user that may create roles. `get_invoice_history` and
   the RAG tools come in R3.
-- Review (ADR-016): decisions are final until reopening (R2-7). On the public demo one visitor can use both the
-  reviewer and the approver account, so four eyes there shows the mechanism, not real separation of duties.
+- Review (ADR-016): approvals are final; a rejected invoice can be reopened, which runs the checks (and for a plain
+  PDF the LLM extraction) again, so a reopen costs what the first run cost. On the public demo one visitor can use
+  both the reviewer and the approver account, so four eyes there shows the mechanism, not real separation of duties.
   Roles are set by `make seed-user`; there is no user administration.
 - Graph (ADR-015): startup reads the thread of every invoice waiting for review (one query each); each graph run
   opens its own database connection for the checkpointer; a decision waits while a run (an LLM extraction) holds
@@ -166,7 +185,9 @@
   the account exists. No per-IP rate limit (ingress in R4).
 - The audit trigger stops UPDATE and DELETE through the app's database user, not the table owner (TRUNCATE, dropping
   the trigger); production needs a separate, restricted database role.
-- No upload page in the web app yet; uploads go through the API, which the public demo does not expose.
+- Upload limit (R2-7): counted from the audit log without a lock, so parallel uploads can pass it by a few files; the
+  demo accounts are shared, so on the demo it caps all visitors together. One file per upload (no bulk upload);
+  there is no sample picker: visitors bring their own XRechnung or ZUGFeRD file.
 - Demo (ADR-014): one VPS, no backups (sample data, reset nightly); the shared demo login can be locked for 15 minutes
   by anyone, the nightly reset unlocks it.
 - Duplicate check race: two copies of the same invoice processed at the same moment can both pass, because each

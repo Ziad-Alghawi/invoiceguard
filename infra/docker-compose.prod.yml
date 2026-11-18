@@ -31,6 +31,8 @@ services:
       INVOICEGUARD_DEMO_MODE: "true"
       # Stop LLM extraction for the day once this much is spent (US dollars).
       INVOICEGUARD_LLM_DAILY_BUDGET_USD: ${INVOICEGUARD_LLM_DAILY_BUDGET_USD:-0.50}
+      # Uploads per user per hour; the demo accounts are shared, so this caps all visitors.
+      INVOICEGUARD_UPLOAD_MAX_PER_HOUR: ${INVOICEGUARD_UPLOAD_MAX_PER_HOUR:-30}
 
   mcp-erp:
     restart: unless-stopped

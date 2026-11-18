@@ -9,6 +9,9 @@ async function CurrentUser() {
   const user = await apiGet<User>("/auth/me");
   return (
     <div className="flex items-center gap-4 text-sm">
+      <Link href="/upload" className="underline underline-offset-4">
+        Upload
+      </Link>
       {user.role === "approver" && (
         <Link href="/security" className="underline underline-offset-4">
           Security events

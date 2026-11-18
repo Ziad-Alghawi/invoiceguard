@@ -428,3 +428,21 @@ def test_cost_from_yesterday_does_not_count_against_the_budget(
 
     assert detail["status"] == "ready"
     assert processing.spent_today_usd(db_session) == Decimal("0.009") + COST_USD
+
+
+@pytest.mark.usefixtures("seeded")
+def test_a_reopened_plain_pdf_is_extracted_and_checked_again(
+    start_app: StartApp, samples: dict[str, bytes], db_session: Session
+) -> None:
+    client = start_app(FakeLLMClient(reply_text(), reply_text()))
+    invoice_id = upload(client, samples["text_pdf"])["id"]
+    client.post(f"/invoices/{invoice_id}/reject", json={"reason": "Wrong cost centre."})
+
+    response = client.post(f"/invoices/{invoice_id}/reopen", json={"reason": "Right after all."})
+
+    # Read finds no XML; the extraction runs after the response (ADR-016).
+    assert response.json()["status"] == "awaiting_extraction"
+    detail = poll_until_done(client, f"/invoices/{invoice_id}", EXTRACTING)
+    assert detail["status"] == "ready"
+    assert {field["source"] for field in detail["fields"]} == {"llm"}
+    assert len(_calls(db_session, invoice_id)) == 2

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 
 import { apiFetch, apiPostAnonymous, errorMessage } from "@/lib/api";
 import type { ExportState } from "@/lib/exports";
-import { isInvoiceId } from "@/lib/invoices";
+import { type Invoice, type InvoiceStatus, isInvoiceId } from "@/lib/invoices";
 import { parseSessionCookie, SESSION_COOKIE } from "@/lib/session";
 
 export type ActionState = { error: string | null };
@@ -59,7 +59,12 @@ export async function logout(): Promise<void> {
 }
 
 type DecisionPath =
-  "approve" | "reject" | "override" | "override/confirm" | "override/decline";
+  | "approve"
+  | "reject"
+  | "override"
+  | "override/confirm"
+  | "override/decline"
+  | "reopen";
 
 async function decide(
   invoiceId: string,
@@ -132,6 +137,17 @@ export async function declineOverride(
   });
 }
 
+/** Reopens a rejected invoice with a reason (ADR-016): its checks run again, then it is in review. */
+export async function reopen(
+  invoiceId: string,
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return decide(invoiceId, "reopen", {
+    reason: text(formData, "reopen_reason"),
+  });
+}
+
 type ExportCreated = {
   id: string;
   invoice_count: number;
@@ -173,4 +189,25 @@ export async function investigate(invoiceId: string): Promise<ActionState> {
   }
   refresh();
   return { error: null };
+}
+
+export type StatusState =
+  | { status: InvoiceStatus; reason: string | null; error: null }
+  | { status: null; reason: null; error: string };
+
+/** The invoice's current status, for the upload page while processing runs (ADR-007). */
+export async function invoiceStatus(invoiceId: string): Promise<StatusState> {
+  if (!isInvoiceId(invoiceId)) {
+    return { status: null, reason: null, error: "Unknown invoice." };
+  }
+  const response = await apiFetch(`/invoices/${invoiceId}`);
+  if (!response.ok) {
+    return {
+      status: null,
+      reason: null,
+      error: await errorMessage(response),
+    };
+  }
+  const invoice = (await response.json()) as Invoice;
+  return { status: invoice.status, reason: invoice.status_reason, error: null };
 }
