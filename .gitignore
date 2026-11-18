@@ -46,3 +46,8 @@ Thumbs.db
 
 # Uploaded invoices when the api runs outside Docker
 apps/api/data/
+
+# Downloaded eval sources (ADR-019: pinned by hash, never committed)
+packages/evals/.cache/
+# Reports of local runs; the reports behind docs/results.md are committed under their own names.
+packages/evals/reports/latest-*.json

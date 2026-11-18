@@ -1,0 +1,77 @@
+[project]
+name = "invoiceguard-evals"
+version = "0.1.0"
+description = "Evaluation datasets, generator, metrics and the invoiceguard-eval CLI (ADR-019)"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # The code under test: readers, PdfExtractor and the app, imported, never re-implemented.
+    "invoiceguard-api",
+    # Writes the generated PDF invoices; pure Python, deterministic output in invariant mode.
+    "reportlab==5.1.0",
+    # The decision eval drives the app with FastAPI's TestClient, which needs httpx.
+    "httpx2>=2.16.0",
+]
+
+[project.scripts]
+invoiceguard-eval = "invoiceguard_evals.cli:main"
+
+[tool.uv]
+# The same constraints as apps/api, so the eval runs the api on the versions it ships with.
+constraint-dependencies = ["argon2-cffi-bindings==26.1.0", "langgraph-checkpoint==4.3.1"]
+
+[tool.uv.sources]
+invoiceguard-api = { path = "../../apps/api", editable = true }
+
+[build-system]
+requires = ["uv_build>=0.9,<0.14"]
+build-backend = "uv_build"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["src", "tests"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# reportlab ships no type information; only render.py imports it.
+module = ["reportlab", "reportlab.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["facturx", "facturx.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers --cov=invoiceguard_evals --cov-report=term-missing"
+filterwarnings = [
+    "error",
+    # LiteLLM 1.108 declares TypedDicts with ReadOnly items; pydantic warns when it first uses them.
+    "ignore:Items? .* on TypedDict class .* using the `ReadOnly` qualifier:UserWarning",
+]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+
+[dependency-groups]
+dev = [
+    "lxml-stubs>=0.5.1",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.5",
+]

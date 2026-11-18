@@ -83,9 +83,16 @@ throwaway PostgreSQL database seeded with the demo master data. Model calls go t
 
 - Extraction numbers are reproducible for free from the recordings; anyone can rerun `make eval`.
 - Recordings hold the model's answers about the corpus files (extracted values), not the files.
+- detect-secrets skips the eval data paths only (`sources.json`, `datasets/generated/`, `recordings/`,
+  `reports/` under `packages/evals`): they are hashes by design (SHA-256 pins, replies keyed by hash) and
+  fictitious IBANs, which the scanner reads as high-entropy secrets. All code, the tests included, stays
+  scanned; a test value that looks like a secret gets an inline `pragma: allowlist secret`. The API key is
+  never written to a recording.
 - Recordings go stale when the prompt, schema or model changes: the next run must be live, which costs money
   and is the point.
 - The fraud set measures the checks against the demo seed only; real master data has more cases.
 - Generated layouts are cleaner than real invoices; scan-like variants (image noise, no text layer) are in
   the backlog.
-- New dev-only dependency: `reportlab` (generator), in `packages/evals` only, not in the api image.
+- New dependencies, in `packages/evals` only (not in the api image): `reportlab` 5.1.0 for the generator (it
+  pulls in Pillow), and `httpx2`, which FastAPI's `TestClient` needs to drive the app; the api already uses it
+  in its tests. The api package gained a `py.typed` marker so the harness is type-checked against it.

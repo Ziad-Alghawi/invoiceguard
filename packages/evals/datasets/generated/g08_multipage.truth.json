@@ -1,0 +1,356 @@
+{
+ "syntax": "pdf",
+ "invoice_number": "MB-2026-1150",
+ "issue_date": "2026-10-02",
+ "type_code": "380",
+ "currency": "EUR",
+ "due_date": null,
+ "seller_name": "Muster Bürobedarf GmbH",
+ "seller_vat_id": "DE999000017",
+ "buyer_name": "Beispielkunde Handels GmbH",
+ "buyer_vat_id": "DE999000068",
+ "payee_iban": "DE17123456780000000001",
+ "order_reference": null,
+ "line_total": "2334.34",
+ "allowance_total": null,
+ "charge_total": null,
+ "net_total": "2334.34",
+ "tax_total": "443.52",
+ "gross_total": "2777.86",
+ "amount_due": "2777.86",
+ "lines": [
+  {
+   "line_id": "1",
+   "item_name": "Büroartikel Sortiment Pos. 01",
+   "quantity": "2",
+   "unit_code": "C62",
+   "net_price": "4.07",
+   "net_amount": "8.14",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "2",
+   "item_name": "Büroartikel Sortiment Pos. 02",
+   "quantity": "3",
+   "unit_code": "C62",
+   "net_price": "5.14",
+   "net_amount": "15.42",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "3",
+   "item_name": "Büroartikel Sortiment Pos. 03",
+   "quantity": "4",
+   "unit_code": "C62",
+   "net_price": "6.21",
+   "net_amount": "24.84",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "4",
+   "item_name": "Büroartikel Sortiment Pos. 04",
+   "quantity": "5",
+   "unit_code": "C62",
+   "net_price": "7.28",
+   "net_amount": "36.40",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "5",
+   "item_name": "Büroartikel Sortiment Pos. 05",
+   "quantity": "1",
+   "unit_code": "C62",
+   "net_price": "8.35",
+   "net_amount": "8.35",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "6",
+   "item_name": "Büroartikel Sortiment Pos. 06",
+   "quantity": "2",
+   "unit_code": "C62",
+   "net_price": "9.42",
+   "net_amount": "18.84",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "7",
+   "item_name": "Büroartikel Sortiment Pos. 07",
+   "quantity": "3",
+   "unit_code": "C62",
+   "net_price": "10.49",
+   "net_amount": "31.47",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "8",
+   "item_name": "Büroartikel Sortiment Pos. 08",
+   "quantity": "4",
+   "unit_code": "C62",
+   "net_price": "11.56",
+   "net_amount": "46.24",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "9",
+   "item_name": "Büroartikel Sortiment Pos. 09",
+   "quantity": "5",
+   "unit_code": "C62",
+   "net_price": "12.63",
+   "net_amount": "63.15",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "10",
+   "item_name": "Büroartikel Sortiment Pos. 10",
+   "quantity": "1",
+   "unit_code": "C62",
+   "net_price": "13.70",
+   "net_amount": "13.70",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "11",
+   "item_name": "Büroartikel Sortiment Pos. 11",
+   "quantity": "2",
+   "unit_code": "C62",
+   "net_price": "14.77",
+   "net_amount": "29.54",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "12",
+   "item_name": "Büroartikel Sortiment Pos. 12",
+   "quantity": "3",
+   "unit_code": "C62",
+   "net_price": "15.84",
+   "net_amount": "47.52",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "13",
+   "item_name": "Büroartikel Sortiment Pos. 13",
+   "quantity": "4",
+   "unit_code": "C62",
+   "net_price": "16.91",
+   "net_amount": "67.64",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "14",
+   "item_name": "Büroartikel Sortiment Pos. 14",
+   "quantity": "5",
+   "unit_code": "C62",
+   "net_price": "17.98",
+   "net_amount": "89.90",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "15",
+   "item_name": "Büroartikel Sortiment Pos. 15",
+   "quantity": "1",
+   "unit_code": "C62",
+   "net_price": "18.05",
+   "net_amount": "18.05",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "16",
+   "item_name": "Büroartikel Sortiment Pos. 16",
+   "quantity": "2",
+   "unit_code": "C62",
+   "net_price": "19.12",
+   "net_amount": "38.24",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "17",
+   "item_name": "Büroartikel Sortiment Pos. 17",
+   "quantity": "3",
+   "unit_code": "C62",
+   "net_price": "20.19",
+   "net_amount": "60.57",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "18",
+   "item_name": "Büroartikel Sortiment Pos. 18",
+   "quantity": "4",
+   "unit_code": "C62",
+   "net_price": "21.26",
+   "net_amount": "85.04",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "19",
+   "item_name": "Büroartikel Sortiment Pos. 19",
+   "quantity": "5",
+   "unit_code": "C62",
+   "net_price": "22.33",
+   "net_amount": "111.65",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "20",
+   "item_name": "Büroartikel Sortiment Pos. 20",
+   "quantity": "1",
+   "unit_code": "C62",
+   "net_price": "23.40",
+   "net_amount": "23.40",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "21",
+   "item_name": "Büroartikel Sortiment Pos. 21",
+   "quantity": "2",
+   "unit_code": "C62",
+   "net_price": "24.47",
+   "net_amount": "48.94",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "22",
+   "item_name": "Büroartikel Sortiment Pos. 22",
+   "quantity": "3",
+   "unit_code": "C62",
+   "net_price": "25.54",
+   "net_amount": "76.62",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "23",
+   "item_name": "Büroartikel Sortiment Pos. 23",
+   "quantity": "4",
+   "unit_code": "C62",
+   "net_price": "26.61",
+   "net_amount": "106.44",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "24",
+   "item_name": "Büroartikel Sortiment Pos. 24",
+   "quantity": "5",
+   "unit_code": "C62",
+   "net_price": "27.68",
+   "net_amount": "138.40",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "25",
+   "item_name": "Büroartikel Sortiment Pos. 25",
+   "quantity": "1",
+   "unit_code": "C62",
+   "net_price": "28.75",
+   "net_amount": "28.75",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "26",
+   "item_name": "Büroartikel Sortiment Pos. 26",
+   "quantity": "2",
+   "unit_code": "C62",
+   "net_price": "29.82",
+   "net_amount": "59.64",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "27",
+   "item_name": "Büroartikel Sortiment Pos. 27",
+   "quantity": "3",
+   "unit_code": "C62",
+   "net_price": "30.89",
+   "net_amount": "92.67",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "28",
+   "item_name": "Büroartikel Sortiment Pos. 28",
+   "quantity": "4",
+   "unit_code": "C62",
+   "net_price": "31.96",
+   "net_amount": "127.84",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "29",
+   "item_name": "Büroartikel Sortiment Pos. 29",
+   "quantity": "5",
+   "unit_code": "C62",
+   "net_price": "32.03",
+   "net_amount": "160.15",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "30",
+   "item_name": "Büroartikel Sortiment Pos. 30",
+   "quantity": "1",
+   "unit_code": "C62",
+   "net_price": "33.10",
+   "net_amount": "33.10",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "31",
+   "item_name": "Büroartikel Sortiment Pos. 31",
+   "quantity": "2",
+   "unit_code": "C62",
+   "net_price": "34.17",
+   "net_amount": "68.34",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "32",
+   "item_name": "Büroartikel Sortiment Pos. 32",
+   "quantity": "3",
+   "unit_code": "C62",
+   "net_price": "35.24",
+   "net_amount": "105.72",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "33",
+   "item_name": "Büroartikel Sortiment Pos. 33",
+   "quantity": "4",
+   "unit_code": "C62",
+   "net_price": "36.31",
+   "net_amount": "145.24",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "34",
+   "item_name": "Büroartikel Sortiment Pos. 34",
+   "quantity": "5",
+   "unit_code": "C62",
+   "net_price": "37.38",
+   "net_amount": "186.90",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "35",
+   "item_name": "Büroartikel Sortiment Pos. 35",
+   "quantity": "1",
+   "unit_code": "C62",
+   "net_price": "38.45",
+   "net_amount": "38.45",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "36",
+   "item_name": "Büroartikel Sortiment Pos. 36",
+   "quantity": "2",
+   "unit_code": "C62",
+   "net_price": "39.52",
+   "net_amount": "79.04",
+   "vat_rate": "19"
+  }
+ ],
+ "vat_breakdown": [
+  {
+   "category_code": "S",
+   "rate": "19",
+   "taxable_amount": "2334.34",
+   "tax_amount": "443.52"
+  }
+ ],
+ "warnings": []
+}

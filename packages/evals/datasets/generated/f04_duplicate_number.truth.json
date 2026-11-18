@@ -1,0 +1,41 @@
+{
+ "syntax": "pdf",
+ "invoice_number": "MB-2026-1001",
+ "issue_date": "2026-10-12",
+ "type_code": "380",
+ "currency": "EUR",
+ "due_date": "2026-10-26",
+ "seller_name": "Muster Bürobedarf GmbH",
+ "seller_vat_id": "DE999000017",
+ "buyer_name": "Beispielkunde Handels GmbH",
+ "buyer_vat_id": "DE999000068",
+ "payee_iban": "DE17123456780000000001",
+ "order_reference": "PO-2026-0002",
+ "line_total": "474.00",
+ "allowance_total": null,
+ "charge_total": null,
+ "net_total": "474.00",
+ "tax_total": "90.06",
+ "gross_total": "564.06",
+ "amount_due": "564.06",
+ "lines": [
+  {
+   "line_id": "1",
+   "item_name": "Toner schwarz für Bürodrucker",
+   "quantity": "6",
+   "unit_code": "C62",
+   "net_price": "79.00",
+   "net_amount": "474.00",
+   "vat_rate": "19"
+  }
+ ],
+ "vat_breakdown": [
+  {
+   "category_code": "S",
+   "rate": "19",
+   "taxable_amount": "474.00",
+   "tax_amount": "90.06"
+  }
+ ],
+ "warnings": []
+}

@@ -1,0 +1,41 @@
+{
+ "syntax": "pdf",
+ "invoice_number": "EDM-2026-311",
+ "issue_date": "2026-10-20",
+ "type_code": "380",
+ "currency": "EUR",
+ "due_date": "2026-11-03",
+ "seller_name": "Exempel Druck & Medien GmbH",
+ "seller_vat_id": "DE999000050",
+ "buyer_name": "Beispielkunde Handels GmbH",
+ "buyer_vat_id": "DE999000068",
+ "payee_iban": "DE06123456780000000005",
+ "order_reference": "PO-2026-0010",
+ "line_total": "249.50",
+ "allowance_total": null,
+ "charge_total": null,
+ "net_total": "249.50",
+ "tax_total": "17.47",
+ "gross_total": "266.97",
+ "amount_due": "266.97",
+ "lines": [
+  {
+   "line_id": "1",
+   "item_name": "Fachbuch Rechnungswesen, gedruckt",
+   "quantity": "5",
+   "unit_code": "C62",
+   "net_price": "49.90",
+   "net_amount": "249.50",
+   "vat_rate": "7"
+  }
+ ],
+ "vat_breakdown": [
+  {
+   "category_code": "S",
+   "rate": "7",
+   "taxable_amount": "249.50",
+   "tax_amount": "17.47"
+  }
+ ],
+ "warnings": []
+}

@@ -1,0 +1,50 @@
+{
+ "syntax": "pdf",
+ "invoice_number": "BL/2026/0502",
+ "issue_date": "2026-10-09",
+ "type_code": "380",
+ "currency": "EUR",
+ "due_date": "2026-10-23",
+ "seller_name": "Beispiel Logistik AG",
+ "seller_vat_id": "DE999000025",
+ "buyer_name": "Beispielkunde Handels GmbH",
+ "buyer_vat_id": "DE999000068",
+ "payee_iban": "DE87123456780000000002",
+ "order_reference": "PO-2026-0003",
+ "line_total": "914.00",
+ "allowance_total": null,
+ "charge_total": null,
+ "net_total": "914.00",
+ "tax_total": "173.66",
+ "gross_total": "1087.66",
+ "amount_due": "1087.66",
+ "lines": [
+  {
+   "line_id": "1",
+   "item_name": "Palettentransport Hamburg nach München",
+   "quantity": "4",
+   "unit_code": "C62",
+   "net_price": "185.00",
+   "net_amount": "740.00",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "2",
+   "item_name": "Lagerung pro Palette und Monat",
+   "quantity": "12",
+   "unit_code": "C62",
+   "net_price": "14.50",
+   "net_amount": "174.00",
+   "vat_rate": "19"
+  }
+ ],
+ "vat_breakdown": [
+  {
+   "category_code": "S",
+   "rate": "19",
+   "taxable_amount": "914.00",
+   "tax_amount": "173.66"
+  }
+ ],
+ "warnings": []
+}
