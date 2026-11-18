@@ -21,3 +21,4 @@ New ADRs start from the [template](ADR-000-template.md).
 | [ADR-014](ADR-014-demo-hosting-single-vps.md) | R1 demo on one VPS with Docker Compose and Caddy | Accepted |
 | [ADR-015](ADR-015-processing-graph-approval-interrupt.md) | Processing graph with LangGraph, approval as `interrupt()` | Accepted |
 | [ADR-016](ADR-016-four-eyes-override-and-reopen.md) | Four-eyes override of blocked invoices, and reopening rejected invoices | Accepted |
+| [ADR-017](ADR-017-read-only-mcp-servers.md) | Read-only MCP servers with one database role each | Accepted |

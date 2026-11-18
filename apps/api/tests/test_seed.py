@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 
 from invoiceguard_api import seed
 from invoiceguard_api.models import (
+    GoodsReceipt,
+    GoodsReceiptLine,
     PurchaseOrder,
     PurchaseOrderLine,
     Supplier,
@@ -53,6 +55,19 @@ def test_seed_creates_demo_data(db_session: Session) -> None:
     assert count(db_session, PurchaseOrderLine) == sum(len(o.lines) for o in seed.ORDERS)
     accounts = db_session.scalars(select(SupplierBankAccount)).all()
     assert all(account.verified and account.verified_by for account in accounts)
+    suppliers = db_session.scalars(select(Supplier)).all()
+    assert all(supplier.contact_email for supplier in suppliers)
+    assert count(db_session, GoodsReceipt) == len(seed.RECEIPTS)
+    assert count(db_session, GoodsReceiptLine) == sum(len(r.lines) for r in seed.RECEIPTS)
+
+
+def test_goods_receipts_deliver_existing_order_lines() -> None:
+    orders = {order.number: order for order in seed.ORDERS}
+    for receipt in seed.RECEIPTS:
+        order = orders[receipt.order_number]
+        for line_no, quantity in receipt.lines:
+            assert 1 <= line_no <= len(order.lines), receipt.number
+            assert quantity <= order.lines[line_no - 1].quantity, receipt.number
 
 
 def test_seed_twice_is_idempotent(db_session: Session) -> None:
@@ -67,6 +82,7 @@ def test_seed_twice_is_idempotent(db_session: Session) -> None:
     assert count(db_session, SupplierBankAccount) == 5
     assert count(db_session, PurchaseOrder) == 10
     assert count(db_session, PurchaseOrderLine) == sum(len(o.lines) for o in seed.ORDERS)
+    assert count(db_session, GoodsReceiptLine) == sum(len(r.lines) for r in seed.RECEIPTS)
 
 
 def test_seed_resets_changed_demo_rows(db_session: Session) -> None:

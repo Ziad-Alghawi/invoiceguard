@@ -14,6 +14,8 @@ TABLES = {
     "supplier_bank_accounts",
     "purchase_orders",
     "purchase_order_lines",
+    "goods_receipts",
+    "goods_receipt_lines",
     "checks",
     "audit_events",
     "model_calls",

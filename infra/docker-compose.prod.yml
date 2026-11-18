@@ -32,6 +32,17 @@ services:
       # Stop LLM extraction for the day once this much is spent (US dollars).
       INVOICEGUARD_LLM_DAILY_BUDGET_USD: ${INVOICEGUARD_LLM_DAILY_BUDGET_USD:-0.50}
 
+  mcp-erp:
+    restart: unless-stopped
+    logging: *logging
+    # No host port: only the api calls the MCP servers, over the Compose network.
+    ports: !reset []
+
+  mcp-registry:
+    restart: unless-stopped
+    logging: *logging
+    ports: !reset []
+
   validator:
     restart: unless-stopped
     logging: *logging

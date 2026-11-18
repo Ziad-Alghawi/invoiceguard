@@ -182,6 +182,9 @@ class Supplier(Base):
     postal_code: Mapped[str] = mapped_column(String(20))
     city: Mapped[str] = mapped_column(String(100))
     country_code: Mapped[str] = mapped_column(String(2))
+    # Where supplier emails go (ERP master data). Never taken from an invoice: an invoice is
+    # untrusted and could name an attacker's address (ADR-018).
+    contact_email: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = _created_at()
 
     bank_accounts: Mapped[list["SupplierBankAccount"]] = relationship(back_populates="supplier")
@@ -238,6 +241,42 @@ class PurchaseOrderLine(Base):
     purchase_order: Mapped[PurchaseOrder] = relationship(back_populates="lines")
 
     __table_args__ = (UniqueConstraint("purchase_order_id", "line_no"),)
+
+
+class GoodsReceipt(Base):
+    """A delivery booked against a purchase order (mock ERP data, read by mcp-erp)."""
+
+    __tablename__ = "goods_receipts"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    number: Mapped[str] = mapped_column(String(50), unique=True)
+    purchase_order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("purchase_orders.id"))
+    received_on: Mapped[date] = mapped_column(Date)
+    created_at: Mapped[datetime] = _created_at()
+
+    lines: Mapped[list["GoodsReceiptLine"]] = relationship(
+        back_populates="goods_receipt", order_by="GoodsReceiptLine.po_line_no"
+    )
+
+    __table_args__ = (Index("ix_goods_receipts_purchase_order_id", "purchase_order_id"),)
+
+
+class GoodsReceiptLine(Base):
+    """The quantity received for one order line."""
+
+    __tablename__ = "goods_receipt_lines"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    goods_receipt_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("goods_receipts.id", ondelete="CASCADE")
+    )
+    # The purchase order line it delivers (PurchaseOrderLine.line_no).
+    po_line_no: Mapped[int] = mapped_column(Integer)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+
+    goods_receipt: Mapped[GoodsReceipt] = relationship(back_populates="lines")
+
+    __table_args__ = (UniqueConstraint("goods_receipt_id", "po_line_no"),)
 
 
 class Check(Base):

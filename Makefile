@@ -7,6 +7,8 @@ COMPOSE = cd infra && docker compose --env-file ../.env
 PROD = $(COMPOSE) -f docker-compose.yml -f docker-compose.prod.yml
 API = cd apps/api &&
 WEB = cd apps/web &&
+# The read-only MCP servers (ADR-017), each its own uv project.
+MCP_SERVERS = apps/mcp-erp apps/mcp-registry
 
 # The api tests need INVOICEGUARD_TEST_DATABASE_URL (and INVOICEGUARD_TEST_VALIDATOR_URL for the
 # KoSIT tests); read them from the root .env when there is one.
@@ -22,7 +24,7 @@ SEED_USER = exec $(foreach var,$(SEED_VARS),-e $(var)) api invoiceguard-seed-use
 
 .PHONY: dev down seed seed-user check test e2e eval prod-up prod-down demo-reset deploy
 
-dev: ## Build and start api + web + db + validator, wait until all are healthy
+dev: ## Build and start api + web + db + validator + MCP servers, wait until all are healthy
 ifeq ($(wildcard .env),)
 	$(error .env not found: run "cp .env.example .env" first)
 endif
@@ -61,12 +63,14 @@ check: ## Lint, format check and type check (api + web)
 	$(API) uv run ruff check
 	$(API) uv run ruff format --check
 	$(API) uv run mypy
+	for dir in $(MCP_SERVERS); do (cd $$dir && uv run ruff check && uv run ruff format --check && uv run mypy) || exit 1; done
 	$(WEB) pnpm lint
 	$(WEB) pnpm typecheck
 	$(WEB) pnpm format:check
 
-test: ## Tests (api + web); the api tests need the db and validator running (make dev)
+test: ## Tests (api + MCP servers + web); the api tests need the db and validator running (make dev)
 	$(API) uv run pytest
+	for dir in $(MCP_SERVERS); do (cd $$dir && uv run pytest) || exit 1; done
 	$(WEB) pnpm test
 
 e2e: ## Playwright browser test against the running stack (make dev, make seed, make seed-user first)

@@ -1,4 +1,5 @@
-# Local development stack: api + web + db + validator (KoSIT, ADR-009).
+# Local development stack: api + web + db + validator (KoSIT, ADR-009) + the read-only MCP servers
+# mcp-erp and mcp-registry (ADR-017).
 # Run from the repo root with `make dev`, which passes the root .env:
 #   docker compose --env-file .env -f infra/docker-compose.yml up --build --wait
 
@@ -24,11 +25,12 @@ services:
 
   api:
     build: ../apps/api
-    # Apply pending migrations, then serve. In Kubernetes (R4) migrations become a separate Job.
+    # Apply pending migrations, give the MCP roles their passwords (ADR-017), then serve. In
+    # Kubernetes (R4) migrations become a separate Job.
     command:
       - sh
       - -c
-      - alembic upgrade head && exec uvicorn --factory invoiceguard_api.main:create_app --host 0.0.0.0 --port 8000
+      - alembic upgrade head && invoiceguard-db-roles && exec uvicorn --factory invoiceguard_api.main:create_app --host 0.0.0.0 --port 8000
     environment:
       INVOICEGUARD_ENV: ${INVOICEGUARD_ENV:-dev}
       INVOICEGUARD_LOG_LEVEL: ${INVOICEGUARD_LOG_LEVEL:-INFO}
@@ -61,6 +63,10 @@ services:
       INVOICEGUARD_DATEV_CREDITOR_ACCOUNT: ${INVOICEGUARD_DATEV_CREDITOR_ACCOUNT:-}
       INVOICEGUARD_DATEV_EXPENSE_ACCOUNT: ${INVOICEGUARD_DATEV_EXPENSE_ACCOUNT:-}
       INVOICEGUARD_DATEV_TAX_KEYS: ${INVOICEGUARD_DATEV_TAX_KEYS:-}
+      # Passwords of the MCP servers' read-only database roles (ADR-017), set by
+      # `invoiceguard-db-roles` at start; empty = the role cannot log in.
+      INVOICEGUARD_MCP_ERP_DB_PASSWORD: ${INVOICEGUARD_MCP_ERP_DB_PASSWORD:-}
+      INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD: ${INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD:-}
     volumes:
       - uploads:/data/uploads
     depends_on:
@@ -78,6 +84,28 @@ services:
       timeout: 3s
       retries: 10
       start_period: 5s
+
+  # Read-only MCP servers for the exception agent (ADR-017). Each logs in as its own database
+  # role with SELECT on its own tables only; they start after the api, which sets the passwords.
+  mcp-erp:
+    build: ../apps/mcp-erp
+    environment:
+      INVOICEGUARD_MCP_ERP_DATABASE_URL: postgresql://invoiceguard_mcp_erp:${INVOICEGUARD_MCP_ERP_DB_PASSWORD:?set INVOICEGUARD_MCP_ERP_DB_PASSWORD in .env}@db:5432/${POSTGRES_DB}
+    ports:
+      - "127.0.0.1:${MCP_ERP_PORT:-8091}:8000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  mcp-registry:
+    build: ../apps/mcp-registry
+    environment:
+      INVOICEGUARD_MCP_REGISTRY_DATABASE_URL: postgresql://invoiceguard_mcp_registry:${INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD:?set INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD in .env}@db:5432/${POSTGRES_DB}
+    ports:
+      - "127.0.0.1:${MCP_REGISTRY_PORT:-8092}:8000"
+    depends_on:
+      api:
+        condition: service_healthy
 
   validator:
     # Official KoSIT validator with the XRechnung configuration; healthcheck in the Dockerfile.

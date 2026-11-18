@@ -1,7 +1,7 @@
 # Status
 
 **Current milestone:** R2 — Agent, MCP servers, approval gate
-**Last updated:** 2026-11-17
+**Last updated:** 2026-11-18
 
 ## Done
 - R0 — Foundation (complete)
@@ -108,17 +108,27 @@
     samples or the printed test invoice; business phrases such as "ignorieren Sie diese Mahnung" are tested as
     negatives. Poisoned demo sample 06 (a note to an AI, KoSIT-valid). `GET /security-events` and a web page
     `/security`, approvers only. New Playwright test for the poisoned upload and the security page
+  - Read-only MCP servers (R2-5, ADR-017): `mcp-erp` (supplier master data, purchase orders with received
+    quantities, goods receipts) and `mcp-registry` (VAT ID check digit and known supplier, IBAN checksum and owner,
+    bank accounts with verification) as Compose services, MCP SDK 2.3.0, streamable HTTP, no host ports on the demo.
+    Small typed tools, patterns on every input, fixed SQL, `READ ONLY` transactions. Migration 0010: goods receipts,
+    `suppliers.contact_email`, one role per server with `SELECT` on its own tables only (registry: four supplier
+    columns); `invoiceguard-db-roles` sets the passwords from the environment at api start. Tests prove that each
+    role reads only its tables and columns and can neither write nor create; the servers' tests run as the roles.
+    `get_invoice_history` moved to R3 (it would need access to `invoices`)
 
 ## Open decisions
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
 - R2 (planned 2026-11-16, ADR-015, ADR-016), one PR each:
-  - R2-5 Read-only MCP servers `mcp-erp` and `mcp-registry`, one database role each
   - R2-6 Exception agent with a German supplier email draft and a per-invoice cost cap; saved result on the demo
   - R2-7 Web upload page (demo: XML and sample picker only) and reopening rejected invoices
 
 ## Known limitations
+- MCP servers (ADR-017): no authentication between the api and the servers (reachable only inside the stack); one
+  database connection per tool call; the migration needs a user that may create roles. `get_invoice_history` and
+  the RAG tools come in R3.
 - Review (ADR-016): decisions are final until reopening (R2-7). On the public demo one visitor can use both the
   reviewer and the approver account, so four eyes there shows the mechanism, not real separation of duties.
   Roles are set by `make seed-user`; there is no user administration.

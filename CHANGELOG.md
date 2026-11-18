@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Read-only MCP servers (R2-5, ADR-017): `apps/mcp-erp` (`get_supplier`, `list_purchase_orders`, `get_purchase_order`
+  with received quantities, `get_goods_receipts`) and `apps/mcp-registry` (`check_vat_id`, `check_iban`,
+  `get_bank_accounts`), MCP Python SDK 2.3.0 over streamable HTTP, typed inputs with patterns and typed outputs, fixed
+  SQL in `READ ONLY` transactions. Migration 0010: tables `goods_receipts` and `goods_receipt_lines`, column
+  `suppliers.contact_email`, roles `invoiceguard_mcp_erp` and `invoiceguard_mcp_registry` with `SELECT` on their own
+  tables (the registry on four supplier columns only). `invoiceguard-db-roles` sets their passwords from
+  `INVOICEGUARD_MCP_ERP_DB_PASSWORD` / `INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD` at api start (required by Compose).
+  Demo seed with contact emails and goods receipts. Tests: each role reads only its tables and columns and cannot
+  write; tool tests as the role; CI job per server and a smoke call in the Compose test.
 - Security events and prompt-injection scan (R2-4): append-only `security_events` table (migration 0009) for failed
   logins, lockouts, refused role checks, self-approval attempts and injection hits; `GET /security-events` and the
   web page `/security` for approvers. Heuristic scan of the invoice text (XML and PDF text layer, English and German

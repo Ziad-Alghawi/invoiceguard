@@ -1,4 +1,5 @@
-"""German demo master data: suppliers with verified bank accounts, and purchase orders.
+"""German demo master data: suppliers with verified bank accounts, purchase orders and goods
+receipts.
 
 Every name, VAT ID and IBAN is fictitious (bank code 12345678, account numbers 1-5), but the
 checksums are valid, so the IBAN and VAT checks treat them like real data.
@@ -19,7 +20,14 @@ from sqlalchemy.orm import Session
 
 from invoiceguard_api.db import make_engine, make_session_factory
 from invoiceguard_api.logging import configure_logging
-from invoiceguard_api.models import PurchaseOrder, PurchaseOrderLine, Supplier, SupplierBankAccount
+from invoiceguard_api.models import (
+    GoodsReceipt,
+    GoodsReceiptLine,
+    PurchaseOrder,
+    PurchaseOrderLine,
+    Supplier,
+    SupplierBankAccount,
+)
 from invoiceguard_api.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -34,6 +42,7 @@ class SupplierSeed:
     street: str
     postal_code: str
     city: str
+    contact_email: str
     iban: str
     iban_verified_since: date
 
@@ -45,6 +54,16 @@ class LineSeed:
     unit_code: str
     unit_price: Decimal
     vat_rate: Decimal
+
+
+@dataclass(frozen=True)
+class ReceiptSeed:
+    """A delivery against an order: the quantity received per order line (line_no, quantity)."""
+
+    number: str
+    order_number: str
+    received_on: date
+    lines: tuple[tuple[int, Decimal], ...]
 
 
 @dataclass(frozen=True)
@@ -62,22 +81,27 @@ def _line(description: str, quantity: str, unit: str, price: str, vat: str = "19
 SUPPLIERS = (
     SupplierSeed(
         "Muster Bürobedarf GmbH", "DE999000017", "Musterstraße 1", "10115", "Berlin",
+        "buchhaltung@muster-buerobedarf.example",
         "DE17123456780000000001", date(2024, 3, 1),
     ),
     SupplierSeed(
         "Beispiel Logistik AG", "DE999000025", "Hafenweg 12", "20457", "Hamburg",
+        "debitoren@beispiel-logistik.example",
         "DE87123456780000000002", date(2023, 11, 15),
     ),
     SupplierSeed(
         "Demo IT-Service GmbH", "DE999000033", "Testallee 5", "80331", "München",
+        "buchhaltung@demo-it-service.example",
         "DE60123456780000000003", date(2025, 1, 10),
     ),
     SupplierSeed(
         "Fiktiv Gebäudereinigung GmbH", "DE999000041", "Probeweg 7", "50667", "Köln",
+        "rechnungswesen@fiktiv-reinigung.example",
         "DE33123456780000000004", date(2024, 7, 22),
     ),
     SupplierSeed(
         "Exempel Druck & Medien GmbH", "DE999000050", "Platzhalterplatz 3", "70173", "Stuttgart",
+        "buchhaltung@exempel-druck.example",
         "DE06123456780000000005", date(2025, 6, 2),
     ),
 )  # fmt: skip
@@ -121,6 +145,25 @@ ORDERS = (
 )  # fmt: skip
 
 
+def _receipt(number: str, order: str, received_on: date, *lines: tuple[int, str]) -> ReceiptSeed:
+    return ReceiptSeed(
+        number, order, received_on, tuple((line_no, Decimal(qty)) for line_no, qty in lines)
+    )
+
+
+# Orders 0002 and 0008 have no delivery yet; 0009 is partly delivered (no brochures).
+RECEIPTS = (
+    _receipt("WE-2026-0001", "PO-2026-0001", date(2026, 9, 8), (1, "10"), (2, "50")),
+    _receipt("WE-2026-0002", "PO-2026-0003", date(2026, 9, 22), (1, "4"), (2, "12")),
+    _receipt("WE-2026-0003", "PO-2026-0004", date(2026, 10, 22), (1, "1")),
+    _receipt("WE-2026-0004", "PO-2026-0005", date(2026, 9, 17), (1, "3"), (2, "6")),
+    _receipt("WE-2026-0005", "PO-2026-0006", date(2026, 10, 31), (1, "1")),
+    _receipt("WE-2026-0006", "PO-2026-0007", date(2026, 10, 31), (1, "1"), (2, "1")),
+    _receipt("WE-2026-0007", "PO-2026-0009", date(2026, 9, 24), (1, "8")),
+    _receipt("WE-2026-0008", "PO-2026-0010", date(2026, 10, 21), (1, "5")),
+)
+
+
 def _upsert_supplier(session: Session, seed: SupplierSeed) -> uuid.UUID:
     values = {
         "name": seed.name,
@@ -128,6 +171,7 @@ def _upsert_supplier(session: Session, seed: SupplierSeed) -> uuid.UUID:
         "postal_code": seed.postal_code,
         "city": seed.city,
         "country_code": "DE",
+        "contact_email": seed.contact_email,
     }
     statement = (
         insert(Supplier)
@@ -149,7 +193,7 @@ def _upsert_supplier(session: Session, seed: SupplierSeed) -> uuid.UUID:
     return supplier_id
 
 
-def _upsert_order(session: Session, seed: OrderSeed, supplier_id: uuid.UUID) -> None:
+def _upsert_order(session: Session, seed: OrderSeed, supplier_id: uuid.UUID) -> uuid.UUID:
     values = {"supplier_id": supplier_id, "order_date": seed.order_date, "currency": "EUR"}
     statement = (
         insert(PurchaseOrder)
@@ -181,12 +225,34 @@ def _upsert_order(session: Session, seed: OrderSeed, supplier_id: uuid.UUID) -> 
             PurchaseOrderLine.line_no > len(seed.lines),
         )
     )
+    return order_id
+
+
+def _upsert_receipt(session: Session, seed: ReceiptSeed, order_id: uuid.UUID) -> None:
+    values = {"purchase_order_id": order_id, "received_on": seed.received_on}
+    statement = (
+        insert(GoodsReceipt)
+        .values(number=seed.number, **values)
+        .on_conflict_do_update(index_elements=[GoodsReceipt.number], set_=values)
+        .returning(GoodsReceipt.id)
+    )
+    receipt_id: uuid.UUID = session.execute(statement).scalar_one()
+    session.execute(delete(GoodsReceiptLine).where(GoodsReceiptLine.goods_receipt_id == receipt_id))
+    for line_no, quantity in seed.lines:
+        session.add(
+            GoodsReceiptLine(goods_receipt_id=receipt_id, po_line_no=line_no, quantity=quantity)
+        )
+    session.flush()
 
 
 def seed_demo_data(session: Session) -> None:
     supplier_ids = {seed.vat_id: _upsert_supplier(session, seed) for seed in SUPPLIERS}
-    for order in ORDERS:
-        _upsert_order(session, order, supplier_ids[order.supplier_vat_id])
+    order_ids = {
+        order.number: _upsert_order(session, order, supplier_ids[order.supplier_vat_id])
+        for order in ORDERS
+    }
+    for receipt in RECEIPTS:
+        _upsert_receipt(session, receipt, order_ids[receipt.order_number])
 
 
 def main() -> None:
@@ -198,4 +264,9 @@ def main() -> None:
             seed_demo_data(session)
     finally:
         engine.dispose()
-    logger.info("Seeded %d suppliers and %d purchase orders", len(SUPPLIERS), len(ORDERS))
+    logger.info(
+        "Seeded %d suppliers, %d purchase orders and %d goods receipts",
+        len(SUPPLIERS),
+        len(ORDERS),
+        len(RECEIPTS),
+    )
