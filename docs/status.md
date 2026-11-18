@@ -1,6 +1,6 @@
 # Status
 
-**Current milestone:** R3 — Evals, RAG, CI gate (next; R2 complete)
+**Current milestone:** R3 — Evals, RAG, CI gate (in progress: R3-2)
 **Last updated:** 2026-11-18
 
 ## Done
@@ -160,7 +160,17 @@
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
-- R3 — Evals, RAG, CI gate (PLAN.md §11): plan the tasks and ADRs first, as for R2
+- R3 — Evals, RAG, CI gate (PLAN.md §11), three rounds, one PR each:
+  - R3-2 Eval harness and extraction results (ADR-019): `packages/evals` with the KoSIT set, the ZUGFeRD corpus
+    (pinned downloads with SHA-256, not committed), a reportlab generator with conflicting printed values, the
+    fraud set; eval CLI with recorded replies and a spend cap ($3 for this round); `docs/results.md`; the
+    extraction thinking level chosen on the eval set (ADR-010); confidence measured against errors, and fixed in
+    code if it misleads
+  - R3-3 Attack set (≥ 40 cases) and the CI gate (PR paths and nightly, baseline, a deliberate regression that
+    fails); the LLM injection classifier only if the attack set shows the heuristics miss attacks
+  - R3-4 RAG: pgvector booking suggestions and rulebook search with evidence in the UI, top-1/top-3 eval; agent
+    tools `get_invoice_history` with `search_similar_invoices`, and `search_rulebook`
+- Backlog: scan-like generated PDFs (image noise, no text layer) for the eval set
 
 ## Known limitations
 - Exception agent (ADR-018): the cost cap is checked before each call, so the last call can overshoot it; the

@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- R3 plan: three rounds (R3-2 eval harness and extraction results, R3-3 attack set and CI gate, R3-4 RAG and the
+  history tools) and ADR-019 (evaluation harness with pinned datasets and recorded model replies).
 - Reopening rejected invoices (R2-7, ADR-016 updated): `POST /invoices/{id}/reopen` with a required reason, for
   reviewers and approvers; approved invoices are never reopened (`409`). The decision resumes the invoice's thread
   under the advisory lock; `decide` writes `rejected → processing` and one `invoice.reopened` audit row in one
