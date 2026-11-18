@@ -4,7 +4,7 @@
 
 import hashlib
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any, BinaryIO
 from urllib.parse import quote
@@ -40,6 +40,7 @@ from invoiceguard_api.models import (
     ModelCall,
     SourceType,
 )
+from invoiceguard_api.parsing import NoEmbeddedXml, ParseError, invoice_xml
 from invoiceguard_api.parsing.fields import DOCUMENT_TERMS, LINE_TERMS
 from invoiceguard_api.processing import process_invoice
 from invoiceguard_api.storage import FileStorage
@@ -50,6 +51,11 @@ CHUNK_BYTES = 64 * 1024
 # The field name for each EN 16931 term code, for example BT-84 -> payee_iban.
 TERM_NAMES = {code: name for name, code in (DOCUMENT_TERMS | LINE_TERMS).items()}
 MEDIA_TYPES = {SourceType.XML: "application/xml", SourceType.PDF: "application/pdf"}
+RECEIVED_ACTION = "invoice.received"
+NO_EMBEDDED_XML_MESSAGE = (
+    "This PDF has no embedded e-invoice XML. The demo accepts XRechnung XML and ZUGFeRD / "
+    "Factur-X PDFs with embedded XML only; plain PDFs need LLM extraction, which is off here."
+)
 
 
 class InvoiceOut(BaseModel):
@@ -161,7 +167,7 @@ def add_received(
         AuditEvent(
             actor=actor,
             user_id=user_id,
-            action="invoice.received",
+            action=RECEIVED_ACTION,
             entity_type="invoice",
             entity_id=str(invoice.id),
             details={
@@ -184,6 +190,42 @@ def _find_by_sha256(session: Session, sha256: str) -> uuid.UUID | None:
     return session.scalar(select(Invoice.id).where(Invoice.sha256 == sha256))
 
 
+def _check_upload_rate(session: Session, user_id: uuid.UUID, max_per_hour: int | None) -> None:
+    """Refuse the upload once the user has uploaded `max_per_hour` files in the last hour.
+
+    Counted from the audit log, so parallel uploads can pass the limit by a few files.
+    """
+    if max_per_hour is None:
+        return
+    since = datetime.now(UTC) - timedelta(hours=1)
+    uploads = session.scalar(
+        select(func.count(AuditEvent.id)).where(
+            AuditEvent.user_id == user_id,
+            AuditEvent.action == RECEIVED_ACTION,
+            AuditEvent.at >= since,
+        )
+    )
+    if uploads is not None and uploads >= max_per_hour:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Upload limit reached: {max_per_hour} files per hour. Try again later.",
+        )
+
+
+def _require_embedded_xml(content: bytes) -> None:
+    """Demo mode: a PDF must carry e-invoice XML (ZUGFeRD / Factur-X); a plain PDF would need
+    LLM extraction, which the demo does not run on visitors' files (ADR-014)."""
+    try:
+        invoice_xml(content, SourceType.PDF)
+    except NoEmbeddedXml:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, NO_EMBEDDED_XML_MESSAGE
+        ) from None
+    except ParseError:
+        # Not readable as a PDF: processing ends it in `failed` with the reason.
+        return
+
+
 @router.post(
     "",
     status_code=status.HTTP_202_ACCEPTED,
@@ -191,6 +233,14 @@ def _find_by_sha256(session: Session, sha256: str) -> uuid.UUID | None:
         status.HTTP_409_CONFLICT: {"model": DuplicateOut, "description": "Same file uploaded"},
         status.HTTP_413_CONTENT_TOO_LARGE: {"model": ErrorOut, "description": "File too large"},
         status.HTTP_415_UNSUPPORTED_MEDIA_TYPE: {"model": ErrorOut, "description": "Not XML/PDF"},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {
+            "model": ErrorOut,
+            "description": "Demo mode: a PDF without embedded e-invoice XML",
+        },
+        status.HTTP_429_TOO_MANY_REQUESTS: {
+            "model": ErrorOut,
+            "description": "Upload limit per hour reached",
+        },
     },
 )
 def upload_invoice(
@@ -204,9 +254,11 @@ def upload_invoice(
     """Store an XRechnung/ZUGFeRD XML or PDF file with status `received` and process it later.
 
     Poll `GET /invoices/{id}` (the Location header) until the status is no longer `received` or
-    `processing`.
+    `processing`. In demo mode a PDF without embedded e-invoice XML is refused (422).
     """
-    content = _read_limited(file.file, request.app.state.settings.max_upload_bytes)
+    settings = request.app.state.settings
+    _check_upload_rate(session, user.id, settings.upload_max_per_hour)
+    content = _read_limited(file.file, settings.max_upload_bytes)
     filename = safe_filename(file.filename or "")
     source_type = source_type_for(filename, content)
     if source_type is None:
@@ -214,6 +266,8 @@ def upload_invoice(
             status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             "Upload an XML or PDF invoice; the file extension must match its content.",
         )
+    if settings.demo_mode and source_type is SourceType.PDF:
+        _require_embedded_xml(content)
 
     sha256 = hashlib.sha256(content).hexdigest()
     if (existing_id := _find_by_sha256(session, sha256)) is not None:
@@ -242,7 +296,7 @@ def upload_invoice(
         invoice.id,
     )
     # Background tasks run one after another: this one sees the processed invoice (ADR-018).
-    if request.app.state.settings.agent_auto_investigate:
+    if settings.agent_auto_investigate:
         background_tasks.add_task(
             investigate_if_blocked,
             request.app.state.session_factory,

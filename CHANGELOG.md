@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Upload page (R2-7): `/upload` for every logged-in user, linked in the header. The browser sends the file with
+  upload progress to a route handler (`/upload/file`), which passes it on to `POST /invoices` with the session;
+  the page then waits for processing and links to the new invoice. Clear messages for a wrong type, a too large
+  file, a duplicate (with a link to the existing invoice), the demo rule and the hourly limit. Demo mode refuses a
+  PDF without embedded XML at upload (`422`, nothing stored). New setting `INVOICEGUARD_UPLOAD_MAX_PER_HOUR`
+  (uploads per user per hour, `429` above; unset = no limit, 30 on the demo). Playwright test for the upload page.
 - Exception agent (R2-6, ADR-018): investigates blocked invoices with the read-only MCP tools and returns an English
   finding and a German email draft to the supplier (recipient from `suppliers.contact_email`); it never changes the
   invoice. Own bounded loop over `LLMClient` (one schema-validated JSON action per step, tool names as an enum and

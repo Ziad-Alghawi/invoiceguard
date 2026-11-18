@@ -9,9 +9,9 @@ import {
 } from "@playwright/test";
 
 /**
- * Shared steps of the end-to-end tests. Invoices are uploaded through the API (the UI has no
- * upload page yet), each with an invoice number unique to the run, so the tests can run again
- * on the same stack without hitting the duplicate checks.
+ * Shared steps of the end-to-end tests. Invoices for a test's preconditions are uploaded through
+ * the API (upload.spec.ts tests the upload page), each with an invoice number unique to the run,
+ * so the tests can run again on the same stack without hitting the duplicate checks.
  */
 
 export const API_URL = process.env.E2E_API_URL ?? "http://localhost:8000";

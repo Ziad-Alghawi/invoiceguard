@@ -1,17 +1,22 @@
 import hashlib
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import httpx2
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
+from conftest import logged_in, poll_until_done, session_for
 from invoiceguard_api import invoices
-from invoiceguard_api.models import AuditEvent, Invoice, InvoiceStatus
+from invoiceguard_api.auth import SESSION_COOKIE
+from invoiceguard_api.main import create_app
+from invoiceguard_api.models import AuditEvent, Invoice, InvoiceStatus, User
 from invoiceguard_api.settings import Settings
 
 XML = b'<?xml version="1.0" encoding="UTF-8"?>\n<Invoice xmlns="urn:oasis:ubl"/>\n'
@@ -244,3 +249,78 @@ def test_storage_path_is_not_exposed(client: TestClient, tmp_path: Path) -> None
 
     assert "storage_path" not in body
     assert str(tmp_path) not in str(body)
+
+
+@pytest.fixture
+def demo_client(settings: Settings, engine: Engine, session_token: str) -> Iterator[TestClient]:
+    """Logged in as `reviewer` on an app in demo mode (ADR-014)."""
+    with TestClient(create_app(settings.model_copy(update={"demo_mode": True}))) as test_client:
+        test_client.cookies.set(SESSION_COOKIE, session_token)
+        yield test_client
+
+
+@pytest.mark.parametrize(
+    ("sample", "filename"),
+    [("ubl_xrechnung", "rechnung.xml"), ("zugferd2_pdf", "rechnung.pdf")],
+)
+def test_demo_accepts_xml_and_zugferd_pdf(
+    demo_client: TestClient, samples: dict[str, bytes], sample: str, filename: str
+) -> None:
+    response = upload(demo_client, filename, samples[sample])
+
+    assert response.status_code == 202
+    assert poll_until_done(demo_client, response.headers["location"])["status"] == "ready"
+
+
+def test_demo_refuses_pdf_without_embedded_xml(
+    demo_client: TestClient, db_session: Session, settings: Settings, samples: dict[str, bytes]
+) -> None:
+    response = upload(demo_client, "scan.pdf", samples["text_pdf"])
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": invoices.NO_EMBEDDED_XML_MESSAGE}
+    assert db_session.scalar(select(func.count(Invoice.id))) == 0
+    assert not settings.storage_dir.exists()
+
+
+def test_demo_leaves_an_unreadable_pdf_to_processing(
+    demo_client: TestClient, db_session: Session
+) -> None:
+    response = upload(demo_client, "kaputt.pdf", PDF)
+
+    assert response.status_code == 202
+    assert poll_until_done(demo_client, response.headers["location"])["status"] == "failed"
+
+
+def test_upload_limit_per_hour_returns_429(
+    settings: Settings, engine: Engine, session_token: str, db_session: Session
+) -> None:
+    limited = settings.model_copy(update={"upload_max_per_hour": 2})
+    with TestClient(create_app(limited)) as client:
+        client.cookies.set(SESSION_COOKIE, session_token)
+        assert upload(client, "a.xml", XML).status_code == 202
+        assert upload(client, "b.xml", XML + b" ").status_code == 202
+
+        response = upload(client, "c.xml", XML + b"  ")
+
+    assert response.status_code == 429
+    assert response.json() == {"detail": "Upload limit reached: 2 files per hour. Try again later."}
+    assert db_session.scalar(select(func.count(Invoice.id))) == 2
+
+
+def test_upload_limit_counts_each_user_and_only_the_last_hour(
+    settings: Settings, engine: Engine, session_token: str, approver: User, db_session: Session
+) -> None:
+    limited = settings.model_copy(update={"upload_max_per_hour": 1})
+    with TestClient(create_app(limited)) as client:
+        client.cookies.set(SESSION_COOKIE, session_token)
+        assert upload(client, "a.xml", XML).status_code == 202
+        other = logged_in(client, session_for(engine, approver))
+        assert upload(other, "b.xml", XML + b" ").status_code == 202
+        # The first upload is now more than an hour old (the audit log is append-only, so the
+        # clock moves instead of the row).
+        with patch.object(invoices, "datetime", wraps=datetime) as clock:
+            clock.now.return_value = datetime.now(UTC) + timedelta(hours=1, seconds=1)
+            response = upload(client, "c.xml", XML + b"  ")
+
+    assert response.status_code == 202

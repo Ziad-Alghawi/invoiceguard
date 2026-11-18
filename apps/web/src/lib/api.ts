@@ -42,6 +42,29 @@ export async function errorMessage(response: Response): Promise<string> {
 }
 
 /**
+ * Calls the API with the browser's session cookie and returns its answer as it is, 401
+ * included; null without a session cookie. For route handlers that answer a script, which
+ * cannot follow a redirect to /login.
+ */
+export async function apiRequest(
+  path: string,
+  init: RequestInit = {},
+): Promise<Response | null> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  if (!token) {
+    return null;
+  }
+  const headers = new Headers(init.headers);
+  headers.set("Cookie", `${SESSION_COOKIE}=${token}`);
+  return fetch(`${baseUrl()}${path}`, {
+    ...init,
+    headers,
+    cache: "no-store",
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+}
+
+/**
  * Calls the API from the web server with the browser's session cookie (backend for frontend:
  * the browser never talks to the API directly). Without a valid session it redirects to /login.
  */
@@ -49,19 +72,8 @@ export async function apiFetch(
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  if (!token) {
-    redirect("/login");
-  }
-  const headers = new Headers(init.headers);
-  headers.set("Cookie", `${SESSION_COOKIE}=${token}`);
-  const response = await fetch(`${baseUrl()}${path}`, {
-    ...init,
-    headers,
-    cache: "no-store",
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-  if (response.status === 401) {
+  const response = await apiRequest(path, init);
+  if (response === null || response.status === 401) {
     redirect("/login");
   }
   return response;

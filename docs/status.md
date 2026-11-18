@@ -136,6 +136,14 @@
       duplicate warning listing ~100 invoice IDs on the dev database: 8.4k input tokens per call, $0.029 for a
       failed run), now capped per check; and Gemini left out optional schema fields, so `finish` came back without
       the email twice. Every field of the action is now required (nullable)
+  - Upload page (R2-7, ADR-014 updated): `/upload` for reviewers and approvers. The browser sends the file with
+    `XMLHttpRequest` (upload progress) to a route handler, which passes it to `POST /invoices` with the session (not
+    behind `proxy.ts`, whose body buffering has its own size limit); then the page polls the status and links to the
+    invoice. Messages for wrong type (`415`), too large (`413`), duplicate (`409`, link to the existing invoice), demo
+    PDF without XML (`422`) and the hourly limit (`429`). Demo mode refuses PDFs without embedded XML at upload,
+    nothing stored; `INVOICEGUARD_UPLOAD_MAX_PER_HOUR` (default 30 on the demo) counts uploads per user from the audit
+    log. Tests for XML and ZUGFeRD on the demo, plain and unreadable PDFs, the limit per user and hour; Playwright test
+    uploads an XML on the page and finds it in the queue
 
 ## Open decisions
 - None for R1. Demo hosting and domain settled in ADR-014.
@@ -166,7 +174,9 @@
   the account exists. No per-IP rate limit (ingress in R4).
 - The audit trigger stops UPDATE and DELETE through the app's database user, not the table owner (TRUNCATE, dropping
   the trigger); production needs a separate, restricted database role.
-- No upload page in the web app yet; uploads go through the API, which the public demo does not expose.
+- Upload limit (R2-7): counted from the audit log without a lock, so parallel uploads can pass it by a few files; the
+  demo accounts are shared, so on the demo it caps all visitors together. One file per upload (no bulk upload);
+  there is no sample picker: visitors bring their own XRechnung or ZUGFeRD file.
 - Demo (ADR-014): one VPS, no backups (sample data, reset nightly); the shared demo login can be locked for 15 minutes
   by anyone, the nightly reset unlocks it.
 - Duplicate check race: two copies of the same invoice processed at the same moment can both pass, because each
