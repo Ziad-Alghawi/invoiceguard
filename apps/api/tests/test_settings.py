@@ -66,7 +66,7 @@ def test_llm_settings_default_to_extraction_off(monkeypatch: pytest.MonkeyPatch)
 
     assert settings.llm_api_key is None
     assert settings.extraction_model == "gemini/gemini-3.8-flash"
-    assert settings.extraction_confidence_threshold == Decimal("0.8")
+    assert settings.extraction_confidence_threshold == Decimal("0.9")
     assert settings.extraction_reasoning_effort == "low"
 
 

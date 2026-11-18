@@ -39,7 +39,7 @@ strict schema; convert the reply into `ParsedInvoice` and run the normal checks.
   which types the values (a date that is no date, a missing total, `1.234,50` all fail). An invalid reply
   gets **one retry** that tells the model where and why (field path and message, never the input value);
   a second invalid reply ends in `failed` with that reason.
-- **Confidence policy:** a threshold from `INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD` (default 0.8).
+- **Confidence policy:** a threshold from `INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD` (default 0.9, was 0.8 until R3-2).
   The new `low_confidence` check lists every field below it: a `warning` in general, but **`failed`
   (invoice `blocked`) when the payee IBAN (BT-84) or a total (BT-109, BT-110, BT-112, BT-115) is below it**,
   so such an invoice is never `ready` without a human looking. XML invoices get no `low_confidence` result.
@@ -81,6 +81,10 @@ strict schema; convert the reply into `ParsedInvoice` and run the normal checks.
   every level. `low` costs $0.0058 per invoice against $0.0127 and $0.0221, has a p95 latency of 23 s against
   59 s and 100 s, and never hit the 120 s timeout (`medium` twice, `high` four times). **`low` stays the
   default**, now on data. The confidence stays the weak point: at `low` 8 of 9 wrong fields had 0.8 or more.
+  **Update 2026-11-18 (threshold):** the default threshold is now 0.9. Replayed on the same recordings it flags
+  5 of the 9 wrong fields (was 1) and 4 of 1,197 right ones (was 2); the 4 wrong fields left were all given 0.9
+  or more. It stays a setting (`INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD`); the confidence is still not
+  calibrated.
 - **Flow (ADR-007):** the same background task that finds no XML moves the invoice to
   `awaiting_extraction` and then claims it again (`awaiting_extraction → processing`, a conditional
   update), extracts, stores the fields with `source=llm`, runs the checks and ends in `ready`, `blocked`

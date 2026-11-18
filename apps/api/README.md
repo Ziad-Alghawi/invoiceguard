@@ -223,7 +223,7 @@ Invalid values stop the app at startup.
 | `INVOICEGUARD_EXTRACTION_MODEL` | LiteLLM model string with a known price | `gemini/gemini-3.8-flash` |
 | `INVOICEGUARD_LLM_TIMEOUT_SECONDS` | positive number | `120` |
 | `INVOICEGUARD_EXTRACTION_REASONING_EFFORT` | `minimal`, `low`, `medium`, `high`: how much the model thinks (billed as output tokens); Gemini 3.8 Flash's lowest is `low` | `low` |
-| `INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD` | 0 to 1 | `0.8` |
+| `INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD` | 0 to 1: fields below it are flagged | `0.9` |
 
 An empty variable counts as unset.
 

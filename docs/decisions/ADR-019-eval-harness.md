@@ -96,3 +96,13 @@ throwaway PostgreSQL database seeded with the demo master data. Model calls go t
 - New dependencies, in `packages/evals` only (not in the api image): `reportlab` 5.1.0 for the generator (it
   pulls in Pillow), and `httpx2`, which FastAPI's `TestClient` needs to drive the app; the api already uses it
   in its tests. The api package gained a `py.typed` marker so the harness is type-checked against it.
+
+## Update 2026-11-18: two follow-ups from the baseline
+
+- `vat_math` blocked the valid category O invoice KoSIT 01.04a (lines without a rate, breakdown row at 0 %); it is
+  fixed, and the parser part now reports no VAT failure on the 72 files.
+- The `low_confidence` default moved from 0.8 to 0.9 (ADR-010). At `low`, replayed from the same recordings: wrong
+  fields flagged 1 of 9 to 5 of 9, right fields flagged 2 to 4 of 1,197. `medium` and `high` are unchanged.
+- Replay without the database: the parser and extraction parts were rerun on commit `0745b8b`; the decisions
+  (fraud set) in `docs/results.md` are carried over from commit `c94c320` and say so. A later run with
+  `INVOICEGUARD_EVAL_DATABASE_URL` replaces them.

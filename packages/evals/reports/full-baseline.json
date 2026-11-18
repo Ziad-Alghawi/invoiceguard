@@ -1,7 +1,7 @@
 {
  "meta": {
-  "created_at": "2026-11-18T18:40:50+00:00",
-  "git_commit": "c94c320",
+  "created_at": "2026-11-18T19:48:27+00:00",
+  "git_commit": "0745b8b",
   "set": "full",
   "model": "gemini/gemini-3.8-flash",
   "runs": 2,
@@ -11,21 +11,19 @@
    "high"
   ],
   "decision_effort": "low",
-  "threshold": "0.8",
+  "threshold": "0.9",
   "mode": "replay",
   "live_calls": 0,
-  "replayed_calls": 157,
+  "replayed_calls": 147,
   "live_spend_usd": "0",
-  "validator": true
+  "validator": true,
+  "decisions_from": "c94c320"
  },
  "parser": {
   "files": 72,
   "parsed": 72,
   "parse_failures": [],
-  "vat_math_failures": [
-   "01.04a-INVOICE_ubl",
-   "01.04a-INVOICE_uncefact"
-  ],
+  "vat_math_failures": [],
   "pairs_compared": 33,
   "pairs_identical": 24,
   "pair_differences": [
@@ -140,8 +138,8 @@
     "confidence": {
      "fields": 1206,
      "errors": 9,
-     "confident_errors": 8,
-     "threshold": "0.8",
+     "confident_errors": 4,
+     "threshold": "0.9",
      "auroc": 0.8173674928060893,
      "buckets": [
       {
@@ -222,8 +220,8 @@
      "confidence": {
       "fields": 474,
       "errors": 9,
-      "confident_errors": 8,
-      "threshold": "0.8",
+      "confident_errors": 4,
+      "threshold": "0.9",
       "auroc": 0.8020310633213859,
       "buckets": [
        {
@@ -304,7 +302,7 @@
       "fields": 732,
       "errors": 0,
       "confident_errors": 0,
-      "threshold": "0.8",
+      "threshold": "0.9",
       "auroc": null,
       "buckets": [
        {
@@ -1632,7 +1630,7 @@
      "fields": 1180,
      "errors": 6,
      "confident_errors": 6,
-     "threshold": "0.8",
+     "threshold": "0.9",
      "auroc": 0.7067717206132879,
      "buckets": [
       {
@@ -1714,7 +1712,7 @@
       "fields": 448,
       "errors": 4,
       "confident_errors": 4,
-      "threshold": "0.8",
+      "threshold": "0.9",
       "auroc": 0.522240990990991,
       "buckets": [
        {
@@ -1795,7 +1793,7 @@
       "fields": 732,
       "errors": 2,
       "confident_errors": 2,
-      "threshold": "0.8",
+      "threshold": "0.9",
       "auroc": 0.989041095890411,
       "buckets": [
        {
@@ -3621,7 +3619,7 @@
      "fields": 588,
      "errors": 2,
      "confident_errors": 2,
-     "threshold": "0.8",
+     "threshold": "0.9",
      "auroc": 0.4377133105802048,
      "buckets": [
       {
@@ -3703,7 +3701,7 @@
       "fields": 243,
       "errors": 2,
       "confident_errors": 2,
-      "threshold": "0.8",
+      "threshold": "0.9",
       "auroc": 0.3983402489626556,
       "buckets": [
        {
@@ -3784,7 +3782,7 @@
       "fields": 345,
       "errors": 0,
       "confident_errors": 0,
-      "threshold": "0.8",
+      "threshold": "0.9",
       "auroc": null,
       "buckets": [
        {
