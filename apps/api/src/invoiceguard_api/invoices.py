@@ -25,6 +25,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from invoiceguard_api.agent.service import investigate_if_blocked
 from invoiceguard_api.auth import CurrentUser, current_user
 from invoiceguard_api.db import DbSession
 from invoiceguard_api.filetype import safe_filename, source_type_for
@@ -240,6 +241,14 @@ def upload_invoice(
         request.app.state.extractor,
         invoice.id,
     )
+    # Background tasks run one after another: this one sees the processed invoice (ADR-018).
+    if request.app.state.settings.agent_auto_investigate:
+        background_tasks.add_task(
+            investigate_if_blocked,
+            request.app.state.session_factory,
+            request.app.state.agent,
+            invoice.id,
+        )
     response.headers["Location"] = str(request.url_for("get_invoice", invoice_id=invoice.id))
     return InvoiceOut.model_validate(invoice)
 

@@ -278,10 +278,11 @@ jobs:
           echo "INVOICEGUARD_SEED_APPROVER_PASSWORD=$(openssl rand -hex 24)" >> .env
           echo "INVOICEGUARD_MCP_ERP_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
           echo "INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
-      # No LLM key: the test uploads XML invoices only, so no model is called.
+      # No LLM key: the tests upload XML invoices only, so no model is called; "Investigate" shows
+      # the recorded run (ADR-018).
       - name: Start the stack, seed demo data and the login users
         run: make dev && make seed && make seed-user
-      - name: Log in, reject, approve, four-eyes override, export to DATEV in the browser
+      - name: Log in, reject, approve, four-eyes override, export to DATEV, investigate (recorded run) in the browser
         env:
           CI: "true"
         run: make e2e

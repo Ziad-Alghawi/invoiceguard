@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Exception agent (R2-6, ADR-018): investigates blocked invoices with the read-only MCP tools and returns an English
+  finding and a German email draft to the supplier (recipient from `suppliers.contact_email`); it never changes the
+  invoice. Own bounded loop over `LLMClient` (one schema-validated JSON action per step, tool names as an enum and
+  again in code), limits from `INVOICEGUARD_AGENT_*`: 8 steps, 12 tool calls, 90 s, $0.05 per invoice across runs;
+  the daily budget is checked before a run. Invoice fields, bounded check evidence and tool results are passed as
+  untrusted JSON between markers; injection-flagged invoices are never sent. Runs outside the processing graph as a
+  background task after an invoice ends `blocked`, and on `POST /invoices/{id}/investigate`;
+  `GET /invoices/{id}/investigation` returns the latest run. Migration 0011: `agent_runs` and `agent_steps` (every
+  model and tool call with tokens, cost, latency), model calls in `model_calls` (purpose `agent`); interrupted runs
+  are failed at startup. Without a model key the button loads a recorded real run for the case (samples 02 and 03,
+  `scripts/record_agent_run.py`). Web: investigation section with finding, copyable email draft, steps and totals.
+  Playwright test for "Investigate"; dependency `mcp` 2.3.0 in the api.
 - Read-only MCP servers (R2-5, ADR-017): `apps/mcp-erp` (`get_supplier`, `list_purchase_orders`, `get_purchase_order`
   with received quantities, `get_goods_receipts`) and `apps/mcp-registry` (`check_vat_id`, `check_iban`,
   `get_bank_accounts`), MCP Python SDK 2.3.0 over streamable HTTP, typed inputs with patterns and typed outputs, fixed

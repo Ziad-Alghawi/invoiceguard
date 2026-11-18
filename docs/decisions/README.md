@@ -22,3 +22,4 @@ New ADRs start from the [template](ADR-000-template.md).
 | [ADR-015](ADR-015-processing-graph-approval-interrupt.md) | Processing graph with LangGraph, approval as `interrupt()` | Accepted |
 | [ADR-016](ADR-016-four-eyes-override-and-reopen.md) | Four-eyes override of blocked invoices, and reopening rejected invoices | Accepted |
 | [ADR-017](ADR-017-read-only-mcp-servers.md) | Read-only MCP servers with one database role each | Accepted |
+| [ADR-018](ADR-018-exception-agent.md) | Exception agent: an own bounded loop outside the graph, with a per-invoice cost cap | Accepted |

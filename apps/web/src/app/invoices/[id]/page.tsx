@@ -6,6 +6,7 @@ import {
   approve,
   confirmOverride,
   declineOverride,
+  investigate,
   reject,
   requestOverride,
 } from "@/app/actions";
@@ -13,8 +14,10 @@ import { AuditHistory } from "@/components/audit-history";
 import { CheckList } from "@/components/check-list";
 import { DecisionPanel } from "@/components/decision-panel";
 import { FieldsTable } from "@/components/fields-table";
+import { InvestigationPanel } from "@/components/investigation-panel";
 import { StatusBadge } from "@/components/status-badge";
 import { apiGet, ApiError } from "@/lib/api";
+import type { Investigation } from "@/lib/investigations";
 import {
   type AuditEvent,
   formatDateTime,
@@ -40,12 +43,15 @@ function Section({
   );
 }
 
-async function load(id: string): Promise<[InvoiceDetail, AuditEvent[], User]> {
+async function load(
+  id: string,
+): Promise<[InvoiceDetail, AuditEvent[], User, Investigation]> {
   try {
     return await Promise.all([
       apiGet<InvoiceDetail>(`/invoices/${id}`),
       apiGet<AuditEvent[]>(`/invoices/${id}/audit`),
       apiGet<User>("/auth/me"),
+      apiGet<Investigation>(`/invoices/${id}/investigation`),
     ]);
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
@@ -60,12 +66,16 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
   if (!isInvoiceId(id)) {
     notFound();
   }
-  const [invoice, history, user] = await load(id);
+  const [invoice, history, user, investigation] = await load(id);
   const requestedBy = overrideRequester(history);
   const failedChecks = invoice.checks
     .filter((check) => check.status === "failed")
     .map((check) => check.type);
   const lowConfidence = invoice.fields.filter((field) => field.low_confidence);
+  const showInvestigation =
+    investigation.run !== null ||
+    invoice.status === "blocked" ||
+    invoice.status === "override_requested";
 
   return (
     <div className="grid gap-8 md:grid-cols-[1fr_18rem]">
@@ -96,6 +106,14 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
         <Section title="Checks">
           <CheckList checks={invoice.checks} />
         </Section>
+        {showInvestigation && (
+          <Section title="Investigation">
+            <InvestigationPanel
+              investigation={investigation}
+              investigate={investigate.bind(null, invoice.id)}
+            />
+          </Section>
+        )}
         <Section title="Extracted fields">
           {lowConfidence.length > 0 && (
             <p className="text-sm text-amber-800">

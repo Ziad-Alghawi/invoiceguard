@@ -116,16 +116,39 @@
     columns); `invoiceguard-db-roles` sets the passwords from the environment at api start. Tests prove that each
     role reads only its tables and columns and can neither write nor create; the servers' tests run as the roles.
     `get_invoice_history` moved to R3 (it would need access to `invoices`)
+  - Exception agent (R2-6, ADR-018): own bounded loop over `LLMClient` outside the processing graph (no lock, no
+    reference to the graph): one schema-validated JSON action per step (up to 3 calls of the 7 allow-listed read-only
+    MCP tools, or finish), limits 8 steps / 12 tool calls / 90 s / $0.05 per invoice across runs, daily budget
+    checked first. Runs automatically after processing ends `blocked` (with a model key and the MCP URLs) and on
+    "Investigate"; injection-flagged invoices are refused. English finding and German email draft; recipient from
+    the supplier master data. Every model and tool call saved (`agent_runs`, `agent_steps`, migration 0011; costs in
+    `model_calls`) and shown on the invoice page. Without a key: recorded real runs for samples 02 and 03, labelled.
+    Tests with a fake model: stops at every limit, refuses non-allow-listed actions (`approve_invoice`, ...), leaves
+    status, audit log and paused thread unchanged, skips injected invoices; Playwright test in both modes
+    - Real runs (2026-11-18, `gemini/gemini-3.8-flash`, reasoning `low`, local stack with the real MCP servers):
+      **sample 02 (changed IBAN): $0.0060, 12.1 s**, 3 model calls, 4 tool calls (`check_iban`, `get_bank_accounts`,
+      `get_purchase_order`, `get_supplier`), 5,216 in / 559 out tokens; finding: IBAN registered to no supplier, the
+      verified account since 2025-01-10, confirm by phone via master-data contact; email asks for confirmation or a
+      corrected invoice without quoting our bank data. **Sample 03 (price above order): $0.0044, 10.2 s**, 2 model
+      calls, 2 tool calls (`get_purchase_order`, `get_goods_receipts`); finding: 380.00 invoiced vs 320.00 ordered,
+      delivery WE-2026-0003 received; email asks for a corrected invoice or credit note
+    - Two problems found by the real runs and fixed (journal): the case file sent unbounded check evidence (a
+      duplicate warning listing ~100 invoice IDs on the dev database: 8.4k input tokens per call, $0.029 for a
+      failed run), now capped per check; and Gemini left out optional schema fields, so `finish` came back without
+      the email twice. Every field of the action is now required (nullable)
 
 ## Open decisions
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
 - R2 (planned 2026-11-16, ADR-015, ADR-016), one PR each:
-  - R2-6 Exception agent with a German supplier email draft and a per-invoice cost cap; saved result on the demo
   - R2-7 Web upload page (demo: XML and sample picker only) and reopening rejected invoices
 
 ## Known limitations
+- Exception agent (ADR-018): the cost cap is checked before each call, so the last call can overshoot it; the
+  transcript is sent again each step (input grows with the steps); the model sees the tool contracts from the prompt,
+  not their JSON schemas; findings are not evaluated yet (R3). Recorded demo runs go stale if the seed changes.
+  Starting a live run is open to any logged-in user (no rate limit beyond the cost cap and the daily budget).
 - MCP servers (ADR-017): no authentication between the api and the servers (reachable only inside the stack); one
   database connection per tool call; the migration needs a user that may create roles. `get_invoice_history` and
   the RAG tools come in R3.
@@ -167,6 +190,12 @@
   invoice number become `-` in Belegfeld 1. Storing BG-23 (VAT breakdown) would allow one row per rate.
 
 ## Lessons learned
+- PostgreSQL roles belong to the server, not the database: create them idempotently, keep passwords out of
+  migrations, and test privileges with `SET ROLE` instead of logging in.
+- Structured output is not "all fields": models leave out optional schema fields. Make every field required
+  (nullable) when the next step needs all of them.
+- Everything a loop sends to a model is sent again each step: bound data that grows with the database (check
+  evidence) before it reaches a prompt.
 - Docker Compose v5 on Windows builds through Bake: run Compose from the folder that holds the compose file when build contexts are outside it.
 - Generate tool baselines that store file paths (detect-secrets) on Linux, so paths use `/` and match in CI and pre-commit.
 - On Windows use `127.0.0.1`, not `localhost`, in database URLs: `localhost` tries IPv6 first and stalls.

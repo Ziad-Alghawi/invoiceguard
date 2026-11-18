@@ -46,6 +46,23 @@ class Settings(BaseSettings):
     # Spending cap per UTC day in US dollars, summed from `model_calls`. Once reached, PDFs wait in
     # `awaiting_extraction` until a later restart (ADR-014). Unset: no cap.
     llm_daily_budget_usd: Decimal | None = Field(default=None, gt=0)
+    # Exception agent (ADR-018): investigates blocked invoices with the read-only MCP servers
+    # (ADR-017). It runs only with a model key and both MCP URLs; otherwise the "Investigate"
+    # button shows a recorded run where one exists.
+    mcp_erp_url: AnyHttpUrl | None = None
+    mcp_registry_url: AnyHttpUrl | None = None
+    mcp_timeout_seconds: float = Field(default=10.0, gt=0)
+    # A LiteLLM model string; unset: the extraction model.
+    agent_model: str | None = None
+    agent_reasoning_effort: ReasoningEffort = "low"
+    # Limits per run; reaching one stops the run cleanly ("stopped" with the reason).
+    agent_max_steps: int = Field(default=8, ge=1, le=20)
+    agent_max_tool_calls: int = Field(default=12, ge=1, le=50)
+    agent_timeout_seconds: float = Field(default=90.0, gt=0)
+    # US dollars per invoice, summed over every agent call ever made for it.
+    agent_cost_cap_usd: Decimal = Field(default=Decimal("0.05"), gt=0)
+    # Investigate every invoice that processing leaves `blocked` (when the agent can run).
+    agent_auto_investigate: bool = True
     # Login sessions (ADR-011): fixed lifetime, then log in again.
     session_ttl_minutes: int = Field(default=8 * 60, gt=0)
     # This many failed logins in a row lock the account for `login_lockout_minutes`.

@@ -23,6 +23,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -85,6 +86,30 @@ class ModelCallStatus(enum.StrEnum):
     PRICE_UNKNOWN = "price_unknown"
     # The call itself failed (quota, key, timeout, provider error).
     ERROR = "error"
+
+
+class AgentRunStatus(enum.StrEnum):
+    """An exception agent run (ADR-018)."""
+
+    RUNNING = "running"
+    # Ended with a finding and an email draft.
+    COMPLETED = "completed"
+    # A limit was reached (steps, tool calls, cost cap, timeout, daily budget); no finding.
+    STOPPED = "stopped"
+    # The model failed (error, unknown price, invalid output twice) or the run broke.
+    FAILED = "failed"
+
+
+class AgentRunSource(enum.StrEnum):
+    # Run now against the model and the MCP servers.
+    LIVE = "live"
+    # A saved real run, shown on the demo without a model key (ADR-018).
+    RECORDED = "recorded"
+
+
+class AgentStepKind(enum.StrEnum):
+    MODEL = "model"
+    TOOL = "tool"
 
 
 class CheckStatus(enum.StrEnum):
@@ -453,3 +478,83 @@ class ModelCall(Base):
         # For the per-day cost total and cap.
         Index("ix_model_calls_at", "at"),
     )
+
+
+class AgentRun(Base):
+    """One investigation of a blocked invoice by the exception agent (ADR-018).
+
+    It only proposes: a finding for the reviewer and a German email draft to the supplier. It
+    never changes the invoice; humans decide.
+    """
+
+    __tablename__ = "agent_runs"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    invoice_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"))
+    status: Mapped[AgentRunStatus] = mapped_column(_str_enum(AgentRunStatus, "agent_run_status"))
+    source: Mapped[AgentRunSource] = mapped_column(_str_enum(AgentRunSource, "agent_run_source"))
+    # The user who clicked "Investigate"; null for the automatic run after processing.
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    # Why a run stopped or failed: max_steps, max_tool_calls, cost_cap, timeout, daily_budget,
+    # invalid_output, llm_error, price_unknown, interrupted, internal_error.
+    stop_reason: Mapped[str | None] = mapped_column(String(30))
+    # A message for the reviewer when the run stopped or failed.
+    error: Mapped[str | None] = mapped_column(Text)
+    model: Mapped[str] = mapped_column(String(100))
+    finding: Mapped[str | None] = mapped_column(Text)
+    # From the supplier master data, never from the invoice or the model.
+    email_to: Mapped[str | None] = mapped_column(String(255))
+    email_subject: Mapped[str | None] = mapped_column(Text)
+    email_body: Mapped[str | None] = mapped_column(Text)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[Decimal] = mapped_column(Numeric(12, 6), default=Decimal(0))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Wall-clock time of the run; for a recorded run, of the original run.
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    # A recorded run: when the original run happened.
+    recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    steps: Mapped[list["AgentStep"]] = relationship(
+        back_populates="run", order_by="AgentStep.id", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        Index("ix_agent_runs_invoice_id", "invoice_id"),
+        # One running investigation per invoice.
+        Index(
+            "uq_agent_runs_invoice_id_running",
+            "invoice_id",
+            unique=True,
+            postgresql_where=text("status = 'running'"),
+        ),
+    )
+
+
+class AgentStep(Base):
+    """One model call or one tool call of an agent run, in order (`id`)."""
+
+    __tablename__ = "agent_steps"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agent_runs.id", ondelete="CASCADE"))
+    # The model step this belongs to (1-based); its tool calls share the number.
+    step_no: Mapped[int] = mapped_column(Integer)
+    kind: Mapped[AgentStepKind] = mapped_column(_str_enum(AgentStepKind, "agent_step_kind"))
+    # Tool calls only: the MCP tool and its one argument.
+    tool: Mapped[str | None] = mapped_column(String(50))
+    argument: Mapped[str | None] = mapped_column(String(100))
+    # Tool calls: the tool's structured result. Model calls: the action the model chose.
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # Model calls only.
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 6))
+    latency_ms: Mapped[int] = mapped_column(Integer)
+    error: Mapped[str | None] = mapped_column(Text)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    run: Mapped[AgentRun] = relationship(back_populates="steps")
+
+    __table_args__ = (Index("ix_agent_steps_run_id", "run_id"),)

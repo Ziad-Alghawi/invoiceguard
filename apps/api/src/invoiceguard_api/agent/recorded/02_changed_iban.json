@@ -1,0 +1,198 @@
+{
+  "scenario": {
+    "seller_vat_id": "DE999000033",
+    "failed_checks": [
+      "iban"
+    ]
+  },
+  "recorded_at": "2026-11-18T00:29:59.857123+00:00",
+  "model": "gemini/gemini-3.8-flash",
+  "finding": "The invoice 2026-IT-0816 contains an unverified payee IBAN (DE58876543210000000099), which is not registered to Demo IT-Service GmbH in our master data or bank registry. The verified bank account on file for Demo IT-Service GmbH (DE999000033) is DE60123456780000000003. A reviewer must not process payment to the new IBAN without verbal confirmation using the supplier's established contact information from the master data.",
+  "email_subject": "Rückfrage zu Rechnung 2026-IT-0816 vom 05.11.2026",
+  "email_body": "Guten Tag,\n\nbei der Prüfung Ihrer Rechnung 2026-IT-0816 vom 05.11.2026 haben wir festgestellt, dass die angegebene Bankverbindung von den bei uns hinterlegten Stammdaten abweicht.\n\nBitte prüfen Sie die Bankverbindung und senden Sie uns eine schriftliche Bestätigung bzw. eine korrigierte Rechnung zu.\n\nMit freundlichen Grüßen\nIhre Kreditorenbuchhaltung",
+  "input_tokens": 5216,
+  "output_tokens": 559,
+  "cost_usd": "0.006008",
+  "duration_ms": 12091,
+  "steps": [
+    {
+      "step_no": 1,
+      "kind": "model",
+      "tool": null,
+      "argument": null,
+      "result": {
+        "action": "call_tools",
+        "finding": null,
+        "email_body": null,
+        "tool_calls": [
+          {
+            "tool": "check_iban",
+            "argument": "DE58876543210000000099"
+          },
+          {
+            "tool": "get_bank_accounts",
+            "argument": "DE999000033"
+          },
+          {
+            "tool": "get_purchase_order",
+            "argument": "PO-2026-0005"
+          }
+        ],
+        "email_subject": null
+      },
+      "input_tokens": 1342,
+      "output_tokens": 163,
+      "cost_usd": "0.001618",
+      "latency_ms": 4014,
+      "error": null
+    },
+    {
+      "step_no": 1,
+      "kind": "tool",
+      "tool": "check_iban",
+      "argument": "DE58876543210000000099",
+      "result": {
+        "iban": "DE58876543210000000099",
+        "registered_to": [],
+        "checksum_valid": true
+      },
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "latency_ms": 59,
+      "error": null
+    },
+    {
+      "step_no": 1,
+      "kind": "tool",
+      "tool": "get_bank_accounts",
+      "argument": "DE999000033",
+      "result": {
+        "vat_id": "DE999000033",
+        "accounts": [
+          {
+            "iban": "DE60123456780000000003",
+            "since": "2025-01-10",
+            "verified": true,
+            "verified_by": "Stammdatenpflege (Demo)"
+          }
+        ],
+        "supplier_name": "Demo IT-Service GmbH",
+        "supplier_found": true
+      },
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "latency_ms": 67,
+      "error": null
+    },
+    {
+      "step_no": 1,
+      "kind": "tool",
+      "tool": "get_purchase_order",
+      "argument": "PO-2026-0005",
+      "result": {
+        "found": true,
+        "order": {
+          "lines": [
+            {
+              "line_no": 1,
+              "quantity": "3.000",
+              "vat_rate": "19.00",
+              "unit_code": "C62",
+              "net_amount": "3747.00",
+              "unit_price": "1249.0000",
+              "description": "Notebook 14 Zoll, 32 GB RAM",
+              "received_quantity": "3.000"
+            },
+            {
+              "line_no": 2,
+              "quantity": "6.000",
+              "vat_rate": "19.00",
+              "unit_code": "HUR",
+              "net_amount": "570.00",
+              "unit_price": "95.0000",
+              "description": "Einrichtung und Inbetriebnahme",
+              "received_quantity": "6.000"
+            }
+          ],
+          "number": "PO-2026-0005",
+          "currency": "EUR",
+          "net_amount": "4317.00",
+          "order_date": "2026-09-03",
+          "supplier_name": "Demo IT-Service GmbH",
+          "supplier_vat_id": "DE999000033"
+        }
+      },
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "latency_ms": 70,
+      "error": null
+    },
+    {
+      "step_no": 2,
+      "kind": "model",
+      "tool": null,
+      "argument": null,
+      "result": {
+        "action": "call_tools",
+        "finding": null,
+        "email_body": null,
+        "tool_calls": [
+          {
+            "tool": "get_supplier",
+            "argument": "DE999000033"
+          }
+        ],
+        "email_subject": null
+      },
+      "input_tokens": 1873,
+      "output_tokens": 81,
+      "cost_usd": "0.001708",
+      "latency_ms": 3302,
+      "error": null
+    },
+    {
+      "step_no": 2,
+      "kind": "tool",
+      "tool": "get_supplier",
+      "argument": "DE999000033",
+      "result": {
+        "found": true,
+        "supplier": {
+          "city": "München",
+          "name": "Demo IT-Service GmbH",
+          "street": "Testallee 5",
+          "vat_id": "DE999000033",
+          "postal_code": "80331",
+          "country_code": "DE",
+          "contact_email": "buchhaltung@demo-it-service.example"
+        }
+      },
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "latency_ms": 48,
+      "error": null
+    },
+    {
+      "step_no": 3,
+      "kind": "model",
+      "tool": null,
+      "argument": null,
+      "result": {
+        "action": "finish",
+        "finding": "The invoice 2026-IT-0816 contains an unverified payee IBAN (DE58876543210000000099), which is not registered to Demo IT-Service GmbH in our master data or bank registry. The verified bank account on file for Demo IT-Service GmbH (DE999000033) is DE60123456780000000003. A reviewer must not process payment to the new IBAN without verbal confirmation using the supplier's established contact information from the master data.",
+        "email_body": "Guten Tag,\n\nbei der Prüfung Ihrer Rechnung 2026-IT-0816 vom 05.11.2026 haben wir festgestellt, dass die angegebene Bankverbindung von den bei uns hinterlegten Stammdaten abweicht.\n\nBitte prüfen Sie die Bankverbindung und senden Sie uns eine schriftliche Bestätigung bzw. eine korrigierte Rechnung zu.\n\nMit freundlichen Grüßen\nIhre Kreditorenbuchhaltung",
+        "tool_calls": [],
+        "email_subject": "Rückfrage zu Rechnung 2026-IT-0816 vom 05.11.2026"
+      },
+      "input_tokens": 2001,
+      "output_tokens": 315,
+      "cost_usd": "0.002682",
+      "latency_ms": 4463,
+      "error": null
+    }
+  ]
+}

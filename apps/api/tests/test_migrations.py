@@ -23,6 +23,8 @@ TABLES = {
     "sessions",
     "datev_exports",
     "security_events",
+    "agent_runs",
+    "agent_steps",
 }
 
 
