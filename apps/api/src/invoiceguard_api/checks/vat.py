@@ -10,9 +10,10 @@ from typing import Any
 
 from invoiceguard_api.checks.model import TOLERANCE, CheckContext, CheckResult
 from invoiceguard_api.models import CheckStatus
-from invoiceguard_api.parsing import ParsedInvoice
+from invoiceguard_api.parsing import ParsedInvoice, VatBreakdown
 
 CHECK_TYPE = "vat_math"
+NOT_SUBJECT_TO_VAT = "O"
 CENT = Decimal("0.01")
 ZERO = Decimal("0")
 
@@ -44,9 +45,17 @@ class _Rules:
             )
 
 
+def _group_key(group: VatBreakdown) -> str:
+    # Category O has no rate on its lines, whatever rate the breakdown row prints (KoSIT 01.04a
+    # prints 0), so all of its amounts share one group.
+    return "none" if group.category_code == NOT_SUBJECT_TO_VAT else _rate_key(group.rate)
+
+
 def _per_rate_rules(rules: _Rules, invoice: ParsedInvoice) -> None:
     for group in invoice.vat_breakdown:
-        if group.rate is not None:
+        if group.category_code == NOT_SUBJECT_TO_VAT:
+            rules.compare("tax for category O (not subject to VAT) = 0", ZERO, group.tax_amount)
+        elif group.rate is not None:
             rules.compare(
                 f"tax for rate {_rate_key(group.rate)}% = taxable amount x rate",
                 _cents(group.taxable_amount * group.rate / 100),
@@ -71,7 +80,7 @@ def _per_rate_rules(rules: _Rules, invoice: ParsedInvoice) -> None:
         lines_by_rate[_rate_key(line.vat_rate)] += line.net_amount
     taxable_by_rate: dict[str, Decimal] = defaultdict(lambda: ZERO)
     for group in invoice.vat_breakdown:
-        taxable_by_rate[_rate_key(group.rate)] += group.taxable_amount
+        taxable_by_rate[_group_key(group)] += group.taxable_amount
     for rate in sorted(lines_by_rate.keys() | taxable_by_rate.keys()):
         rules.compare(
             f"line amounts at rate {rate}% = taxable amount at that rate",

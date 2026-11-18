@@ -679,3 +679,73 @@ def test_summary_counts_every_status() -> None:
         "skipped": 0,
         "failed_checks": ["iban", "po_match"],
     }
+
+
+def _not_subject_to_vat(clean: ParsedInvoice, **update: Any) -> ParsedInvoice:
+    """The shape of KoSIT 01.04a: lines without a rate, one category O row printing 0 %."""
+    return changed(
+        clean,
+        **{
+            "lines": tuple(item.model_copy(update={"vat_rate": None}) for item in clean.lines),
+            "vat_breakdown": (
+                VatBreakdown(
+                    category_code="O",
+                    rate=Decimal("0"),
+                    taxable_amount=Decimal("4317.00"),
+                    tax_amount=Decimal("0"),
+                ),
+            ),
+            "tax_total": Decimal("0"),
+            "gross_total": Decimal("4317.00"),
+            **update,
+        },
+    )
+
+
+def test_vat_math_passes_category_o_with_a_zero_rate_row(clean: ParsedInvoice) -> None:
+    # Regression for KoSIT 01.04a: the lines have no rate, the breakdown row says 0 %.
+    result = _vat(_not_subject_to_vat(clean))
+
+    assert result.status is CheckStatus.PASSED
+    assert "tax for category O (not subject to VAT) = 0" in result.evidence["checked"]
+    assert "line amounts at rate none% = taxable amount at that rate" in result.evidence["checked"]
+
+
+def test_vat_math_blocks_category_o_with_wrong_totals(clean: ParsedInvoice) -> None:
+    result = _vat(_not_subject_to_vat(clean, gross_total=Decimal("4400.00")))
+
+    assert result.status is CheckStatus.FAILED
+    assert _broken_rules(result) == ["net total + tax total = gross total (BT-112)"]
+
+
+def test_vat_math_blocks_category_o_with_tax_charged(clean: ParsedInvoice) -> None:
+    # Tax on a "not subject to VAT" row, with every total consistent: only the O rule sees it.
+    invoice = _not_subject_to_vat(
+        clean,
+        vat_breakdown=(
+            VatBreakdown(
+                category_code="O",
+                rate=Decimal("0"),
+                taxable_amount=Decimal("4317.00"),
+                tax_amount=Decimal("820.23"),
+            ),
+        ),
+        tax_total=Decimal("820.23"),
+        gross_total=Decimal("5137.23"),
+    )
+
+    result = _vat(invoice)
+
+    assert result.status is CheckStatus.FAILED
+    assert _broken_rules(result) == ["tax for category O (not subject to VAT) = 0"]
+
+
+def test_vat_math_blocks_category_o_when_lines_do_not_match_the_row(clean: ParsedInvoice) -> None:
+    invoice = _not_subject_to_vat(
+        clean, lines=line(clean, 1, vat_rate=None, net_amount=Decimal("1"))
+    )
+
+    result = _vat(invoice)
+
+    assert result.status is CheckStatus.FAILED
+    assert "line amounts at rate none% = taxable amount at that rate" in _broken_rules(result)

@@ -182,8 +182,8 @@
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
-- R3-2 follow-ups, one small PR each (decided 2026-11-18): `low_confidence` threshold 0.8 → 0.9 (on the eval
-  set it flags 4 more of 9 errors and 2 right fields), and `vat_math` for VAT category O (KoSIT 01.04a)
+- R3-2 follow-ups (decided 2026-11-18): `vat_math` for VAT category O (KoSIT 01.04a) is fixed; the
+  `low_confidence` threshold 0.8 → 0.9 follows (on the eval set it flags 4 more of 9 errors and 2 right fields)
 - R3 — Evals, RAG, CI gate (PLAN.md §11), three rounds, one PR each:
   - R3-2 Eval harness and extraction results (ADR-019): `packages/evals` with the KoSIT set, the ZUGFeRD corpus
     (pinned downloads with SHA-256, not committed), a reportlab generator with conflicting printed values, the
@@ -236,8 +236,6 @@
 - LLM confidence is self-reported, not calibrated. Measured in R3-2: at `low` 8 of 9 wrong fields had 0.8 or
   more, so the `low_confidence` check (below 0.8) caught none of them; on the 10 conflicting-value cases the model
   picked the right value but never lowered its confidence.
-- `vat_math` fails a valid invoice with VAT category O ("not subject to VAT", KoSIT case 01.04a): the line has no
-  rate, the breakdown row has 0 %, and the check groups by rate, so such an invoice is `blocked`. Found by the eval.
 - Eval (ADR-019): generated layouts are cleaner than real invoices, the corpus has 12 PDFs, the fraud set uses
   the demo seed only; scan-like PDFs are in the backlog. Calls that failed live are not recorded, so a replay of
   such a run needs `--missing-as-failed`.
@@ -253,7 +251,7 @@
 - Check every eval "error" against the document first: 5 corpus PDFs print terms their XML leaves out, and two
   unit codes mean the same piece. Write each truth correction down with the printed text as its note.
 - Run the checks on the official conformance set, not only the parser: the first eval run found a check that
-  blocks a valid invoice (VAT category O).
+  blocked a valid invoice (VAT category O, fixed after the baseline).
 - Separate "the call failed" from "the answer was wrong" in every metric: a provider spend cap cut a whole run
   short, and counting those failures as wrong fields would have ranked the levels by billing, not by reading.
 - PostgreSQL roles belong to the server, not the database: create them idempotently, keep passwords out of

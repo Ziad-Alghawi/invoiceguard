@@ -200,6 +200,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The CI smoke test checks that a clean invoice ends `ready` with every check passed (KoSIT included) and that the
   fraud sample ends `blocked` with the IBAN evidence.
 
+### Fixed
+- `vat_math` accepts a valid invoice with VAT category O ("not subject to VAT", KoSIT 01.04a): the lines without a
+  rate and the breakdown row printing 0 % are one group, and the tax of a category O row must be 0 (a row charging
+  tax is still `blocked`). Found by the R3-2 eval; tests for the 01.04a shape and three wrong-math variants.
+
 ### Changed
 - `POST /invoices/{id}/approve` approves `ready` invoices only; a blocked invoice needs the four-eyes override
   (ADR-016), and the R1 field `override_reason` is refused with `422`.
