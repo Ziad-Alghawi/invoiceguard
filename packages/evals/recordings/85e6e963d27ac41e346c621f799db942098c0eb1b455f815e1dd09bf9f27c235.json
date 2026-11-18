@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-18T17:03:01+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "medium",
+  "run": 2,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "9d085a90dc7f8f51dd69ea921491bf0d401dc4e4f5bc429dfe09275b98295a5a"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\n  \"invoice_number\": {\n    \"value\": \"47110818\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Nr. 47110818\"\n    }\n  },\n  \"issue_date\": {\n    \"value\": \"2018-10-31\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"vom 31.10.2018\"\n    }\n  },\n  \"type_code\": {\n    \"value\": \"389\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Gutschrift (Selbst ausgestellte Rechnung) (389)\"\n    }\n  },\n  \"currency\": {\n    \"value\": \"EUR\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Währung: EUR\"\n    }\n  },\n  \"due_date\": {\n    \"value\": \"2018-11-30\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 3,\n      \"snippet\": \"Fälligkeit\\n30.11.2018\"\n    }\n  },\n  \"seller_name\": {\n    \"value\": \"Global Supplies Ltd.\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Name: Global Supplies Ltd.\"\n    }\n  },\n  \"seller_vat_id\": {\n    \"value\": \"GB123456789\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"USt.-Id.-Nr.: GB123456789\"\n    }\n  },\n  \"buyer_name\": {\n    \"value\": \"Metallbau Leipzig GmbH & Co. KG\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Name: Metallbau Leipzig GmbH & Co. KG\"\n    }\n  },\n  \"buyer_vat_id\": {\n    \"value\": \"DE123456789\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"USt.-Id.-Nr.: DE123456789\"\n    }\n  },\n  \"payee_iban\": {\n    \"value\": \"DE1212344321987600\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 3,\n      \"snippet\": \"IBAN : DE12 1234 4321 9876 00\"\n    }\n  },\n  \"order_reference\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"line_total\": {\n    \"value\": \"2000.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Positionssumme 2.000,00\"\n    }\n  },\n  \"allowance_total\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"charge_total\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"net_total\": {\n    \"value\": \"2000.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Rechnungssumme ohne USt. 2.000,00\"\n    }\n  },\n  \"tax_total\": {\n    \"value\": \"0.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Steuerbetrag 0,00\"\n    }\n  },\n  \"gross_total\": {\n    \"value\": \"2000.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Bruttosumme 2.000,00\"\n    }\n  },\n  \"amount_due\": {\n    \"value\": \"2000.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Zahlbetrag 2000,00\"\n    }\n  },\n  \"lines\": [\n    {\n      \"line_id\": \"1\",\n      \"item_name\": \"Stahlcoil\",\n      \"quantity\": \"10\",\n      \"unit_code\": \"C62\",\n      \"net_price\": null,\n      \"net_amount\": \"1000.00\",\n      \"vat_rate\": \"0\",\n      \"confidence\": 0.95,\n      \"evidence\": {\n        \"page\": 2,\n        \"snippet\": \"1 Toolbox 0815CO-123\\n/V2A\\nStahlcoil\\nBasismenge: 1 Stk\\n10 Stk 0 %\\n1.000,00\"\n      }\n    },\n    {\n      \"line_id\": \"2\",\n      \"item_name\": \"Stoßfänger\",\n      \"quantity\": \"10\",\n      \"unit_code\": \"C62\",\n      \"net_price\": null,\n      \"net_amount\": \"1000.00\",\n      \"vat_rate\": \"0\",\n      \"confidence\": 0.95,\n      \"evidence\": {\n        \"page\": 2,\n        \"snippet\": \"2 BR-4529-ZFIM-712\\n/A2A\\nStoßfänger\\nBasismenge: 1 Stk\\n10 Stk 0 %\\n1.000,00\"\n      }\n    }\n  ],\n  \"vat_breakdown\": [\n    {\n      \"category_code\": \"K\",\n      \"rate\": \"0\",\n      \"taxable_amount\": \"2000.00\",\n      \"tax_amount\": \"0.00\",\n      \"confidence\": 0.95,\n      \"evidence\": {\n        \"page\": 2,\n        \"snippet\": \"Umsatzsteuer (K)\\nMehrwertsteuerbefreiung \\nfür die \\ninnergemeinschaftliche \\nLieferung von Waren und \\nDienstleistungen in der EU\\n2.000,00 0 0,00\"\n      }\n    }\n  ]\n}",
+  "input_tokens": 2015,
+  "output_tokens": 2826,
+  "cost_usd": "0.011023",
+  "latency_ms": 22873
+ }
+}

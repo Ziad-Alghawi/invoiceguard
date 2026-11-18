@@ -1,0 +1,33 @@
+{
+ "recorded_at": "2026-11-18T17:20:59+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "high",
+  "run": 1,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "9d085a90dc7f8f51dd69ea921491bf0d401dc4e4f5bc429dfe09275b98295a5a"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "text": "Your previous reply was rejected: lines.0.net_price: Decimal input should be an integer, float, string or Decimal object; lines.1.net_price: Decimal input should be an integer, float, string or Decimal object. Return only JSON that matches the response schema."
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\"invoice_number\": {\"value\": \"47110818\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Nr. 47110818\"}}, \"issue_date\": {\"value\": \"2018-10-31\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"vom 31.10.2018\"}}, \"type_code\": {\"value\": \"389\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Gutschrift (Selbst ausgestellte Rechnung) (389)\"}}, \"currency\": {\"value\": \"EUR\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Währung: EUR\"}}, \"due_date\": {\"value\": \"2018-11-30\", \"confidence\": 1.0, \"evidence\": {\"page\": 3, \"snippet\": \"Fälligkeit\\n30.11.2018\"}}, \"seller_name\": {\"value\": \"Global Supplies Ltd.\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Name: Global Supplies Ltd.\"}}, \"seller_vat_id\": {\"value\": \"GB123456789\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"USt.-Id.-Nr.: GB123456789\"}}, \"buyer_name\": {\"value\": \"Metallbau Leipzig GmbH & Co. KG\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Name: Metallbau Leipzig GmbH & Co. KG\"}}, \"buyer_vat_id\": {\"value\": \"DE123456789\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"USt.-Id.-Nr.: DE123456789\"}}, \"payee_iban\": {\"value\": \"DE1212344321987600\", \"confidence\": 1.0, \"evidence\": {\"page\": 3, \"snippet\": \"IBAN : DE12 1234 4321 9876 00\"}}, \"order_reference\": {\"value\": null, \"confidence\": 1.0, \"evidence\": null}, \"line_total\": {\"value\": \"2000.00\", \"confidence\": 1.0, \"evidence\": {\"page\": 2, \"snippet\": \"Positionssumme 2.000,00\"}}, \"allowance_total\": {\"value\": null, \"confidence\": 1.0, \"evidence\": null}, \"charge_total\": {\"value\": null, \"confidence\": 1.0, \"evidence\": null}, \"net_total\": {\"value\": \"2000.00\", \"confidence\": 1.0, \"evidence\": {\"page\": 2, \"snippet\": \"Rechnungssumme ohne USt. 2.000,00\"}}, \"tax_total\": {\"value\": \"0.00\", \"confidence\": 1.0, \"evidence\": {\"page\": 2, \"snippet\": \"Steuerbetrag 0,00\"}}, \"gross_total\": {\"value\": \"2000.00\", \"confidence\": 1.0, \"evidence\": {\"page\": 2, \"snippet\": \"Bruttosumme 2.000,00\"}}, \"amount_due\": {\"value\": \"2000.00\", \"confidence\": 1.0, \"evidence\": {\"page\": 2, \"snippet\": \"Zahlbetrag 2000,00\"}}, \"lines\": [{\"line_id\": \"1\", \"item_name\": \"Stahlcoil\", \"quantity\": \"10\", \"unit_code\": \"C62\", \"net_price\": \"100.00\", \"net_amount\": \"1000.00\", \"vat_rate\": \"0\", \"confidence\": 0.95, \"evidence\": {\"page\": 2, \"snippet\": \"1 Toolbox 0815CO-123\\n/V2A\\nStahlcoil\\nBasismenge: 1 Stk\\n10 Stk 0 %\\n1.000,00\"}}, {\"line_id\": \"2\", \"item_name\": \"Stoßfänger\", \"quantity\": \"10\", \"unit_code\": \"C62\", \"net_price\": \"100.00\", \"net_amount\": \"1000.00\", \"vat_rate\": \"0\", \"confidence\": 0.95, \"evidence\": {\"page\": 2, \"snippet\": \"2 BR-4529-ZFIM-712\\n/A2A\\nStoßfänger\\nBasismenge: 1 Stk\\n10 Stk 0 %\\n1.000,00\"}}], \"vat_breakdown\": [{\"category_code\": \"K\", \"rate\": \"0\", \"taxable_amount\": \"2000.00\", \"tax_amount\": \"0.00\", \"confidence\": 1.0, \"evidence\": {\"page\": 2, \"snippet\": \"Umsatzsteuer (K)\\nMehrwertsteuerbefreiung \\nfür die \\ninnergemeinschaftliche \\nLieferung von Waren und \\nDienstleistungen in der EU\\n2.000,00 0 0,00\"}}]}",
+  "input_tokens": 2074,
+  "output_tokens": 7172,
+  "cost_usd": "0.028450",
+  "latency_ms": 51043
+ }
+}

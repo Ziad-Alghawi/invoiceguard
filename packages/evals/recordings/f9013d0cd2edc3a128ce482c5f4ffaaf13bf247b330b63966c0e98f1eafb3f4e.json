@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-18T17:22:52+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "high",
+  "run": 1,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "80e824cb5e0ad83aba0adf97f51044fa6ed7a544dba08e7f2ad3f892ced87b49"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\n  \"invoice_number\": {\n    \"value\": \"00.123.456.7-2018-1\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Nr. 00.123.456.7-2018-1\"\n    }\n  },\n  \"issue_date\": {\n    \"value\": \"2018-03-11\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"vom 11.03.2018\"\n    }\n  },\n  \"type_code\": {\n    \"value\": \"575\",\n    \"confidence\": 0.95,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnung des Versicherers (575)\"\n    }\n  },\n  \"currency\": {\n    \"value\": \"EUR\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Währung: EUR\"\n    }\n  },\n  \"due_date\": {\n    \"value\": null,\n    \"confidence\": 0.9,\n    \"evidence\": null\n  },\n  \"seller_name\": {\n    \"value\": \"MVM Musterhafter Versicherungsverein Musterstadt a.G.\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"MVM Musterhafter\\nVersicherungsverein Musterstadt a.G.\"\n    }\n  },\n  \"seller_vat_id\": {\n    \"value\": \"DE234567891\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"USt.-Id.-Nr.: DE234567891\"\n    }\n  },\n  \"buyer_name\": {\n    \"value\": \"Max Mustermann\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Herrn\\nMax Mustermann\"\n    }\n  },\n  \"buyer_vat_id\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"payee_iban\": {\n    \"value\": \"DE75123456780000001234\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 3,\n      \"snippet\": \"DE75123456780000001234\"\n    }\n  },\n  \"order_reference\": {\n    \"value\": null,\n    \"confidence\": 0.9,\n    \"evidence\": null\n  },\n  \"line_total\": {\n    \"value\": \"220.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Positionssumme 220,00\"\n    }\n  },\n  \"allowance_total\": {\n    \"value\": \"0.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Gesamtbetrag der Abschläge -0,00\"\n    }\n  },\n  \"charge_total\": {\n    \"value\": \"0.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Gesamtbetrag der Zuschläge 0,00\"\n    }\n  },\n  \"net_total\": {\n    \"value\": \"220.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Rechnungssumme ohne USt. 220,00\"\n    }\n  },\n  \"tax_total\": {\n    \"value\": \"0.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Steuerbetrag 0,00\"\n    }\n  },\n  \"gross_total\": {\n    \"value\": \"220.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Bruttosumme 220,00\"\n    }\n  },\n  \"amount_due\": {\n    \"value\": \"440.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Zahlbetrag 440,00\"\n    }\n  },\n  \"lines\": [\n    {\n      \"line_id\": \"1\",\n      \"item_name\": \"Kfz-Haftpflicht SF25 (30 %) Typkl. 18 Regio R9\",\n      \"quantity\": \"1\",\n      \"unit_code\": \"C62\",\n      \"net_price\": \"67.2244\",\n      \"net_amount\": \"80.00\",\n      \"vat_rate\": \"0\",\n      \"confidence\": 0.95,\n      \"evidence\": {\n        \"page\": 2,\n        \"snippet\": \"1 Kfz-Haftpflicht SF25 (30 %) Typkl. 18 \\nRegio R9\\n67,2244 1 0 %\\n80,00\"\n      }\n    },\n    {\n      \"line_id\": \"2\",\n      \"item_name\": \"Vollkasko SF25 (30 %) Typkl. 21 Regio R4\",\n      \"quantity\": \"1\",\n      \"unit_code\": \"C62\",\n      \"net_price\": \"117.6471\",\n      \"net_amount\": \"140.00\",\n      \"vat_rate\": \"0\",\n      \"confidence\": 0.95,\n      \"evidence\": {\n        \"page\": 2,\n        \"snippet\": \"2 Vollkasko SF25 (30 %) Typkl. 21 Regio R4 117,6471 1 0 %\\n140,00\"\n      }\n    }\n  ],\n  \"vat_breakdown\": [\n    {\n      \"category_code\": \"E\",\n      \"rate\": \"0\",\n      \"taxable_amount\": \"220.00\",\n      \"tax_amount\": \"0.00\",\n      \"confidence\": 0.95,\n      \"evidence\": {\n        \"page\": 2,\n        \"snippet\": \"Umsatzsteuer (E)\\nUmsatzsteuerbefreit nach \\n$4 Nr. 10a UStG\\n220,00 0 0,00\"\n      }\n    }\n  ]\n}",
+  "input_tokens": 2015,
+  "output_tokens": 15450,
+  "cost_usd": "0.059449",
+  "latency_ms": 112836
+ }
+}

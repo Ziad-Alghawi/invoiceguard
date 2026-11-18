@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-18T16:39:39+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "low",
+  "run": 1,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "0c992fba4b787e7037281b1f180228aa5473f14b4d06824db70cb3e16553ae18"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\"invoice_number\":{\"value\":\"9314110911/00/M/00/N\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Nr. 9314110911/00/M/00/N\"}},\"issue_date\":{\"value\":\"2018-10-01\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"vom 01.10.2018\"}},\"type_code\":{\"value\":\"380\",\"confidence\":0.8,\"evidence\":{\"page\":1,\"snippet\":\"Mietrechnung (387)\"}},\"currency\":{\"value\":\"EUR\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Währung: EUR\"}},\"due_date\":{\"value\":null,\"confidence\":0.9,\"evidence\":null},\"seller_name\":{\"value\":\"MUSTER-Autovermietung\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Name: MUSTER-Autovermietung\"}},\"seller_vat_id\":{\"value\":\"DE136695976\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"USt.-Id.-Nr.: DE136695976\"}},\"buyer_name\":{\"value\":\"MUSTER-KUNDE GMBH\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Name: MUSTER-KUNDE GMBH\"}},\"buyer_vat_id\":{\"value\":null,\"confidence\":0.9,\"evidence\":null},\"payee_iban\":{\"value\":null,\"confidence\":0.9,\"evidence\":null},\"order_reference\":{\"value\":\"B123456789\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Bestellung: B123456789\"}},\"line_total\":{\"value\":\"286.52\",\"confidence\":1.0,\"evidence\":{\"page\":4,\"snippet\":\"Positionssumme 286,52\"}},\"allowance_total\":{\"value\":\"0.00\",\"confidence\":1.0,\"evidence\":{\"page\":4,\"snippet\":\"Gesamtbetrag der Abschläge -0,00\"}},\"charge_total\":{\"value\":\"0.00\",\"confidence\":1.0,\"evidence\":{\"page\":4,\"snippet\":\"Gesamtbetrag der Zuschläge 0,00\"}},\"net_total\":{\"value\":\"286.52\",\"confidence\":1.0,\"evidence\":{\"page\":4,\"snippet\":\"Rechnungssumme ohne USt. 286,52\"}},\"tax_total\":{\"value\":\"54.44\",\"confidence\":1.0,\"evidence\":{\"page\":4,\"snippet\":\"Steuerbetrag 54,44\"}},\"gross_total\":{\"value\":\"340.96\",\"confidence\":1.0,\"evidence\":{\"page\":4,\"snippet\":\"Bruttosumme 340,96\"}},\"amount_due\":{\"value\":\"340.96\",\"confidence\":1.0,\"evidence\":{\"page\":4,\"snippet\":\"Zahlbetrag 340,96\"}},\"lines\":[{\"line_id\":\"1\",\"item_name\":\"Miettage\",\"quantity\":\"2\",\"unit_code\":\"DAY\",\"net_price\":\"86.5500\",\"net_amount\":\"173.10\",\"vat_rate\":\"19\",\"confidence\":1.0,\"evidence\":{\"page\":3,\"snippet\":\"1 Miettage 86,5500 2 Tag(e) 19 %\\n173,10\"}},{\"line_id\":\"2\",\"item_name\":\"Navigationssystem - Garantie\",\"quantity\":\"2\",\"unit_code\":\"C62\",\"net_price\":\"5.0400\",\"net_amount\":\"10.08\",\"vat_rate\":\"19\",\"confidence\":1.0,\"evidence\":{\"page\":3,\"snippet\":\"Navigationssystem - Garantie 5,0400 2 19 %\\n10,08\\n2 Inklusiv-Kilometer waren: 873\"}},{\"line_id\":\"3\",\"item_name\":\"Vollkasko\",\"quantity\":\"2\",\"unit_code\":\"C62\",\"net_price\":\"23.1000\",\"net_amount\":\"46.20\",\"vat_rate\":\"19\",\"confidence\":1.0,\"evidence\":{\"page\":3,\"snippet\":\"3 Vollkasko 23,1000 2 19 %\\n46,20\"}},{\"line_id\":\"4\",\"item_name\":\"minimale Selbstbeteiligung\",\"quantity\":\"2\",\"unit_code\":\"C62\",\"net_price\":\"15.5500\",\"net_amount\":\"31.10\",\"vat_rate\":\"19\",\"confidence\":1.0,\"evidence\":{\"page\":3,\"snippet\":\"4 minimale Selbstbeteiligung 15,5500 2 19 %\\n31,10\"}},{\"line_id\":\"5\",\"item_name\":\"Personen-Unfallversicherung\",\"quantity\":\"2\",\"unit_code\":\"C62\",\"net_price\":\"7.9800\",\"net_amount\":\"15.96\",\"vat_rate\":\"19\",\"confidence\":1.0,\"evidence\":{\"page\":3,\"snippet\":\"5 Personen-Unfallversicherung 7,9800 2 19 %\\n15,96\"}},{\"line_id\":\"6\",\"item_name\":\"Choice Upgrade\",\"quantity\":\"2\",\"unit_code\":\"C62\",\"net_price\":\"5.0400\",\"net_amount\":\"10.08\",\"vat_rate\":\"19\",\"confidence\":1.0,\"evidence\":{\"page\":3,\"snippet\":\"6 Choice Upgrade 5,0400 2 19 %\\n10,08\"}}],\"vat_breakdown\":[{\"category_code\":\"S\",\"rate\":\"19\",\"taxable_amount\":\"286.52\",\"tax_amount\":\"54.44\",\"confidence\":1.0,\"evidence\":{\"page\":3,\"snippet\":\"Umsatzsteuer (S) 286,52 19 54,44\"}}]}",
+  "input_tokens": 2547,
+  "output_tokens": 1383,
+  "cost_usd": "0.007096",
+  "latency_ms": 10654
+ }
+}

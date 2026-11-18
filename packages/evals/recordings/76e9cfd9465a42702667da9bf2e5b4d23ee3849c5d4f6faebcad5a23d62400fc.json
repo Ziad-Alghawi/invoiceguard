@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-18T17:36:34+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "high",
+  "run": 1,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "8084f1c1c19acefc8ef584ed51943d1c262a12262b0b2cc3a26badc0a0801359"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\n  \"invoice_number\": {\n    \"value\": \"2026-IT-1031\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsnummer 2026-IT-1031\"\n    }\n  },\n  \"issue_date\": {\n    \"value\": \"2026-10-31\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsdatum 31.10.2026\"\n    }\n  },\n  \"type_code\": {\n    \"value\": \"380\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnung Nr. 2026-IT-1031\"\n    }\n  },\n  \"currency\": {\n    \"value\": \"EUR\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsbetrag 1.059,10 €\"\n    }\n  },\n  \"due_date\": {\n    \"value\": \"2026-11-14\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Zahlbar ohne Abzug bis 14.11.2026.\"\n    }\n  },\n  \"seller_name\": {\n    \"value\": \"Demo IT-Service GmbH\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Demo IT-Service GmbH\"\n    }\n  },\n  \"seller_vat_id\": {\n    \"value\": \"DE999000033\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"USt-IdNr.: DE999000033\"\n    }\n  },\n  \"buyer_name\": {\n    \"value\": \"Beispielkunde Handels GmbH\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Beispielkunde Handels GmbH\"\n    }\n  },\n  \"buyer_vat_id\": {\n    \"value\": \"DE999000068\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Ihre USt-IdNr. DE999000068\"\n    }\n  },\n  \"payee_iban\": {\n    \"value\": \"DE87123456780000000099\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"IBAN: DE87 1234 5678 0000 0000 99\"\n    }\n  },\n  \"order_reference\": {\n    \"value\": \"PO-2026-0006\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Bestellnummer PO-2026-0006\"\n    }\n  },\n  \"line_total\": {\n    \"value\": \"890.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Summe Positionen 890,00 €\"\n    }\n  },\n  \"allowance_total\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"charge_total\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"net_total\": {\n    \"value\": \"890.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Summe Positionen 890,00 €\"\n    }\n  },\n  \"tax_total\": {\n    \"value\": \"169.10\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"zzgl. USt 19 % auf 890,00 169,10 €\"\n    }\n  },\n  \"gross_total\": {\n    \"value\": \"1059.10\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsbetrag 1.059,10 €\"\n    }\n  },\n  \"amount_due\": {\n    \"value\": \"1059.10\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsbetrag 1.059,10 €\"\n    }\n  },\n  \"lines\": [\n    {\n      \"line_id\": \"1\",\n      \"item_name\": \"IT-Support-Pauschale Oktober 2026\",\n      \"quantity\": \"1\",\n      \"unit_code\": \"MON\",\n      \"net_price\": \"890.00\",\n      \"net_amount\": \"890.00\",\n      \"vat_rate\": \"19\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"1 IT-Support-Pauschale Oktober 2026 1 Monat 890,00 19 % 890,00\"\n      }\n    }\n  ],\n  \"vat_breakdown\": [\n    {\n      \"category_code\": \"S\",\n      \"rate\": \"19\",\n      \"taxable_amount\": \"890.00\",\n      \"tax_amount\": \"169.10\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"zzgl. USt 19 % auf 890,00 169,10 €\"\n      }\n    }\n  ]\n}",
+  "input_tokens": 951,
+  "output_tokens": 3535,
+  "cost_usd": "0.013970",
+  "latency_ms": 24533
+ }
+}

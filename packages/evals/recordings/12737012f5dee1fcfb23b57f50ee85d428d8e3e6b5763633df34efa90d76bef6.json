@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-18T16:54:16+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "medium",
+  "run": 1,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "4cdd829a58fc199ca0623946af32ad1854ac899b951a814a01f11aee23007ee4"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\n  \"invoice_number\": {\n    \"value\": \"R18-31\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Nr. R18-31\"\n    }\n  },\n  \"issue_date\": {\n    \"value\": \"2018-10-03\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"vom 03.10.2018\"\n    }\n  },\n  \"type_code\": {\n    \"value\": \"380\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Handelsrechnung (380)\"\n    }\n  },\n  \"currency\": {\n    \"value\": \"EUR\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Währung: EUR\"\n    }\n  },\n  \"due_date\": {\n    \"value\": \"2018-11-21\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Fälligkeit 21.11.2018\"\n    }\n  },\n  \"seller_name\": {\n    \"value\": \"Physiotherapeutin\",\n    \"confidence\": 0.95,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Name: Physiotherapeutin\"\n    }\n  },\n  \"seller_vat_id\": {\n    \"value\": \"DE136695976\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"USt.-Id.-Nr.: DE136695976\"\n    }\n  },\n  \"buyer_name\": {\n    \"value\": \"Liselotte Müller\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Name: Liselotte Müller\"\n    }\n  },\n  \"buyer_vat_id\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"payee_iban\": {\n    \"value\": \"DE02120300000000202051\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"IBAN : DE02120300000000202051\"\n    }\n  },\n  \"order_reference\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"line_total\": {\n    \"value\": \"380.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Positionssumme 380,00\"\n    }\n  },\n  \"allowance_total\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"charge_total\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"net_total\": {\n    \"value\": \"380.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Rechnungssumme ohne USt. 380,00\"\n    }\n  },\n  \"tax_total\": {\n    \"value\": \"0.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Steuerbetrag 0,00\"\n    }\n  },\n  \"gross_total\": {\n    \"value\": \"380.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Bruttosumme 380,00\"\n    }\n  },\n  \"amount_due\": {\n    \"value\": \"380.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Zahlbetrag 380,00\"\n    }\n  },\n  \"lines\": [\n    {\n      \"line_id\": \"0\",\n      \"item_name\": \"Physiotherapie\",\n      \"quantity\": \"10\",\n      \"unit_code\": \"C62\",\n      \"net_price\": \"26.00\",\n      \"net_amount\": \"260.00\",\n      \"vat_rate\": \"0\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"0 Physiotherapie 26,00 10 0 %\\n260,00\"\n      }\n    },\n    {\n      \"line_id\": \"1\",\n      \"item_name\": \"Hausbesuch\",\n      \"quantity\": \"10\",\n      \"unit_code\": \"C62\",\n      \"net_price\": \"12.00\",\n      \"net_amount\": \"120.00\",\n      \"vat_rate\": \"0\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"1 Hausbesuch 12,00 10 0 %\\n120,00\"\n      }\n    }\n  ],\n  \"vat_breakdown\": [\n    {\n      \"category_code\": \"E\",\n      \"rate\": \"0\",\n      \"taxable_amount\": \"380.00\",\n      \"tax_amount\": \"0.00\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 2,\n        \"snippet\": \"Umsatzsteuer (E)\\nSteuerfreie Leistungen \\nnach §4 Nr. 14 UStG\\n380,00 0 0,00\"\n      }\n    }\n  ]\n}",
+  "input_tokens": 1483,
+  "output_tokens": 3326,
+  "cost_usd": "0.013585",
+  "latency_ms": 26145
+ }
+}

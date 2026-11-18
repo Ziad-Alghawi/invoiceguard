@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-18T16:46:31+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "low",
+  "run": 2,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "1aed7b470d434d8c48e6ebe050b226bd92c632cd961f696f02834356d76c04b5"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\"invoice_number\":{\"value\":\"2026-IT-1102\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsnummer 2026-IT-1102\"}},\"issue_date\":{\"value\":\"2026-11-02\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsdatum 02.11.2026\"}},\"type_code\":{\"value\":\"380\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnung Nr. 2026-IT-1102\"}},\"currency\":{\"value\":\"EUR\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsbetrag 1.059,10 €\"}},\"due_date\":{\"value\":\"2026-11-16\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Zahlbar ohne Abzug bis 16.11.2026.\"}},\"seller_name\":{\"value\":\"Demo IT-Service GmbH\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Demo IT-Service GmbH\\nTestallee 5 · 80331 München\"}},\"seller_vat_id\":{\"value\":\"DE999000033\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"USt-IdNr.: DE999000033\"}},\"buyer_name\":{\"value\":\"Beispielkunde Handels GmbH\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Beispielkunde Handels GmbH\\nKreditorenbuchhaltung\"}},\"buyer_vat_id\":{\"value\":\"DE999000068\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Ihre USt-IdNr. DE999000068\"}},\"payee_iban\":{\"value\":\"DE60123456780000000003\",\"confidence\":0.95,\"evidence\":{\"page\":1,\"snippet\":\"Bitte überweisen Sie den Rechnungsbetrag auf IBAN DE60 1234 5678 0000 0000 03.\"}},\"order_reference\":{\"value\":\"PO-2026-0006\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Bestellnummer PO-2026-0006\"}},\"line_total\":{\"value\":\"890.00\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Summe Positionen 890,00 €\"}},\"allowance_total\":{\"value\":null,\"confidence\":1.0,\"evidence\":null},\"charge_total\":{\"value\":null,\"confidence\":1.0,\"evidence\":null},\"net_total\":{\"value\":\"890.00\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"zzgl. USt 19 % auf 890,00\"}},\"tax_total\":{\"value\":\"169.10\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"zzgl. USt 19 % auf 890,00 169,10 €\"}},\"gross_total\":{\"value\":\"1059.10\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsbetrag 1.059,10 €\"}},\"amount_due\":{\"value\":\"1059.10\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsbetrag 1.059,10 €\"}},\"lines\":[{\"line_id\":\"1\",\"item_name\":\"IT-Support-Pauschale Oktober 2026\",\"quantity\":\"1\",\"unit_code\":\"MON\",\"net_price\":\"890.00\",\"net_amount\":\"890.00\",\"vat_rate\":\"19\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"1 IT-Support-Pauschale Oktober 2026 1 Monat 890,00 19 % 890,00\"}}],\"vat_breakdown\":[{\"category_code\":\"S\",\"rate\":\"19\",\"taxable_amount\":\"890.00\",\"tax_amount\":\"169.10\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"zzgl. USt 19 % auf 890,00 169,10 €\"}}]}",
+  "input_tokens": 951,
+  "output_tokens": 1035,
+  "cost_usd": "0.004101",
+  "latency_ms": 8559
+ }
+}

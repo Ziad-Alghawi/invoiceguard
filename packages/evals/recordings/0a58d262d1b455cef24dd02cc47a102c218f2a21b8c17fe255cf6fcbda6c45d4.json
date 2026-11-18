@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-18T16:57:17+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "medium",
+  "run": 1,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "4d6bfb7d33b982b167e44a81c7493c367184e288a39dc8a9eac1446e0d2a4d03"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\"invoice_number\":{\"value\":\"MB-2026-1107\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsnummer MB-2026-1107\"}},\"issue_date\":{\"value\":\"2026-10-15\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsdatum 15.10.2026\"}},\"type_code\":{\"value\":\"380\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnung Nr. MB-2026-1107\"}},\"currency\":{\"value\":\"EUR\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsbetrag 547,14 €\"}},\"due_date\":{\"value\":\"2026-10-29\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Zahlbar ohne Abzug bis 29.10.2026.\"}},\"seller_name\":{\"value\":\"Muster Bürobedarf GmbH\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Muster Bürobedarf GmbH\\nMusterstraße 1 · 10115 Berlin\"}},\"seller_vat_id\":{\"value\":\"DE999000017\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"USt-IdNr.: DE999000017\"}},\"buyer_name\":{\"value\":\"Beispielkunde Handels GmbH\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Beispielkunde Handels GmbH\\nKreditorenbuchhaltung\\nKundenweg 9\\n60311 Frankfurt am Main\"}},\"buyer_vat_id\":{\"value\":\"DE999000068\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Ihre USt-IdNr. DE999000068\"}},\"payee_iban\":{\"value\":\"DE17123456780000000001\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"IBAN: DE17 1234 5678 0000 0000 01\"}},\"order_reference\":{\"value\":\"PO-2026-0002\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Bestellnummer PO-2026-0002\"}},\"line_total\":{\"value\":\"474.00\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Summe Positionen 474,00 €\"}},\"allowance_total\":{\"value\":\"14.22\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"abzgl. Rabatt 3 % -14,22 €\"}},\"charge_total\":{\"value\":null,\"confidence\":1.0,\"evidence\":null},\"net_total\":{\"value\":\"459.78\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Nettobetrag 459,78 €\"}},\"tax_total\":{\"value\":\"87.36\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"zzgl. USt 19 % auf 459,78 87,36 €\"}},\"gross_total\":{\"value\":\"547.14\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsbetrag 547,14 €\"}},\"amount_due\":{\"value\":\"547.14\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsbetrag 547,14 €\"}},\"lines\":[{\"line_id\":\"1\",\"item_name\":\"Toner schwarz für Bürodrucker\",\"quantity\":\"6\",\"unit_code\":\"C62\",\"net_price\":\"79.00\",\"net_amount\":\"474.00\",\"vat_rate\":\"19\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"1 Toner schwarz für Bürodrucker 6 Stk 79,00 19 % 474,00\"}}],\"vat_breakdown\":[{\"category_code\":\"S\",\"rate\":\"19\",\"taxable_amount\":\"459.78\",\"tax_amount\":\"87.36\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"zzgl. USt 19 % auf 459,78 87,36 €\"}}]}",
+  "input_tokens": 951,
+  "output_tokens": 1038,
+  "cost_usd": "0.004606",
+  "latency_ms": 11831
+ }
+}

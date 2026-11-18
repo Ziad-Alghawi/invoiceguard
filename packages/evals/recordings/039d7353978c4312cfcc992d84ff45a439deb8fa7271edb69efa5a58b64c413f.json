@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-18T17:07:51+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "medium",
+  "run": 2,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "0f88d8e6d2c0b728f0a4548b9cbdcb0a15f61b07b4970b749ca8cff2bd926e8e"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\n  \"invoice_number\": {\n    \"value\": \"RK21012345\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungskorrektur (384) Nr. RK21012345 vom 16.09.2018\"\n    }\n  },\n  \"issue_date\": {\n    \"value\": \"2018-09-16\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"vom 16.09.2018\"\n    }\n  },\n  \"type_code\": {\n    \"value\": \"384\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungskorrektur (384)\"\n    }\n  },\n  \"currency\": {\n    \"value\": \"EUR\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Währung: EUR\"\n    }\n  },\n  \"due_date\": {\n    \"value\": null,\n    \"confidence\": 0.9,\n    \"evidence\": null\n  },\n  \"seller_name\": {\n    \"value\": \"MUSTERLIEFERANT GMBH\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Verkäufer\\nNummer: 549910\\nGlobale Nummer: 4333741000005 (GLN)\\nName: MUSTERLIEFERANT GMBH\"\n    }\n  },\n  \"seller_vat_id\": {\n    \"value\": \"DE123456789\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"USt.-Id.-Nr.: DE123456789\"\n    }\n  },\n  \"buyer_name\": {\n    \"value\": \"MUSTER-KUNDE GMBH\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Käufer/Leistungsempfänger\\nNummer: 009420\\nName: MUSTER-KUNDE GMBH\"\n    }\n  },\n  \"buyer_vat_id\": {\n    \"value\": null,\n    \"confidence\": 0.9,\n    \"evidence\": null\n  },\n  \"payee_iban\": {\n    \"value\": null,\n    \"confidence\": 0.9,\n    \"evidence\": null\n  },\n  \"order_reference\": {\n    \"value\": \"B123456789\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Bestellung: B123456789\"\n    }\n  },\n  \"line_total\": {\n    \"value\": \"-7.90\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 3,\n      \"snippet\": \"Positionssumme -7,90\"\n    }\n  },\n  \"allowance_total\": {\n    \"value\": \"0.23\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 3,\n      \"snippet\": \"Gesamtbetrag der Abschläge 0,23\"\n    }\n  },\n  \"charge_total\": {\n    \"value\": \"0.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 3,\n      \"snippet\": \"Gesamtbetrag der Zuschläge 0,00\"\n    }\n  },\n  \"net_total\": {\n    \"value\": \"-7.67\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 3,\n      \"snippet\": \"Rechnungssumme ohne USt. -7,67\"\n    }\n  },\n  \"tax_total\": {\n    \"value\": \"-1.12\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 3,\n      \"snippet\": \"Steuerbetrag -1,12\"\n    }\n  },\n  \"gross_total\": {\n    \"value\": \"-8.79\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 3,\n      \"snippet\": \"Bruttosumme -8,79\"\n    }\n  },\n  \"amount_due\": {\n    \"value\": \"-8.79\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 3,\n      \"snippet\": \"Zahlbetrag -8,79\"\n    }\n  },\n  \"lines\": [\n    {\n      \"line_id\": \"1\",\n      \"item_name\": \"Zitronensäure 100ml\",\n      \"quantity\": \"-5\",\n      \"unit_code\": \"C62\",\n      \"net_price\": \"1.0000\",\n      \"net_amount\": \"-5.00\",\n      \"vat_rate\": \"19\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 3,\n        \"snippet\": \"1 ZS997\\n4123456000014\\n (GLN)\\nZitronensäure 100ml 1,0000 -5 Stk 19 %\\n-5,00\"\n      }\n    },\n    {\n      \"line_id\": \"2\",\n      \"item_name\": \"Gelierzucker Extra 250g\",\n      \"quantity\": \"-2\",\n      \"unit_code\": \"C62\",\n      \"net_price\": \"1.4500\",\n      \"net_amount\": \"-2.90\",\n      \"vat_rate\": \"7\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 3,\n        \"snippet\": \"2 GZ250\\n4123456000021\\n (GLN)\\nGelierzucker Extra 250g 1,4500 -2 Stk 7 %\\n-2,90\"\n      }\n    }\n  ],\n  \"vat_breakdown\": [\n    {\n      \"category_code\": \"S\",\n      \"rate\": \"19\",\n      \"taxable_amount\": \"-4.85\",\n      \"tax_amount\": \"-0.92\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 3,\n        \"snippet\": \"Umsatzsteuer (S) -4,85 19 -0,92\"\n      }\n    },\n    {\n      \"category_code\": \"S\",\n      \"rate\": \"7\",\n      \"taxable_amount\": \"-2.82\",\n      \"tax_amount\": \"-0.20\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 3,\n        \"snippet\": \"Umsatzsteuer (S) -2,82 7 -0,20\"\n      }\n    }\n  ]\n}",
+  "input_tokens": 2547,
+  "output_tokens": 3125,
+  "cost_usd": "0.013629",
+  "latency_ms": 22276
+ }
+}

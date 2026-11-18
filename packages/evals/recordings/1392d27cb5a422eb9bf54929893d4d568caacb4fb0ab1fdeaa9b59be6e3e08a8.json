@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-18T17:13:57+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "medium",
+  "run": 2,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "5b105cf6ed526463fa5ec1e8cc9ba3eef241c7aaefca5e29e0cfa9fe19e0365b"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\n  \"invoice_number\": {\n    \"value\": \"BL/2026/0533\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsnummer BL/2026/0533\"\n    }\n  },\n  \"issue_date\": {\n    \"value\": \"2026-10-23\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsdatum 23.10.2026\"\n    }\n  },\n  \"type_code\": {\n    \"value\": \"380\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnung Nr. BL/2026/0533\"\n    }\n  },\n  \"currency\": {\n    \"value\": \"EUR\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsbetrag 380,80 €\"\n    }\n  },\n  \"due_date\": {\n    \"value\": \"2026-11-06\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Zahlbar ohne Abzug bis 06.11.2026.\"\n    }\n  },\n  \"seller_name\": {\n    \"value\": \"Beispiel Logistik AG\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Beispiel Logistik AG\\nHafenweg 12 · 20457 Hamburg\"\n    }\n  },\n  \"seller_vat_id\": {\n    \"value\": \"DE999000025\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"USt-IdNr.: DE999000025\"\n    }\n  },\n  \"buyer_name\": {\n    \"value\": \"Beispielkunde Handels GmbH\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Beispielkunde Handels GmbH\"\n    }\n  },\n  \"buyer_vat_id\": {\n    \"value\": \"DE999000068\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Ihre USt-IdNr. DE999000068\"\n    }\n  },\n  \"payee_iban\": {\n    \"value\": \"LT601010012345678901\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"IBAN: LT60 1010 0123 4567 8901\"\n    }\n  },\n  \"order_reference\": {\n    \"value\": \"PO-2026-0004\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Bestellnummer PO-2026-0004\"\n    }\n  },\n  \"line_total\": {\n    \"value\": \"320.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Summe Positionen 320,00 €\"\n    }\n  },\n  \"allowance_total\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"charge_total\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"net_total\": {\n    \"value\": \"320.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"zzgl. USt 19 % auf 320,00\"\n    }\n  },\n  \"tax_total\": {\n    \"value\": \"60.80\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"zzgl. USt 19 % auf 320,00 60,80 €\"\n    }\n  },\n  \"gross_total\": {\n    \"value\": \"380.80\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsbetrag 380,80 €\"\n    }\n  },\n  \"amount_due\": {\n    \"value\": \"380.80\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsbetrag 380,80 €\"\n    }\n  },\n  \"lines\": [\n    {\n      \"line_id\": \"1\",\n      \"item_name\": \"Expresszustellung Ersatzteile\",\n      \"quantity\": \"1\",\n      \"unit_code\": \"C62\",\n      \"net_price\": \"320.00\",\n      \"net_amount\": \"320.00\",\n      \"vat_rate\": \"19\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"1 Expresszustellung Ersatzteile 1 Stk 320,00 19 % 320,00\"\n      }\n    }\n  ],\n  \"vat_breakdown\": [\n    {\n      \"category_code\": \"S\",\n      \"rate\": \"19\",\n      \"taxable_amount\": \"320.00\",\n      \"tax_amount\": \"60.80\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"zzgl. USt 19 % auf 320,00 60,80 €\"\n      }\n    }\n  ]\n}",
+  "input_tokens": 951,
+  "output_tokens": 2232,
+  "cost_usd": "0.009083",
+  "latency_ms": 18581
+ }
+}
