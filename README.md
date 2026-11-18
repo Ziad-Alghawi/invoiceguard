@@ -46,6 +46,9 @@ mechanism, not real separation of duties.
   instructions to an AI (English and German) and hidden Unicode characters; a hit blocks the invoice. Failed logins,
   lockouts, refused role checks, self-approval attempts and injections go to an append-only security log that
   approvers can read.
+- **Exception agent:** a blocked invoice is investigated by an LLM agent with read-only tools on two MCP servers
+  (ERP and supplier registry, each with its own read-only database role). It writes a finding for the reviewer and a
+  German email draft to the supplier, with every step, token and cent shown; it cannot approve or change anything.
 - **DATEV-style export:** approved invoices as an `EXTF` Buchungsstapel CSV, each invoice exported once.
 - **Built like production:** typed Python and TypeScript, 99 % API test coverage, Playwright E2E test, CI on
   every PR, Docker Compose, deployed behind Caddy with HTTPS.
@@ -62,6 +65,8 @@ flowchart LR
     api -- "XML" --> kosit["KoSIT validator<br/>(Java service)"]
     api -. "plain PDFs only,<br/>strict schema, cost cap" .-> llm[("Gemini Flash<br/>via LiteLLM")]
     api -- "approved invoices" --> datev[/"DATEV-style CSV"/]
+    api -. "blocked invoices:<br/>exception agent" .-> mcp["mcp-erp, mcp-registry<br/>read-only MCP servers"]
+    mcp -- "own read-only roles" --> db
 ```
 
 Upload answers `202` and processing runs in the background: read (XML parser or LLM) → checks → `ready` or
@@ -80,7 +85,8 @@ the user's session. The public demo runs this stack on one VPS with Docker Compo
 | Quality | ruff, mypy (strict), pytest, ESLint, Prettier, Vitest, Playwright, pre-commit with detect-secrets |
 | Delivery | Docker (multi-stage, non-root), Docker Compose, GitHub Actions, Caddy, Hetzner Cloud |
 | Workflow | LangGraph with the PostgreSQL checkpointer; approval is an `interrupt()` |
-| Planned | MCP servers, Langfuse, Helm, Argo CD (R2 to R4) |
+| Agent tools | MCP Python SDK (streamable HTTP), one read-only PostgreSQL role per server |
+| Planned | Langfuse, Helm, Argo CD (R3 to R4) |
 
 ## How it works
 
@@ -120,6 +126,14 @@ the user's session. The public demo runs this stack on one VPS with Docker Compo
    ([ADR-015](docs/decisions/ADR-015-processing-graph-approval-interrupt.md)). Every
    login, failed login, logout, upload, status change, override and decision is written to an append-only audit
    log (a database trigger rejects changes).
+
+   **Blocked invoices are investigated** by the exception agent ([ADR-018](docs/decisions/ADR-018-exception-agent.md)):
+   an own bounded loop over the model (at most 8 steps, 12 tool calls, 90 s and $0.05 per invoice) that calls
+   read-only MCP tools ([ADR-017](docs/decisions/ADR-017-read-only-mcp-servers.md)), for example "which supplier
+   has this IBAN?" or "what did we order and receive?". It returns an English finding and a German email draft;
+   the recipient comes from the supplier master data, never from the invoice. It runs outside the approval graph and
+   cannot change the invoice. Invoices flagged for prompt injection are never sent to it. On the public demo (no model
+   key) the "Investigate" button shows a recorded real run for the sample invoices, labelled as recorded.
 5. **Export** approved invoices to accounting with **Export to DATEV** on the queue
    ([ADR-013](docs/decisions/ADR-013-datev-style-export.md)): a DATEV-style booking file ("Buchungsstapel", `EXTF`
    format 700/13, Windows-1252, `;`, decimal comma) with one row per invoice: gross amount, creditor and expense
@@ -131,7 +145,17 @@ the user's session. The public demo runs this stack on one VPS with Docker Compo
 
 ## Safety design
 
-_Coming in R2 (approval gate, read-only tools, injection boundaries, OWASP Agentic Top 10 mapping)._
+- **Humans decide:** approval is an `interrupt()` in the processing graph; a blocked invoice needs two people
+  (ADR-003, ADR-015, ADR-016). No tool can pay, post or write to the ERP or registry; none exists.
+- **Read-only tools, least privilege:** each MCP server logs in with its own PostgreSQL role that may only `SELECT`
+  its own tables (the registry server sees four supplier columns); tests prove other tables and all writes are refused
+  (ADR-017).
+- **Untrusted content stays data:** invoice fields and tool results go to models as JSON between labelled markers,
+  never into system prompts; the injection scan blocks suspicious invoices and keeps them away from the agent.
+- **Bounded agent:** a closed list of tools in the response schema and again in code, step, tool-call, time and
+  per-invoice cost limits, every step saved with its cost (ADR-018).
+
+_The full OWASP Agentic Top 10 mapping comes with the attack set in R3._
 
 ## Results
 

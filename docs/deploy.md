@@ -127,6 +127,8 @@ Edit `.env` (`nano .env`). Never commit it or copy it anywhere else:
 | `INVOICEGUARD_SEED_APPROVER_EMAIL` | `approver@example.com` (shown on the login page; confirms overrides, ADR-016) |
 | `INVOICEGUARD_SEED_APPROVER_PASSWORD` | output of `openssl rand -hex 12` (shown on the login page, like the reviewer's) |
 | `INVOICEGUARD_SEED_APPROVER_NAME` | `Demo Approver` |
+| `INVOICEGUARD_MCP_ERP_DB_PASSWORD` | output of `openssl rand -hex 24` (read-only database role of `mcp-erp`, ADR-017) |
+| `INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD` | output of `openssl rand -hex 24` (read-only database role of `mcp-registry`) |
 | `INVOICEGUARD_LLM_API_KEY` | optional: a separate Gemini key with a low quota set in Google AI Studio. Empty: plain PDFs wait |
 | `INVOICEGUARD_LLM_DAILY_BUDGET_USD` | optional; the prod override defaults to `0.50` |
 
@@ -134,7 +136,7 @@ The other values keep their defaults. `INVOICEGUARD_DATABASE_URL` is only used o
 API's database URL from the `POSTGRES_*` values.
 
 ```sh
-make prod-up      # builds the images, starts db, validator, api and web on `edge`, waits until healthy
+make prod-up      # builds the images, starts db, validator, api, MCP servers and web, waits until healthy
 make demo-reset   # master data, six sample invoices, the demo logins (reviewer and approver)
 ```
 
@@ -166,6 +168,9 @@ cd /opt/invoiceguard
 git pull
 make prod-up
 ```
+
+A release that adds a required `.env` variable (for example the MCP role passwords in R2-5) needs it on the server
+before `make prod-up`: Compose stops with `set ... in .env` otherwise. Compare with `.env.example` after `git pull`.
 
 If `infra/edge/sites/invoiceguard.caddy` changed: copy it to `/opt/edge/sites/` and reload Caddy (above).
 

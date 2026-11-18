@@ -156,3 +156,21 @@ export async function exportDatev(): Promise<ExportState> {
     },
   };
 }
+
+/**
+ * Asks the exception agent to investigate a blocked invoice (ADR-018): a live run with a model
+ * key, else the recorded run for the case. The agent only proposes; it changes nothing.
+ */
+export async function investigate(invoiceId: string): Promise<ActionState> {
+  if (!isInvoiceId(invoiceId)) {
+    return { error: "Unknown invoice." };
+  }
+  const response = await apiFetch(`/invoices/${invoiceId}/investigate`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    return { error: await errorMessage(response) };
+  }
+  refresh();
+  return { error: null };
+}

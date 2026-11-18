@@ -1,0 +1,125 @@
+{
+  "scenario": {
+    "seller_vat_id": "DE999000025",
+    "failed_checks": [
+      "po_match"
+    ]
+  },
+  "recorded_at": "2026-11-18T00:29:38.627758+00:00",
+  "model": "gemini/gemini-3.8-flash",
+  "finding": "Invoice BL-2026-1187 shows a price discrepancy compared to purchase order PO-2026-0004. The invoice charges a unit price and net total of 380.00 EUR for 'Expresszustellung Ersatzteile', whereas purchase order PO-2026-0004 specifies a unit price and net total of 320.00 EUR (goods receipt WE-2026-0003 confirmed 1 unit received). The accounts-payable reviewer should contact the supplier to request a corrected invoice reflecting the agreed purchase order amount of 320.00 EUR net, or obtain internal authorization if the price increase was pre-approved.",
+  "email_subject": "Preisabweichung zu Rechnung BL-2026-1187 (Bestellung PO-2026-0004)",
+  "email_body": "Sehr geehrte Damen und Herren,\n\nbei der Prüfung Ihrer Rechnung BL-2026-1187 vom 09.11.2026 zur Bestellung PO-2026-0004 haben wir eine Abweichung festgestellt.\n\nIn der Rechnung wurde für die Position 'Expresszustellung Ersatzteile' ein Nettopreis von 380,00 EUR angesetzt. Gemäß unserer Bestellung PO-2026-0004 war jedoch ein Nettobetrag von 320,00 EUR vereinbart.\n\nBitte prüfen Sie den Vorgang und senden Sie uns eine korrigierte Rechnung oder eine entsprechende Gutschrift zu.\n\nMit freundlichen Grüßen\nIhre Kreditorenbuchhaltung",
+  "input_tokens": 2674,
+  "output_tokens": 636,
+  "cost_usd": "0.004391",
+  "duration_ms": 10217,
+  "steps": [
+    {
+      "step_no": 1,
+      "kind": "model",
+      "tool": null,
+      "argument": null,
+      "result": {
+        "action": "call_tools",
+        "finding": null,
+        "email_body": null,
+        "tool_calls": [
+          {
+            "tool": "get_purchase_order",
+            "argument": "PO-2026-0004"
+          },
+          {
+            "tool": "get_goods_receipts",
+            "argument": "PO-2026-0004"
+          }
+        ],
+        "email_subject": null
+      },
+      "input_tokens": 1166,
+      "output_tokens": 243,
+      "cost_usd": "0.001786",
+      "latency_ms": 5297,
+      "error": null
+    },
+    {
+      "step_no": 1,
+      "kind": "tool",
+      "tool": "get_purchase_order",
+      "argument": "PO-2026-0004",
+      "result": {
+        "found": true,
+        "order": {
+          "lines": [
+            {
+              "line_no": 1,
+              "quantity": "1.000",
+              "vat_rate": "19.00",
+              "unit_code": "C62",
+              "net_amount": "320.00",
+              "unit_price": "320.0000",
+              "description": "Expresszustellung Ersatzteile",
+              "received_quantity": "1.000"
+            }
+          ],
+          "number": "PO-2026-0004",
+          "currency": "EUR",
+          "net_amount": "320.00",
+          "order_date": "2026-10-20",
+          "supplier_name": "Beispiel Logistik AG",
+          "supplier_vat_id": "DE999000025"
+        }
+      },
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "latency_ms": 146,
+      "error": null
+    },
+    {
+      "step_no": 1,
+      "kind": "tool",
+      "tool": "get_goods_receipts",
+      "argument": "PO-2026-0004",
+      "result": {
+        "receipts": [
+          {
+            "lines": [
+              {
+                "quantity": "1.000",
+                "po_line_no": 1
+              }
+            ],
+            "number": "WE-2026-0003",
+            "received_on": "2026-10-22"
+          }
+        ],
+        "po_number": "PO-2026-0004",
+        "order_found": true
+      },
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "latency_ms": 66,
+      "error": null
+    },
+    {
+      "step_no": 2,
+      "kind": "model",
+      "tool": null,
+      "argument": null,
+      "result": {
+        "action": "finish",
+        "finding": "Invoice BL-2026-1187 shows a price discrepancy compared to purchase order PO-2026-0004. The invoice charges a unit price and net total of 380.00 EUR for 'Expresszustellung Ersatzteile', whereas purchase order PO-2026-0004 specifies a unit price and net total of 320.00 EUR (goods receipt WE-2026-0003 confirmed 1 unit received). The accounts-payable reviewer should contact the supplier to request a corrected invoice reflecting the agreed purchase order amount of 320.00 EUR net, or obtain internal authorization if the price increase was pre-approved.",
+        "email_body": "Sehr geehrte Damen und Herren,\n\nbei der Prüfung Ihrer Rechnung BL-2026-1187 vom 09.11.2026 zur Bestellung PO-2026-0004 haben wir eine Abweichung festgestellt.\n\nIn der Rechnung wurde für die Position 'Expresszustellung Ersatzteile' ein Nettopreis von 380,00 EUR angesetzt. Gemäß unserer Bestellung PO-2026-0004 war jedoch ein Nettobetrag von 320,00 EUR vereinbart.\n\nBitte prüfen Sie den Vorgang und senden Sie uns eine korrigierte Rechnung oder eine entsprechende Gutschrift zu.\n\nMit freundlichen Grüßen\nIhre Kreditorenbuchhaltung",
+        "tool_calls": [],
+        "email_subject": "Preisabweichung zu Rechnung BL-2026-1187 (Bestellung PO-2026-0004)"
+      },
+      "input_tokens": 1508,
+      "output_tokens": 393,
+      "cost_usd": "0.002605",
+      "latency_ms": 4652,
+      "error": null
+    }
+  ]
+}

@@ -48,6 +48,47 @@ jobs:
       - run: uv run mypy
       - run: uv run pytest
 
+  mcp:
+    name: ${{ matrix.server }} (ruff, mypy, pytest)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        server: [mcp-erp, mcp-registry]
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: invoiceguard
+          POSTGRES_PASSWORD: invoiceguard-ci
+          POSTGRES_DB: invoiceguard
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U invoiceguard"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      INVOICEGUARD_TEST_DATABASE_URL: postgresql+psycopg://invoiceguard:invoiceguard-ci@localhost:5432/invoiceguard_test
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.server }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.13.6"
+          enable-cache: true
+          cache-dependency-glob: apps/*/uv.lock
+      # The tests build their database with the api's migrations and demo seed.
+      - run: uv sync --locked
+        working-directory: apps/api
+      - run: uv sync --locked
+      - run: uv run ruff check --output-format=github
+      - run: uv run ruff format --check
+      - run: uv run mypy
+      - run: uv run pytest
+
   web:
     name: web (lint, typecheck, test, build)
     runs-on: ubuntu-latest
@@ -84,18 +125,20 @@ jobs:
       - name: Install the api test dependencies (for the KoSIT tests)
         working-directory: apps/api
         run: uv sync --locked
-      - name: Create .env with random passwords for the seed users (never in the repo)
+      - name: Create .env with random passwords for the seed users and MCP roles (never in the repo)
         run: |
           cp .env.example .env
           echo "INVOICEGUARD_SEED_USER_PASSWORD=$(openssl rand -hex 24)" >> .env
           echo "INVOICEGUARD_SEED_APPROVER_PASSWORD=$(openssl rand -hex 24)" >> .env
+          echo "INVOICEGUARD_MCP_ERP_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
+          echo "INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
       - name: Demo prod override, shared Caddy and its sites are valid (ADR-014)
         working-directory: infra
         run: |
           docker compose --env-file ../.env -f docker-compose.yml -f docker-compose.prod.yml config --quiet
           docker compose -f edge/compose.yml config --quiet
           docker run --rm -v "$PWD/edge/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$PWD/edge/sites:/etc/caddy/sites:ro"             caddy:2.10.2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-      - name: Build images and start api, web, db, validator (waits for healthy)
+      - name: Build images and start api, web, db, validator, MCP servers (waits for healthy)
         run: make dev
       - name: API /health returns ok
         run: |
@@ -108,6 +151,24 @@ jobs:
           curl --fail --silent --show-error http://localhost:8000/ready | grep '"status":"ready"'
       - name: Seed demo data and the login users twice (idempotent)
         run: make seed && make seed && make seed-user && make seed-user
+      - name: MCP servers answer as their read-only roles (ADR-017)
+        working-directory: infra
+        run: |
+          call() {
+            docker compose --env-file ../.env exec -T "$1" python -c "
+          import anyio, json, sys
+          from mcp import Client
+          async def main():
+              async with Client('http://127.0.0.1:8000/mcp') as client:
+                  result = await client.call_tool(sys.argv[1], json.loads(sys.argv[2]))
+              print(json.dumps(result.structured_content))
+          anyio.run(main)
+          " "$2" "$3"
+          }
+          call mcp-erp get_goods_receipts '{"po_number": "PO-2026-0004"}' | tee receipts.json
+          test "$(jq -r '.receipts[0].number' receipts.json)" = WE-2026-0003
+          call mcp-registry check_iban '{"iban": "DE58876543210000000099"}' | tee iban.json
+          test "$(jq -r '.registered_to | length' iban.json)" = 0
       - name: Invoices need a login; the seeded user logs in
         run: |
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8000/invoices)" = 401
@@ -210,15 +271,18 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm exec playwright install --with-deps chromium
-      - name: Create .env with random passwords for the seed users (never in the repo)
+      - name: Create .env with random passwords for the seed users and MCP roles (never in the repo)
         run: |
           cp .env.example .env
           echo "INVOICEGUARD_SEED_USER_PASSWORD=$(openssl rand -hex 24)" >> .env
           echo "INVOICEGUARD_SEED_APPROVER_PASSWORD=$(openssl rand -hex 24)" >> .env
-      # No LLM key: the test uploads XML invoices only, so no model is called.
+          echo "INVOICEGUARD_MCP_ERP_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
+          echo "INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
+      # No LLM key: the tests upload XML invoices only, so no model is called; "Investigate" shows
+      # the recorded run (ADR-018).
       - name: Start the stack, seed demo data and the login users
         run: make dev && make seed && make seed-user
-      - name: Log in, reject, approve, four-eyes override, export to DATEV in the browser
+      - name: Log in, reject, approve, four-eyes override, export to DATEV, investigate (recorded run) in the browser
         env:
           CI: "true"
         run: make e2e

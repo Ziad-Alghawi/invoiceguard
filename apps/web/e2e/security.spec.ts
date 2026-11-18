@@ -54,9 +54,12 @@ test("a poisoned invoice is blocked and shows in the approver's security log", a
   await page.getByRole("button", { name: "Log out" }).click();
 
   await logIn(page, approverLogin());
-  await page.getByRole("link", { name: poisoned.file }).click();
+  // This run's row: the stack keeps the invoices of earlier runs.
   await expect(
-    page.getByText("Failed checks: prompt_injection."),
+    page
+      .getByRole("row")
+      .filter({ hasText: poisoned.file })
+      .getByText("Failed checks: prompt_injection."),
   ).toBeVisible();
   await page.getByRole("link", { name: "Security events" }).click();
   await expect(
