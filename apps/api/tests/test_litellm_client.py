@@ -191,5 +191,5 @@ def test_extractor_needs_a_key(settings: Settings) -> None:
 
     assert extractor is not None
     assert isinstance(extractor.client, LiteLLMClient)
-    assert (extractor.model, extractor.confidence_threshold) == (MODEL, Decimal("0.8"))
+    assert (extractor.model, extractor.confidence_threshold) == (MODEL, Decimal("0.9"))
     assert extractor.reasoning_effort == "low"

@@ -362,8 +362,16 @@ def test_detail_flags_low_confidence_llm_fields(
                 code="BT-1",
                 value="2026-IT-0815",
                 source=FieldSource.LLM,
-                confidence=Decimal("0.8"),
+                confidence=Decimal("0.9"),
                 evidence={"page": 1, "snippet": "Rechnung Nr. 2026-IT-0815"},
+            ),
+            InvoiceField(
+                invoice_id=uuid.UUID(invoice_id),
+                code="BT-3",
+                value="380",
+                source=FieldSource.LLM,
+                confidence=Decimal("0.85"),
+                evidence={"page": 1, "snippet": "Rechnungstyp 380"},
             ),
         ]
     )
@@ -376,8 +384,9 @@ def test_detail_flags_low_confidence_llm_fields(
     assert fields["BT-84"]["low_confidence"] is True
     assert fields["BT-84"]["confidence"] == "0.550"
     assert fields["BT-84"]["evidence"] == evidence
-    # At the threshold (0.8) is not low.
+    # At the threshold (0.9) is not low; 0.85 is (the band where the R3-2 eval found most errors).
     assert fields["BT-1"]["low_confidence"] is False
+    assert fields["BT-3"]["low_confidence"] is True
 
 
 def test_file_downloads_the_original_upload(

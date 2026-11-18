@@ -180,6 +180,17 @@ def test_low_confidence_iban_or_total_is_never_ready(
 
 
 @pytest.mark.usefixtures("seeded")
+def test_confidence_between_0_8_and_0_9_blocks_a_total(
+    start_app: StartApp, samples: dict[str, bytes]
+) -> None:
+    unsure = {**recorded()["gross_total"], "confidence": 0.85}
+    detail = upload(start_app(FakeLLMClient(reply_text(gross_total=unsure))), samples["text_pdf"])
+
+    assert detail["status"] == "blocked"
+    assert _check(detail, "low_confidence")["evidence"]["threshold"] == "0.9"
+
+
+@pytest.mark.usefixtures("seeded")
 def test_low_confidence_on_other_fields_warns(
     start_app: StartApp, samples: dict[str, bytes]
 ) -> None:
@@ -189,7 +200,7 @@ def test_low_confidence_on_other_fields_warns(
     assert detail["status"] == "ready"
     low = _check(detail, "low_confidence")
     assert low["status"] == "warning"
-    assert low["message"] == "Low confidence below 0.8; check against the PDF: buyer_name."
+    assert low["message"] == "Low confidence below 0.9; check against the PDF: buyer_name."
 
 
 def test_invalid_output_twice_fails_and_both_calls_are_logged(

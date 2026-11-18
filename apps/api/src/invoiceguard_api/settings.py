@@ -43,8 +43,9 @@ class Settings(BaseSettings):
     # the pinned LiteLLM version (`minimal` is sent as `low`), see ADR-010.
     extraction_reasoning_effort: ReasoningEffort = "low"
     llm_timeout_seconds: float = Field(default=120.0, gt=0)
-    # Fields extracted with a lower confidence get a `low_confidence` check result.
-    extraction_confidence_threshold: Decimal = Field(default=Decimal("0.8"), ge=0, le=1)
+    # Fields extracted with a lower confidence get a `low_confidence` check result. 0.9 because the
+    # R3-2 eval found most wrong fields at 0.8 to 0.9 (ADR-019).
+    extraction_confidence_threshold: Decimal = Field(default=Decimal("0.9"), ge=0, le=1)
     # Spending cap per UTC day in US dollars, summed from `model_calls`. Once reached, PDFs wait in
     # `awaiting_extraction` until a later restart (ADR-014). Unset: no cap.
     llm_daily_budget_usd: Decimal | None = Field(default=None, gt=0)

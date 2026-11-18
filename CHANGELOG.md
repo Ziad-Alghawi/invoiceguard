@@ -200,7 +200,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The CI smoke test checks that a clean invoice ends `ready` with every check passed (KoSIT included) and that the
   fraud sample ends `blocked` with the IBAN evidence.
 
+### Fixed
+- `vat_math` accepts a valid invoice with VAT category O ("not subject to VAT", KoSIT 01.04a): the lines without a
+  rate and the breakdown row printing 0 % are one group, and the tax of a category O row must be 0 (a row charging
+  tax is still `blocked`). Found by the R3-2 eval; tests for the 01.04a shape and three wrong-math variants.
+
 ### Changed
+- `INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD` defaults to 0.9 (was 0.8): on the eval set at `low` it flags 5 of 9
+  wrong fields (was 1) and 4 of 1,197 right ones (was 2). Replayed from the recordings; `docs/results.md` and
+  ADR-010 and ADR-019 updated. The fraud-set numbers in `results.md` are carried over from the earlier run.
 - `POST /invoices/{id}/approve` approves `ready` invoices only; a blocked invoice needs the four-eyes override
   (ADR-016), and the R1 field `override_reason` is refused with `422`.
 - The Playwright tests run in one worker: the spec files share one stack and the DATEV export.

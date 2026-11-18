@@ -174,6 +174,9 @@
     confidence never dropped. Fraud set: **10 of 10 as expected as XML and as PDF** (KoSIT on), no clean invoice
     flagged. Parser: 72 of 72 KoSIT files read; the 9 differing UBL/CII pairs are differences in the testsuite
     files
+  - Follow-ups done (2026-11-18): `vat_math` accepts VAT category O (KoSIT 01.04a); the `low_confidence` default is
+    0.9 (replay at `low`: wrong fields flagged 1 → 5 of 9, right fields flagged 2 → 4 of 1,197; fraud-set numbers
+    in `docs/results.md` carried over from commit `c94c320`, not rerun)
   - Confidence measured: at `low` 8 of 9 wrong fields had 0.8 or more (AUROC 0.82); the errors cluster at
     0.8 to 0.9 (4 of 6 wrong there, 3 of 1,110 wrong at 1.0). Not fixed in R3-2: the planned evidence check would
     not catch any of the observed errors (every wrong value is printed on the page); a threshold change follows
@@ -182,8 +185,6 @@
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
-- R3-2 follow-ups, one small PR each (decided 2026-11-18): `low_confidence` threshold 0.8 → 0.9 (on the eval
-  set it flags 4 more of 9 errors and 2 right fields), and `vat_math` for VAT category O (KoSIT 01.04a)
 - R3 — Evals, RAG, CI gate (PLAN.md §11), three rounds, one PR each:
   - R3-2 Eval harness and extraction results (ADR-019): `packages/evals` with the KoSIT set, the ZUGFeRD corpus
     (pinned downloads with SHA-256, not committed), a reportlab generator with conflicting printed values, the
@@ -234,10 +235,9 @@
 - An invoice processed while the validator was down keeps a `skipped` KoSIT result; there is no automatic re-run.
   The same holds for an LLM extraction that failed on quota or a timeout: it stays `failed` (no retry action yet).
 - LLM confidence is self-reported, not calibrated. Measured in R3-2: at `low` 8 of 9 wrong fields had 0.8 or
-  more, so the `low_confidence` check (below 0.8) caught none of them; on the 10 conflicting-value cases the model
-  picked the right value but never lowered its confidence.
-- `vat_math` fails a valid invoice with VAT category O ("not subject to VAT", KoSIT case 01.04a): the line has no
-  rate, the breakdown row has 0 %, and the check groups by rate, so such an invoice is `blocked`. Found by the eval.
+  more, so the `low_confidence` check (below 0.8) caught 1 of them; with the 0.9 default it catches 5 of 9 (4 were
+  given 0.9 or more); on the 10 conflicting-value cases the model picked the right value but never lowered its
+  confidence.
 - Eval (ADR-019): generated layouts are cleaner than real invoices, the corpus has 12 PDFs, the fraud set uses
   the demo seed only; scan-like PDFs are in the backlog. Calls that failed live are not recorded, so a replay of
   such a run needs `--missing-as-failed`.
@@ -253,7 +253,7 @@
 - Check every eval "error" against the document first: 5 corpus PDFs print terms their XML leaves out, and two
   unit codes mean the same piece. Write each truth correction down with the printed text as its note.
 - Run the checks on the official conformance set, not only the parser: the first eval run found a check that
-  blocks a valid invoice (VAT category O).
+  blocked a valid invoice (VAT category O, fixed after the baseline).
 - Separate "the call failed" from "the answer was wrong" in every metric: a provider spend cap cut a whole run
   short, and counting those failures as wrong fields would have ranked the levels by billing, not by reading.
 - PostgreSQL roles belong to the server, not the database: create them idempotently, keep passwords out of
