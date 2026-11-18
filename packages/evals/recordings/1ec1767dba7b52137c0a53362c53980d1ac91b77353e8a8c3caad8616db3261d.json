@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-18T17:11:21+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "medium",
+  "run": 2,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "48d4d369a2d240f30cb2a6fe406463c43861fb2d1cd2d6635d5a482396b2ba74"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\n  \"invoice_number\": {\n    \"value\": \"BL/2026/0502\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsnummer BL/2026/0502\"\n    }\n  },\n  \"issue_date\": {\n    \"value\": \"2026-10-09\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsdatum 09.10.2026\"\n    }\n  },\n  \"type_code\": {\n    \"value\": \"380\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnung Nr. BL/2026/0502\"\n    }\n  },\n  \"currency\": {\n    \"value\": \"EUR\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsbetrag 1.087,66 €\"\n    }\n  },\n  \"due_date\": {\n    \"value\": \"2026-10-23\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Zahlbar ohne Abzug bis 23.10.2026.\"\n    }\n  },\n  \"seller_name\": {\n    \"value\": \"Beispiel Logistik AG\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Beispiel Logistik AG\\nHafenweg 12 · 20457 Hamburg\"\n    }\n  },\n  \"seller_vat_id\": {\n    \"value\": \"DE999000025\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"USt-IdNr.: DE999000025\"\n    }\n  },\n  \"buyer_name\": {\n    \"value\": \"Beispielkunde Handels GmbH\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Beispielkunde Handels GmbH\"\n    }\n  },\n  \"buyer_vat_id\": {\n    \"value\": \"DE999000068\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Ihre USt-IdNr. DE999000068\"\n    }\n  },\n  \"payee_iban\": {\n    \"value\": \"DE87123456780000000002\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"IBAN: DE87 1234 5678 0000 0000 02\"\n    }\n  },\n  \"order_reference\": {\n    \"value\": \"PO-2026-0003\",\n    \"confidence\": 0.9,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Bestellnummer PO-2026-0003\"\n    }\n  },\n  \"line_total\": {\n    \"value\": \"914.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Summe Positionen 914,00 €\"\n    }\n  },\n  \"allowance_total\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"charge_total\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"net_total\": {\n    \"value\": \"914.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Summe Positionen 914,00 €\"\n    }\n  },\n  \"tax_total\": {\n    \"value\": \"173.66\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"zzgl. USt 19 % auf 914,00 173,66 €\"\n    }\n  },\n  \"gross_total\": {\n    \"value\": \"1087.66\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsbetrag 1.087,66 €\"\n    }\n  },\n  \"amount_due\": {\n    \"value\": \"1087.66\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsbetrag 1.087,66 €\"\n    }\n  },\n  \"lines\": [\n    {\n      \"line_id\": \"1\",\n      \"item_name\": \"Palettentransport Hamburg nach München\",\n      \"quantity\": \"4\",\n      \"unit_code\": \"C62\",\n      \"net_price\": \"185.00\",\n      \"net_amount\": \"740.00\",\n      \"vat_rate\": \"19\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"1 Palettentransport Hamburg nach München 4 Stk 185,00 19 % 740,00\"\n      }\n    },\n    {\n      \"line_id\": \"2\",\n      \"item_name\": \"Lagerung pro Palette und Monat\",\n      \"quantity\": \"12\",\n      \"unit_code\": \"C62\",\n      \"net_price\": \"14.50\",\n      \"net_amount\": \"174.00\",\n      \"vat_rate\": \"19\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"2 Lagerung pro Palette und Monat 12 Stk 14,50 19 % 174,00\"\n      }\n    }\n  ],\n  \"vat_breakdown\": [\n    {\n      \"category_code\": \"S\",\n      \"rate\": \"19\",\n      \"taxable_amount\": \"914.00\",\n      \"tax_amount\": \"173.66\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"zzgl. USt 19 % auf 914,00 173,66 €\"\n      }\n    }\n  ]\n}",
+  "input_tokens": 951,
+  "output_tokens": 2734,
+  "cost_usd": "0.010966",
+  "latency_ms": 21620
+ }
+}

@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-18T17:24:27+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "high",
+  "run": 1,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "cf774ac372c1a1db7591e2636fc4ee1175dcde7a04f21c97dc5706d3b10fbb28"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\n  \"invoice_number\": {\n    \"value\": \"E2018092011804\",\n    \"confidence\": 0.99,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Handelsrechnung (380) Nr. E2018092011804 vom 20.09.2018\"\n    }\n  },\n  \"issue_date\": {\n    \"value\": \"2018-09-20\",\n    \"confidence\": 0.99,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"vom 20.09.2018\"\n    }\n  },\n  \"type_code\": {\n    \"value\": \"380\",\n    \"confidence\": 0.99,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Handelsrechnung (380)\"\n    }\n  },\n  \"currency\": {\n    \"value\": \"EUR\",\n    \"confidence\": 0.99,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Währung: EUR\"\n    }\n  },\n  \"due_date\": {\n    \"value\": \"2018-10-03\",\n    \"confidence\": 0.99,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Fälligkeit ... 03.10.2018\"\n    }\n  },\n  \"seller_name\": {\n    \"value\": \"Verkehrsbetriebe GmbH\",\n    \"confidence\": 0.99,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Name: Verkehrsbetriebe GmbH\"\n    }\n  },\n  \"seller_vat_id\": {\n    \"value\": \"DE123456789\",\n    \"confidence\": 0.99,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"USt.-Id.-Nr.: DE123456789\"\n    }\n  },\n  \"buyer_name\": {\n    \"value\": \"Liselotte Müllermann\",\n    \"confidence\": 0.99,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Name: Liselotte Müllermann\"\n    }\n  },\n  \"buyer_vat_id\": {\n    \"value\": null,\n    \"confidence\": 0.99,\n    \"evidence\": null\n  },\n  \"payee_iban\": {\n    \"value\": \"DE12123456789012345678\",\n    \"confidence\": 0.99,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"IBAN : DE12 1234 5678 9012 3456 78\"\n    }\n  },\n  \"order_reference\": {\n    \"value\": \"2018092011804\",\n    \"confidence\": 0.99,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Bestellung: 2018092011804\"\n    }\n  },\n  \"line_total\": {\n    \"value\": \"8.41\",\n    \"confidence\": 0.99,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Positionssumme 8,41\"\n    }\n  },\n  \"allowance_total\": {\n    \"value\": null,\n    \"confidence\": 0.99,\n    \"evidence\": null\n  },\n  \"charge_total\": {\n    \"value\": null,\n    \"confidence\": 0.99,\n    \"evidence\": null\n  },\n  \"net_total\": {\n    \"value\": \"8.41\",\n    \"confidence\": 0.99,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Rechnungssumme ohne USt. 8,41\"\n    }\n  },\n  \"tax_total\": {\n    \"value\": \"0.59\",\n    \"confidence\": 0.99,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Steuerbetrag 0,59\"\n    }\n  },\n  \"gross_total\": {\n    \"value\": \"9.00\",\n    \"confidence\": 0.99,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Bruttosumme 9,00\"\n    }\n  },\n  \"amount_due\": {\n    \"value\": \"9.00\",\n    \"confidence\": 0.99,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Zahlbetrag 9,00\"\n    }\n  },\n  \"lines\": [\n    {\n      \"line_id\": \"0\",\n      \"item_name\": \"4-Fahrten-Karte Berlin AB\",\n      \"quantity\": \"1\",\n      \"unit_code\": \"C62\",\n      \"net_price\": \"8.41\",\n      \"net_amount\": \"8.41\",\n      \"vat_rate\": \"7\",\n      \"confidence\": 0.99,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"0 4-Fahrten-Karte Berlin AB 8,41 1 Stk 7 % 8,41\"\n      }\n    }\n  ],\n  \"vat_breakdown\": [\n    {\n      \"category_code\": \"S\",\n      \"rate\": \"7\",\n      \"taxable_amount\": \"8.41\",\n      \"tax_amount\": \"0.59\",\n      \"confidence\": 0.99,\n      \"evidence\": {\n        \"page\": 2,\n        \"snippet\": \"Umsatzsteuer (S) 8,41 7 0,59\"\n      }\n    }\n  ]\n}",
+  "input_tokens": 1483,
+  "output_tokens": 4205,
+  "cost_usd": "0.016881",
+  "latency_ms": 28795
+ }
+}

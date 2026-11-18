@@ -1,6 +1,6 @@
 # Status
 
-**Current milestone:** R3 — Evals, RAG, CI gate (next; R2 complete)
+**Current milestone:** R3 — Evals, RAG, CI gate (in progress: R3-2 done, next R3-3)
 **Last updated:** 2026-11-18
 
 ## Done
@@ -156,11 +156,45 @@
   - R2 done-when met: the poisoned sample is caught and shown (R2-4), the agent explains an exception with evidence
     (R2-6), every approval resumes the paused graph (R2-2, R2-3); all R1 and R2 Playwright tests pass
 
+- R3 — Evals, RAG, CI gate (in progress)
+  - Eval harness (R3-2, ADR-019): `packages/evals` with `invoiceguard-eval fetch / generate / run / report` and
+    `make eval` (replay, free and offline). Datasets: the KoSIT testsuite (72 files) and 12 FeRD EN 16931 PDFs
+    from the ZUGFeRD corpus, pinned by commit and SHA-256 in `sources.json` and downloaded into an ignored cache;
+    17 generated German invoices (reportlab, byte-identical, with UBL twins and truth JSON): clean, variants
+    (two rates, discount, two pages), 4 conflicting printed values, 5 fraud types. A recording `LLMClient`
+    (replay by default, `--live` under a spend cap, the key covers prompt, schema, effort, file hash and run).
+    The fraud set runs through the real app (`POST /invoices`) on a throwaway database, as XML and as PDF. CI job
+    `evals`; 93 tests, 97 % coverage
+  - Baseline (`docs/results.md`, `gemini/gemini-3.8-flash`, 29 PDFs × 3 levels × 2 runs, live spend $1.67 of the
+    $3 cap): at `low` **99.2 % of document terms and 98.3 % of documents right** on completed extractions,
+    98.8 % of line terms, $0.0058 and p50 9.3 s / p95 23.4 s per invoice; `medium` and `high` read the same
+    (99.4 %, 99.6 %) at 2.2× and 3.8× the cost and timed out at 120 s (2 and 4 times), so **`low` stays the
+    default** (ADR-010 updated). The Google project's spend cap stopped the second `high` repeat (27 of 29
+    failed with `PERMISSION_DENIED`). Conflicting printed values: the right value in all 10 cases, but the
+    confidence never dropped. Fraud set: **10 of 10 as expected as XML and as PDF** (KoSIT on), no clean invoice
+    flagged. Parser: 72 of 72 KoSIT files read; the 9 differing UBL/CII pairs are differences in the testsuite
+    files
+  - Confidence measured: at `low` 8 of 9 wrong fields had 0.8 or more (AUROC 0.82); the errors cluster at
+    0.8 to 0.9 (4 of 6 wrong there, 3 of 1,110 wrong at 1.0). Not fixed in R3-2: the planned evidence check would
+    not catch any of the observed errors (every wrong value is printed on the page); a threshold change follows
+
 ## Open decisions
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
-- R3 — Evals, RAG, CI gate (PLAN.md §11): plan the tasks and ADRs first, as for R2
+- R3-2 follow-ups, one small PR each (decided 2026-11-18): `low_confidence` threshold 0.8 → 0.9 (on the eval
+  set it flags 4 more of 9 errors and 2 right fields), and `vat_math` for VAT category O (KoSIT 01.04a)
+- R3 — Evals, RAG, CI gate (PLAN.md §11), three rounds, one PR each:
+  - R3-2 Eval harness and extraction results (ADR-019): `packages/evals` with the KoSIT set, the ZUGFeRD corpus
+    (pinned downloads with SHA-256, not committed), a reportlab generator with conflicting printed values, the
+    fraud set; eval CLI with recorded replies and a spend cap ($3 for this round); `docs/results.md`; the
+    extraction thinking level chosen on the eval set (ADR-010); confidence measured against errors, and fixed in
+    code if it misleads
+  - R3-3 Attack set (≥ 40 cases) and the CI gate (PR paths and nightly, baseline, a deliberate regression that
+    fails); the LLM injection classifier only if the attack set shows the heuristics miss attacks
+  - R3-4 RAG: pgvector booking suggestions and rulebook search with evidence in the UI, top-1/top-3 eval; agent
+    tools `get_invoice_history` with `search_similar_invoices`, and `search_rulebook`
+- Backlog: scan-like generated PDFs (image noise, no text layer) for the eval set
 
 ## Known limitations
 - Exception agent (ADR-018): the cost cap is checked before each call, so the last call can overshoot it; the
@@ -199,9 +233,14 @@
 - The KoSIT XRechnung configuration does not validate other ZUGFeRD profiles (warning "not validated").
 - An invoice processed while the validator was down keeps a `skipped` KoSIT result; there is no automatic re-run.
   The same holds for an LLM extraction that failed on quota or a timeout: it stays `failed` (no retry action yet).
-- LLM confidence is self-reported, not calibrated; R3 measures field accuracy and how well confidence predicts errors.
-  It does not flag conflicts: a PDF that prints two different order numbers got 0.9 for the wrong one. R3 adds eval
-  cases with conflicting values (and may add a prompt rule to lower the confidence on a conflict).
+- LLM confidence is self-reported, not calibrated. Measured in R3-2: at `low` 8 of 9 wrong fields had 0.8 or
+  more, so the `low_confidence` check (below 0.8) caught none of them; on the 10 conflicting-value cases the model
+  picked the right value but never lowered its confidence.
+- `vat_math` fails a valid invoice with VAT category O ("not subject to VAT", KoSIT case 01.04a): the line has no
+  rate, the breakdown row has 0 %, and the check groups by rate, so such an invoice is `blocked`. Found by the eval.
+- Eval (ADR-019): generated layouts are cleaner than real invoices, the corpus has 12 PDFs, the fraud set uses
+  the demo seed only; scan-like PDFs are in the backlog. Calls that failed live are not recorded, so a replay of
+  such a run needs `--missing-as-failed`.
 - The daily LLM budget is checked before each extraction, so parallel extractions can overshoot it by one invoice
   each; PDFs it held back wait until the API restarts (no scheduler). No per-invoice cap yet (R2).
 - A PDF the model cannot read a required term from (invoice number, date, totals) ends in `failed`, not in review.
@@ -211,6 +250,12 @@
   invoice number become `-` in Belegfeld 1. Storing BG-23 (VAT breakdown) would allow one row per rate.
 
 ## Lessons learned
+- Check every eval "error" against the document first: 5 corpus PDFs print terms their XML leaves out, and two
+  unit codes mean the same piece. Write each truth correction down with the printed text as its note.
+- Run the checks on the official conformance set, not only the parser: the first eval run found a check that
+  blocks a valid invoice (VAT category O).
+- Separate "the call failed" from "the answer was wrong" in every metric: a provider spend cap cut a whole run
+  short, and counting those failures as wrong fields would have ranked the levels by billing, not by reading.
 - PostgreSQL roles belong to the server, not the database: create them idempotently, keep passwords out of
   migrations, and test privileges with `SET ROLE` instead of logging in.
 - Structured output is not "all fields": models leave out optional schema fields. Make every field required

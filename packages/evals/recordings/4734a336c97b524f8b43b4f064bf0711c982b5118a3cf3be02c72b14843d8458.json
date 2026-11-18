@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-18T16:57:05+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "medium",
+  "run": 1,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "70dfc3084b359324f30dfc92cddc030f02d26fc35b3d042b20027bebc5e793d1"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\n  \"invoice_number\": {\n    \"value\": \"EDM-2026-298\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsnummer EDM-2026-298\"\n    }\n  },\n  \"issue_date\": {\n    \"value\": \"2026-09-30\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsdatum 30.09.2026\"\n    }\n  },\n  \"type_code\": {\n    \"value\": \"380\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnung Nr. EDM-2026-298\"\n    }\n  },\n  \"currency\": {\n    \"value\": \"EUR\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsbetrag 1.850,17 €\"\n    }\n  },\n  \"due_date\": {\n    \"value\": \"2026-10-14\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Zahlbar ohne Abzug bis 14.10.2026.\"\n    }\n  },\n  \"seller_name\": {\n    \"value\": \"Exempel Druck & Medien GmbH\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Exempel Druck & Medien GmbH\"\n    }\n  },\n  \"seller_vat_id\": {\n    \"value\": \"DE999000050\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"USt-IdNr.: DE999000050\"\n    }\n  },\n  \"buyer_name\": {\n    \"value\": \"Beispielkunde Handels GmbH\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Beispielkunde Handels GmbH\"\n    }\n  },\n  \"buyer_vat_id\": {\n    \"value\": \"DE999000068\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Ihre USt-IdNr. DE999000068\"\n    }\n  },\n  \"payee_iban\": {\n    \"value\": \"DE06123456780000000005\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"IBAN: DE06 1234 5678 0000 0000 05\"\n    }\n  },\n  \"order_reference\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"line_total\": {\n    \"value\": \"1561.80\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Summe Positionen 1.561,80 €\"\n    }\n  },\n  \"allowance_total\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"charge_total\": {\n    \"value\": null,\n    \"confidence\": 1.0,\n    \"evidence\": null\n  },\n  \"net_total\": {\n    \"value\": \"1561.80\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Summe Positionen 1.561,80 €\"\n    }\n  },\n  \"tax_total\": {\n    \"value\": null,\n    \"confidence\": 0.9,\n    \"evidence\": null\n  },\n  \"gross_total\": {\n    \"value\": \"1850.17\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsbetrag 1.850,17 €\"\n    }\n  },\n  \"amount_due\": {\n    \"value\": \"1850.17\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsbetrag 1.850,17 €\"\n    }\n  },\n  \"lines\": [\n    {\n      \"line_id\": \"1\",\n      \"item_name\": \"Visitenkarten, 4/4-farbig, 500 Stück\",\n      \"quantity\": \"8\",\n      \"unit_code\": \"C62\",\n      \"net_price\": \"39.00\",\n      \"net_amount\": \"312.00\",\n      \"vat_rate\": \"19\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"1 Visitenkarten, 4/4-farbig, 500 Stück 8 Stk 39,00 19 % 312,00\"\n      }\n    },\n    {\n      \"line_id\": \"2\",\n      \"item_name\": \"Imagebroschüre A4, 16 Seiten, Auflage 1.000\",\n      \"quantity\": \"1\",\n      \"unit_code\": \"C62\",\n      \"net_price\": \"1180.00\",\n      \"net_amount\": \"1180.00\",\n      \"vat_rate\": \"19\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"2 Imagebroschüre A4, 16 Seiten, Auflage 1.000 1 Stk 1.180,00 19 % 1.180,00\"\n      }\n    },\n    {\n      \"line_id\": \"3\",\n      \"item_name\": \"Fachbuch Corporate Design, gedruckt\",\n      \"quantity\": \"2\",\n      \"unit_code\": \"C62\",\n      \"net_price\": \"34.90\",\n      \"net_amount\": \"69.80\",\n      \"vat_rate\": \"7\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"3 Fachbuch Corporate Design, gedruckt 2 Stk 34,90 7 % 69,80\"\n      }\n    }\n  ],\n  \"vat_breakdown\": [\n    {\n      \"category_code\": \"S\",\n      \"rate\": \"19\",\n      \"taxable_amount\": \"1492.00\",\n      \"tax_amount\": \"283.48\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"zzgl. USt 19 % auf 1.492,00 283,48 €\"\n      }\n    },\n    {\n      \"category_code\": \"S\",\n      \"rate\": \"7\",\n      \"taxable_amount\": \"69.80\",\n      \"tax_amount\": \"4.89\",\n      \"confidence\": 1.0,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"zzgl. USt 7 % auf 69,80 4,89 €\"\n      }\n    }\n  ]\n}",
+  "input_tokens": 951,
+  "output_tokens": 3508,
+  "cost_usd": "0.013868",
+  "latency_ms": 26540
+ }
+}

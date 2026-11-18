@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-18T16:49:44+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "medium",
+  "run": 1,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "d29555371e22cd3cd5657ba3a8a441b99efa91f4dcdd65cf4bf71ef5f24cbfef"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\n  \"invoice_number\": {\n    \"value\": \"471102\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Nr. 471102\"\n    }\n  },\n  \"issue_date\": {\n    \"value\": \"2018-03-05\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"vom 05.03.2018\"\n    }\n  },\n  \"type_code\": {\n    \"value\": \"380\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Handelsrechnung (380)\"\n    }\n  },\n  \"currency\": {\n    \"value\": \"EUR\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Währung: EUR\"\n    }\n  },\n  \"due_date\": {\n    \"value\": \"2018-04-04\",\n    \"confidence\": 0.95,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Zahlbar innerhalb 30 Tagen netto bis 04.04.2018\"\n    }\n  },\n  \"seller_name\": {\n    \"value\": \"Lieferant GmbH\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Name: Lieferant GmbH\"\n    }\n  },\n  \"seller_vat_id\": {\n    \"value\": \"DE123456789\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"USt.-Id.-Nr.: DE123456789\"\n    }\n  },\n  \"buyer_name\": {\n    \"value\": \"Kunden AG Mitte\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Name: Kunden AG Mitte\"\n    }\n  },\n  \"buyer_vat_id\": {\n    \"value\": null,\n    \"confidence\": 0.9,\n    \"evidence\": null\n  },\n  \"payee_iban\": {\n    \"value\": \"DE12123456781234567890\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 3,\n      \"snippet\": \"IBAN : DE12123456781234567890\"\n    }\n  },\n  \"order_reference\": {\n    \"value\": null,\n    \"confidence\": 0.8,\n    \"evidence\": null\n  },\n  \"line_total\": {\n    \"value\": \"473.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Positionssumme 473,00\"\n    }\n  },\n  \"allowance_total\": {\n    \"value\": \"0.00\",\n    \"confidence\": 0.95,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Gesamtbetrag der Abschläge -0,00\"\n    }\n  },\n  \"charge_total\": {\n    \"value\": \"0.00\",\n    \"confidence\": 0.95,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Gesamtbetrag der Zuschläge 0,00\"\n    }\n  },\n  \"net_total\": {\n    \"value\": \"473.00\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Rechnungssumme ohne USt. 473,00\"\n    }\n  },\n  \"tax_total\": {\n    \"value\": \"56.87\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Steuerbetrag 56,87\"\n    }\n  },\n  \"gross_total\": {\n    \"value\": \"529.87\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Bruttosumme 529,87\"\n    }\n  },\n  \"amount_due\": {\n    \"value\": \"529.87\",\n    \"confidence\": 1.0,\n    \"evidence\": {\n      \"page\": 2,\n      \"snippet\": \"Zahlbetrag 529,87\"\n    }\n  },\n  \"lines\": [\n    {\n      \"line_id\": \"1\",\n      \"item_name\": \"Trennblätter A4\",\n      \"quantity\": \"20\",\n      \"unit_code\": \"C62\",\n      \"net_price\": \"9.9000\",\n      \"net_amount\": \"198.00\",\n      \"vat_rate\": \"19\",\n      \"confidence\": 0.95,\n      \"evidence\": {\n        \"page\": 2,\n        \"snippet\": \"1 TB100A4\\n4012345001235\\n (GTIN)\\nTrennblätter A4 9,9000 20 Stk 19 %\\n198,00\"\n      }\n    },\n    {\n      \"line_id\": \"2\",\n      \"item_name\": \"Joghurt Banane\",\n      \"quantity\": \"50\",\n      \"unit_code\": \"C62\",\n      \"net_price\": \"5.5000\",\n      \"net_amount\": \"275.00\",\n      \"vat_rate\": \"7\",\n      \"confidence\": 0.95,\n      \"evidence\": {\n        \"page\": 2,\n        \"snippet\": \"2 ARNR2\\n4000050986428\\n (GTIN)\\nJoghurt Banane 5,5000 50 Stk 7 %\\n275,00\"\n      }\n    }\n  ],\n  \"vat_breakdown\": [\n    {\n      \"category_code\": \"S\",\n      \"rate\": \"7\",\n      \"taxable_amount\": \"275.00\",\n      \"tax_amount\": \"19.25\",\n      \"confidence\": 0.95,\n      \"evidence\": {\n        \"page\": 2,\n        \"snippet\": \"Umsatzsteuer (S) 275,00 7 19,25\"\n      }\n    },\n    {\n      \"category_code\": \"S\",\n      \"rate\": \"19\",\n      \"taxable_amount\": \"198.00\",\n      \"tax_amount\": \"37.62\",\n      \"confidence\": 0.95,\n      \"evidence\": {\n        \"page\": 2,\n        \"snippet\": \"Umsatzsteuer (S) 198,00 19 37,62\"\n      }\n    }\n  ]\n}",
+  "input_tokens": 2015,
+  "output_tokens": 1811,
+  "cost_usd": "0.008302",
+  "latency_ms": 11524
+ }
+}

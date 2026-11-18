@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-18T16:40:38+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "low",
+  "run": 1,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "466fe09d3e345b4ffbb041ce4ef9908fd0a148611e8114ae0db9c64f07ecc1d5"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\"invoice_number\": {\"value\": \"EDM-2026-311\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Rechnungsnummer EDM-2026-311\"}}, \"issue_date\": {\"value\": \"2026-10-20\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Rechnungsdatum 20.10.2026\"}}, \"type_code\": {\"value\": \"380\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Rechnung Nr. EDM-2026-311\"}}, \"currency\": {\"value\": \"EUR\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Summe Positionen 249,50 €\"}}, \"due_date\": {\"value\": \"2026-11-03\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Zahlbar ohne Abzug bis 03.11.2026.\"}}, \"seller_name\": {\"value\": \"Exempel Druck & Medien GmbH\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Exempel Druck & Medien GmbH\\nPlatzhalterplatz 3 · 70173 Stuttgart\"}}, \"seller_vat_id\": {\"value\": \"DE999000050\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"USt-IdNr.: DE999000050\"}}, \"buyer_name\": {\"value\": \"Beispielkunde Handels GmbH\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Beispielkunde Handels GmbH\"}}, \"buyer_vat_id\": {\"value\": \"DE999000068\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Ihre USt-IdNr. DE999000068\"}}, \"payee_iban\": {\"value\": \"DE06123456780000000005\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"IBAN DE06 1234 5678 0000 0000 05\"}}, \"order_reference\": {\"value\": \"PO-2026-0010\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Bestellnummer PO-2026-0010\"}}, \"line_total\": {\"value\": \"249.50\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Summe Positionen 249,50 €\"}}, \"allowance_total\": {\"value\": null, \"confidence\": 1.0, \"evidence\": null}, \"charge_total\": {\"value\": null, \"confidence\": 1.0, \"evidence\": null}, \"net_total\": {\"value\": \"249.50\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Summe Positionen 249,50 €\"}}, \"tax_total\": {\"value\": \"17.47\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"zzgl. USt 7 % auf 249,50 17,47 €\"}}, \"gross_total\": {\"value\": \"266.97\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Rechnungsbetrag 266,97 €\"}}, \"amount_due\": {\"value\": \"266.97\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Rechnungsbetrag 266,97 €\"}}, \"lines\": [{\"line_id\": \"1\", \"item_name\": \"Fachbuch Rechnungswesen, gedruckt\", \"quantity\": \"5\", \"unit_code\": \"C62\", \"net_price\": \"49.90\", \"net_amount\": \"249.50\", \"vat_rate\": \"7\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"1 Fachbuch Rechnungswesen, gedruckt 5 Stk 49,90 7 % 249,50\"}}], \"vat_breakdown\": [{\"category_code\": \"S\", \"rate\": \"7\", \"taxable_amount\": \"249.50\", \"tax_amount\": \"17.47\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"zzgl. USt 7 % auf 249,50 17,47 €\"}}]}",
+  "input_tokens": 951,
+  "output_tokens": 1174,
+  "cost_usd": "0.005116",
+  "latency_ms": 8229
+ }
+}

@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-18T17:00:05+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "medium",
+  "run": 1,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "4c0ffc932ef6070f965932556c426ed784bb19653c45d217e8b4d8e90d88e1d8"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\"invoice_number\":{\"value\":\"FG-26-1129\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsnummer FG-26-1129\"}},\"issue_date\":{\"value\":\"2026-11-28\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsdatum 28.11.2026\"}},\"type_code\":{\"value\":\"380\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnung Nr. FG-26-1129\"}},\"currency\":{\"value\":\"EUR\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Summe Positionen 1.450,00 €\"}},\"due_date\":{\"value\":\"2026-12-12\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Zahlbar ohne Abzug bis 12.12.2026.\"}},\"seller_name\":{\"value\":\"Fiktiv Gebäudereinigung GmbH\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Fiktiv Gebäudereinigung GmbH\"}},\"seller_vat_id\":{\"value\":\"DE999000041\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"USt-IdNr.: DE999000041\"}},\"buyer_name\":{\"value\":\"Beispielkunde Handels GmbH\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Beispielkunde Handels GmbH\"}},\"buyer_vat_id\":{\"value\":\"DE999000068\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Ihre USt-IdNr. DE999000068\"}},\"payee_iban\":{\"value\":\"DE33123456780000000004\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"IBAN: DE33 1234 5678 0000 0000 04\"}},\"order_reference\":{\"value\":\"PO-2026-0008\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Bestellnummer PO-2026-0008\"}},\"line_total\":{\"value\":\"1450.00\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Summe Positionen 1.450,00 €\"}},\"allowance_total\":{\"value\":null,\"confidence\":1.0,\"evidence\":null},\"charge_total\":{\"value\":null,\"confidence\":1.0,\"evidence\":null},\"net_total\":{\"value\":\"1450.00\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Summe Positionen 1.450,00 €\"}},\"tax_total\":{\"value\":\"275.50\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"zzgl. USt 19 % auf 1.450,00 275,50 €\"}},\"gross_total\":{\"value\":\"1825.50\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsbetrag 1.825,50 €\"}},\"amount_due\":{\"value\":\"1825.50\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsbetrag 1.825,50 €\"}},\"lines\":[{\"line_id\":\"1\",\"item_name\":\"Unterhaltsreinigung Büroflächen November 2026\",\"quantity\":\"1\",\"unit_code\":\"MON\",\"net_price\":\"1450.00\",\"net_amount\":\"1450.00\",\"vat_rate\":\"19\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"1 Unterhaltsreinigung Büroflächen November 2026 1 Monat 1.450,00 19 % 1.450,00\"}}],\"vat_breakdown\":[{\"category_code\":\"S\",\"rate\":\"19\",\"taxable_amount\":\"1450.00\",\"tax_amount\":\"275.50\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"zzgl. USt 19 % auf 1.450,00 275,50 €\"}}]}",
+  "input_tokens": 951,
+  "output_tokens": 1008,
+  "cost_usd": "0.004493",
+  "latency_ms": 6845
+ }
+}

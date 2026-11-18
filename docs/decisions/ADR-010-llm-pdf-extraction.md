@@ -75,6 +75,12 @@ strict schema; convert the reply into `ParsedInvoice` and run the normal checks.
   printed on one PDF it took the one in a free-text note, with confidence 0.9; IBANs and totals stayed
   correct. Going back to more thinking is a config change; R3 measures field accuracy per level on the
   eval set and sets the default from data.
+  **Update 2026-11-18 (R3-2, ADR-019, `docs/results.md`):** on the eval set (12 corpus and 17 generated
+  PDFs, two runs each) the three levels read the same: on completed extractions 99.2 % (`low`), 99.4 %
+  (`medium`) and 99.6 % (`high`) of the document terms right, and all 10 conflicting-value cases right at
+  every level. `low` costs $0.0058 per invoice against $0.0127 and $0.0221, has a p95 latency of 23 s against
+  59 s and 100 s, and never hit the 120 s timeout (`medium` twice, `high` four times). **`low` stays the
+  default**, now on data. The confidence stays the weak point: at `low` 8 of 9 wrong fields had 0.8 or more.
 - **Flow (ADR-007):** the same background task that finds no XML moves the invoice to
   `awaiting_extraction` and then claims it again (`awaiting_extraction → processing`, a conditional
   update), extracts, stores the fields with `source=llm`, runs the checks and ends in `ready`, `blocked`

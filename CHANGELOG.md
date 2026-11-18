@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Eval harness (R3-2, ADR-019): `packages/evals` and `make eval`. Pinned public datasets (KoSIT testsuite, FeRD
+  ZUGFeRD samples, SHA-256 checked, not committed), 17 generated German invoices with UBL twins and truth,
+  recorded model replies (replay free and offline, `--live` under a spend cap), parser, extraction, confidence
+  and decision metrics, `docs/results.md`. CI job `evals`. Baseline at reasoning effort `low`: 99.2 % of document
+  terms right on completed extractions, $0.0058 per invoice, the fraud set decided as expected as XML and as
+  PDF; `low` stays the default (ADR-010 updated).
+- R3 plan: three rounds (R3-2 eval harness and extraction results, R3-3 attack set and CI gate, R3-4 RAG and the
+  history tools) and ADR-019 (evaluation harness with pinned datasets and recorded model replies).
 - Reopening rejected invoices (R2-7, ADR-016 updated): `POST /invoices/{id}/reopen` with a required reason, for
   reviewers and approvers; approved invoices are never reopened (`409`). The decision resumes the invoice's thread
   under the advisory lock; `decide` writes `rejected → processing` and one `invoice.reopened` audit row in one

@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-18T17:19:19+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "high",
+  "run": 1,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "d5a1033600c8b6a52b34c7ba1f6b16d5fdff1bb7e975aff0f48c1dd85cc23c6c"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\"invoice_number\":{\"value\":\"471102\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Nr. 471102\"}},\"issue_date\":{\"value\":\"2018-03-05\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"vom 05.03.2018\"}},\"type_code\":{\"value\":\"389\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Gutschrift (Selbst ausgestellte Rechnung) (389)\"}},\"currency\":{\"value\":\"EUR\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Währung: EUR\"}},\"due_date\":{\"value\":null,\"confidence\":0.95,\"evidence\":null},\"seller_name\":{\"value\":\"Lieferant GmbH\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Name: Lieferant GmbH\"}},\"seller_vat_id\":{\"value\":\"DE123456789\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"USt.-Id.-Nr.: DE123456789\"}},\"buyer_name\":{\"value\":\"Kunden AG Mitte\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Name: Kunden AG Mitte\"}},\"buyer_vat_id\":{\"value\":\"DE136695976\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"USt.-Id.-Nr.: DE136695976\"}},\"payee_iban\":{\"value\":null,\"confidence\":0.95,\"evidence\":null},\"order_reference\":{\"value\":null,\"confidence\":0.9,\"evidence\":null},\"line_total\":{\"value\":\"473.00\",\"confidence\":1.0,\"evidence\":{\"page\":2,\"snippet\":\"Positionssumme 473,00\"}},\"allowance_total\":{\"value\":\"0.00\",\"confidence\":1.0,\"evidence\":{\"page\":2,\"snippet\":\"Gesamtbetrag der Abschläge -0,00\"}},\"charge_total\":{\"value\":\"0.00\",\"confidence\":1.0,\"evidence\":{\"page\":2,\"snippet\":\"Gesamtbetrag der Zuschläge 0,00\"}},\"net_total\":{\"value\":\"473.00\",\"confidence\":1.0,\"evidence\":{\"page\":2,\"snippet\":\"Rechnungssumme ohne USt. 473,00\"}},\"tax_total\":{\"value\":\"56.87\",\"confidence\":1.0,\"evidence\":{\"page\":2,\"snippet\":\"Steuerbetrag 56,87\"}},\"gross_total\":{\"value\":\"529.87\",\"confidence\":1.0,\"evidence\":{\"page\":2,\"snippet\":\"Bruttosumme 529,87\"}},\"amount_due\":{\"value\":\"529.87\",\"confidence\":1.0,\"evidence\":{\"page\":2,\"snippet\":\"Zahlbetrag 529,87\"}},\"lines\":[{\"line_id\":\"1\",\"item_name\":\"Trennblätter A4\",\"quantity\":\"20\",\"unit_code\":\"C62\",\"net_price\":\"9.9000\",\"net_amount\":\"198.00\",\"vat_rate\":\"19\",\"confidence\":1.0,\"evidence\":{\"page\":2,\"snippet\":\"1 TB100A4 4012345001235 (GTIN) Trennblätter A4 9,9000 20 Stk 19 % 198,00\"}},{\"line_id\":\"2\",\"item_name\":\"Joghurt Banane\",\"quantity\":\"50\",\"unit_code\":\"C62\",\"net_price\":\"5.5000\",\"net_amount\":\"275.00\",\"vat_rate\":\"7\",\"confidence\":1.0,\"evidence\":{\"page\":2,\"snippet\":\"2 ARNR2 4000050986428 (GTIN) Joghurt Banane 5,5000 50 Stk 7 % 275,00\"}}],\"vat_breakdown\":[{\"category_code\":\"S\",\"rate\":\"7\",\"taxable_amount\":\"275.00\",\"tax_amount\":\"19.25\",\"confidence\":1.0,\"evidence\":{\"page\":2,\"snippet\":\"Umsatzsteuer (S) 275,00 7 19,25\"}},{\"category_code\":\"S\",\"rate\":\"19\",\"taxable_amount\":\"198.00\",\"tax_amount\":\"37.62\",\"confidence\":1.0,\"evidence\":{\"page\":2,\"snippet\":\"Umsatzsteuer (S) 198,00 19 37,62\"}}]}",
+  "input_tokens": 1483,
+  "output_tokens": 4297,
+  "cost_usd": "0.017226",
+  "latency_ms": 36034
+ }
+}

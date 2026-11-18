@@ -1,0 +1,65 @@
+{
+ "syntax": "pdf",
+ "invoice_number": "EDM-2026-298",
+ "issue_date": "2026-09-30",
+ "type_code": "380",
+ "currency": "EUR",
+ "due_date": "2026-10-14",
+ "seller_name": "Exempel Druck & Medien GmbH",
+ "seller_vat_id": "DE999000050",
+ "buyer_name": "Beispielkunde Handels GmbH",
+ "buyer_vat_id": "DE999000068",
+ "payee_iban": "DE06123456780000000005",
+ "order_reference": null,
+ "line_total": "1561.80",
+ "allowance_total": null,
+ "charge_total": null,
+ "net_total": "1561.80",
+ "tax_total": "288.37",
+ "gross_total": "1850.17",
+ "amount_due": "1850.17",
+ "lines": [
+  {
+   "line_id": "1",
+   "item_name": "Visitenkarten, 4/4-farbig, 500 Stück",
+   "quantity": "8",
+   "unit_code": "C62",
+   "net_price": "39.00",
+   "net_amount": "312.00",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "2",
+   "item_name": "Imagebroschüre A4, 16 Seiten, Auflage 1.000",
+   "quantity": "1",
+   "unit_code": "C62",
+   "net_price": "1180.00",
+   "net_amount": "1180.00",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "3",
+   "item_name": "Fachbuch Corporate Design, gedruckt",
+   "quantity": "2",
+   "unit_code": "C62",
+   "net_price": "34.90",
+   "net_amount": "69.80",
+   "vat_rate": "7"
+  }
+ ],
+ "vat_breakdown": [
+  {
+   "category_code": "S",
+   "rate": "19",
+   "taxable_amount": "1492.00",
+   "tax_amount": "283.48"
+  },
+  {
+   "category_code": "S",
+   "rate": "7",
+   "taxable_amount": "69.80",
+   "tax_amount": "4.89"
+  }
+ ],
+ "warnings": []
+}

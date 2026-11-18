@@ -89,6 +89,42 @@ jobs:
       - run: uv run mypy
       - run: uv run pytest
 
+  evals:
+    name: evals (ruff, mypy, pytest)
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: invoiceguard
+          POSTGRES_PASSWORD: invoiceguard-ci
+          POSTGRES_DB: invoiceguard
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U invoiceguard"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      # The decision tests recreate <this database>_eval (ADR-019).
+      INVOICEGUARD_TEST_DATABASE_URL: postgresql+psycopg://invoiceguard:invoiceguard-ci@localhost:5432/invoiceguard_test
+    defaults:
+      run:
+        working-directory: packages/evals
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.13.6"
+          enable-cache: true
+          cache-dependency-glob: packages/evals/uv.lock
+      - run: uv sync --locked
+      - run: uv run ruff check --output-format=github
+      - run: uv run ruff format --check
+      - run: uv run mypy
+      - run: uv run pytest
+
   web:
     name: web (lint, typecheck, test, build)
     runs-on: ubuntu-latest

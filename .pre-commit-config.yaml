@@ -33,4 +33,6 @@ repos:
     hooks:
       - id: detect-secrets
         args: [--baseline, .secrets.baseline]
-        exclude: (^|/)(uv\.lock|pnpm-lock\.yaml)$
+        # Lock files, and eval data that is hashes by design: SHA-256 pins, recorded replies keyed by
+        # hash, generated invoices with fictitious IBANs (ADR-019). All code stays scanned.
+        exclude: (^|/)(uv\.lock|pnpm-lock\.yaml)$|^packages/evals/(sources\.json|datasets/generated/|recordings/|reports/)

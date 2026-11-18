@@ -6,6 +6,8 @@ COMPOSE = cd infra && docker compose --env-file ../.env
 # server's shared Caddy (infra/edge).
 PROD = $(COMPOSE) -f docker-compose.yml -f docker-compose.prod.yml
 API = cd apps/api &&
+# The eval harness (ADR-019), its own uv project.
+EVALS = cd packages/evals &&
 WEB = cd apps/web &&
 # The read-only MCP servers (ADR-017), each its own uv project.
 MCP_SERVERS = apps/mcp-erp apps/mcp-registry
@@ -15,6 +17,8 @@ MCP_SERVERS = apps/mcp-erp apps/mcp-registry
 -include .env
 export INVOICEGUARD_TEST_DATABASE_URL
 export INVOICEGUARD_TEST_VALIDATOR_URL
+export INVOICEGUARD_EVAL_DATABASE_URL
+export INVOICEGUARD_EVAL_VALIDATOR_URL
 # The login users for `make seed-user` (a reviewer and, optionally, an approver for the four-eyes
 # override, ADR-016); passed to the one seed command only, never to the running api container.
 # `make e2e` logs in with them too.
@@ -64,18 +68,21 @@ check: ## Lint, format check and type check (api + web)
 	$(API) uv run ruff format --check
 	$(API) uv run mypy
 	for dir in $(MCP_SERVERS); do (cd $$dir && uv run ruff check && uv run ruff format --check && uv run mypy) || exit 1; done
+	$(EVALS) uv run ruff check && uv run ruff format --check && uv run mypy
 	$(WEB) pnpm lint
 	$(WEB) pnpm typecheck
 	$(WEB) pnpm format:check
 
-test: ## Tests (api + MCP servers + web); the api tests need the db and validator running (make dev)
+test: ## Tests (api + MCP servers + evals + web); the api tests need the db and validator running (make dev)
 	$(API) uv run pytest
 	for dir in $(MCP_SERVERS); do (cd $$dir && uv run pytest) || exit 1; done
+	$(EVALS) uv run pytest
 	$(WEB) pnpm test
 
 e2e: ## Playwright browser test against the running stack (make dev, make seed, make seed-user first)
 	$(WEB) pnpm exec playwright install chromium
 	$(WEB) pnpm e2e
 
-eval: ## Evaluation harness
-	@echo "make eval: not implemented yet (R3)"
+eval: ## Eval harness from the recorded replies (ADR-019), free and offline after the first fetch; needs make dev
+	$(EVALS) uv run invoiceguard-eval fetch
+	$(EVALS) uv run invoiceguard-eval run --set full
