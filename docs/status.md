@@ -1,6 +1,6 @@
 # Status
 
-**Current milestone:** R3 — Evals, RAG, CI gate (in progress: R3-2, R3-3, R3-4a and R3-4b done)
+**Current milestone:** R4 — Platform (in progress: R4-1)
 **Last updated:** 2026-11-19
 
 ## Done
@@ -156,7 +156,7 @@
   - R2 done-when met: the poisoned sample is caught and shown (R2-4), the agent explains an exception with evidence
     (R2-6), every approval resumes the paused graph (R2-2, R2-3); all R1 and R2 Playwright tests pass
 
-- R3 — Evals, RAG, CI gate (in progress)
+- R3 — Evals, RAG, CI gate (complete)
   - Eval harness (R3-2, ADR-019): `packages/evals` with `invoiceguard-eval fetch / generate / run / report` and
     `make eval` (replay, free and offline). Datasets: the KoSIT testsuite (72 files) and 12 FeRD EN 16931 PDFs
     from the ZUGFeRD corpus, pinned by commit and SHA-256 in `sources.json` and downloaded into an ignored cache;
@@ -229,13 +229,46 @@
       called first (eval only) **10 of 10 delivered, 0 of 10 followed**, 7 findings name the injected line
     - Rulebook: **hit@3 90 % by vector** (English and German alike), MRR 0.81; full text without a key 90 %
       English, 50 % German
+  - Done-when check (R4-1): `docs/results.md` holds real numbers from the full set (run of 2026-11-19 on
+    `53dd6d9`), and the gate fails on a deliberate regression: draft PR #23 (closed, never merged) failed the eval
+    gate ([run 44434817518](https://github.com/Ziad-Alghawi/invoiceguard/actions/runs/44434817518))
 
 ## Open decisions
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
-- R3 — Evals, RAG, CI gate (PLAN.md §11), three rounds, one PR each:
-  - R3 wrap-up: the R3 done-when check (results table with real numbers, gate fails on a deliberate regression)
+- R4 — Platform (PLAN.md §11), plan approved 2026-11-19, six PRs in this order:
+  - R4-1: R3 wrap-up (done, see R3 above), CI hardening (every GitHub Action pinned to a commit SHA, Dependabot for actions, images built,
+    scanned by Trivy and pushed to GHCR tagged with the commit SHA) and ADR-021 (k3s on the existing VPS, Caddy
+    stays the edge and forwards to Traefik, Argo CD core, sealed-secrets, CD through a `demo` git tag).
+    Done when: every `uses:` is a SHA; a fixable HIGH/CRITICAL finding fails the
+    scan; images are in GHCR; ADR-021 merged and ADR-014 marked as partly superseded
+  - R4-2: safety for several pods, one commit each: (a) startup recovery takes a per-invoice session advisory
+    lock and skips invoices another pod holds; decision endpoints use a short `lock_timeout` and answer `409`;
+    (b) restricted database roles: an owner role for migrations, an app role with DML only (no TRUNCATE, DROP or
+    trigger changes), Alembic as an Argo CD PreSync Job that also creates the MCP roles; (c) per-IP login rate
+    limit in the app, client IP from trusted proxy headers only. Done when: tests prove recovery never runs one
+    invoice twice, a decision during a run gets `409` quickly, the app role cannot TRUNCATE / DROP TRIGGER / run
+    DDL, and one IP gets `429` while others do not (spoofed `X-Forwarded-For` ignored)
+  - R4-3: Helm chart (api, web, three MCP servers, validator with a memory limit, Postgres StatefulSet with a
+    PVC, probes, resources, NetworkPolicy for the MCP servers, ingress body-size limit, demo reset as a
+    CronJob). Done when: `helm lint` and `helm template` run in CI and the chart installs on k3d
+  - R4-4: cluster, Argo CD and CD: rescale the VPS to CX33 (ask first; about €9/month with IPv4, net, vs about
+    €6 for CX23), k3s, Argo CD core, sealed-secrets; CI moves the `demo` tag after pushing images, Helm takes
+    `$ARGOCD_APP_REVISION` as the image tag (no bot commits); Compose switched off afterwards; `docs/deploy.md`
+    rewritten. Done when: a merge to `main` reaches the live demo with no manual step
+  - R4-5: metrics: `/metrics` on the api (invoices, exceptions, approvals, model latency and cost), Prometheus
+    (7 days, no node-exporter or alertmanager), Grafana dashboard JSON in the repo, alert rules for error rate,
+    cost cap and validator down. Done when: the dashboard shows live demo traffic and one alert fires in a test
+  - R4-6: model comparison: Gemini vs Mistral (EU, free tier) vs one small Ollama model on the development
+    machine, through the eval harness on the small set. Done when: the table is in `docs/results.md` with
+    accuracy, cost and p50/p95 latency, within the LLM budget. First to drop if R4 runs late
+  - Cut from R4: self-hosted Langfuse and the trace ID in the UI (`model_calls` covers cost and latency), n8n,
+    paid EU endpoints and large Ollama models, the full kube-prometheus-stack
+- Before 2026-12-19: upgrade litellm 1.108.1 → 1.110.1 (ADR-004 checks: release age, price table, replay of the
+  recorded evals) so filelock can move to 4.2.1 and the `.trivyignore` entry for CVE-2026-112940 goes; drop the
+  zlib entry (CVE-2026-85091) once python:3.12-slim ships the Debian fix
+- R5: issue #24 (DATEV export per chosen account and VAT rate)
 - Backlog: scan-like generated PDFs (image noise, no text layer) for the eval set
 
 ## Known limitations
