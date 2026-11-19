@@ -265,6 +265,9 @@
     accuracy, cost and p50/p95 latency, within the LLM budget. First to drop if R4 runs late
   - Cut from R4: self-hosted Langfuse and the trace ID in the UI (`model_calls` covers cost and latency), n8n,
     paid EU endpoints and large Ollama models, the full kube-prometheus-stack
+- Before 2026-12-19: upgrade litellm 1.108.1 → 1.110.1 (ADR-004 checks: release age, price table, replay of the
+  recorded evals) so filelock can move to 4.2.1 and the `.trivyignore` entry for CVE-2026-112940 goes; drop the
+  zlib entry (CVE-2026-85091) once python:3.12-slim ships the Debian fix
 - R5: issue #24 (DATEV export per chosen account and VAT rate)
 - Backlog: scan-like generated PDFs (image noise, no text layer) for the eval set
 

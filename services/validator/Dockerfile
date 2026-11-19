@@ -22,7 +22,7 @@ RUN mkdir /opt/kosit/configuration \
 # ADD stores remote files with mode 600; the chmod above lets the non-root runtime user read them.
 
 # --- runtime: JRE only, non-root ---------------------------------------------------------------
-FROM eclipse-temurin:21-jre-noble@sha256:0eda5830ed7b669abc246a8dc520ea8a23cab06f9a8d4b6964109e2f2394e46f
+FROM eclipse-temurin:21-jre-noble@sha256:977602aad3cf25b74bbb4c8e7532060eef80e1f1288932da35f5fbecd6159b65
 
 RUN useradd --system --no-create-home --shell /usr/sbin/nologin kosit
 COPY --from=download --chown=root:root /opt/kosit /opt/kosit

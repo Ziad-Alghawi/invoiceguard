@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Container images in CI (R4-1): all six images built, scanned by Trivy 0.76.2 (its image pinned by digest, not
+  `trivy-action`; fixable HIGH and CRITICAL findings fail the job, accepted ones in `.trivyignore` with a reason
+  and an expiry date) and pushed to GHCR on `main`, tagged with the commit SHA.
 - CI hardening (R4-1): every GitHub Action pinned to a full commit SHA with its version in a comment, a CI job
   that fails on an unpinned action, Dependabot updates for the pins.
 - R3 closed (R4-1): the eval gate is shown to fail on a deliberate regression (draft PR #23, never merged);
@@ -246,6 +249,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tax is still `blocked`). Found by the R3-2 eval; tests for the 01.04a shape and three wrong-math variants.
 
 ### Changed
+- The web image no longer ships npm and corepack (the server needs only `node`); the validator's JRE base image
+  moved to the current digest (apt CVE-2026-109518 fixed).
 - `INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD` defaults to 0.9 (was 0.8): on the eval set at `low` it flags 5 of 9
   wrong fields (was 1) and 4 of 1,197 right ones (was 2). Replayed from the recordings; `docs/results.md` and
   ADR-010 and ADR-019 updated. The fraud-set numbers in `results.md` are carried over from the earlier run.
