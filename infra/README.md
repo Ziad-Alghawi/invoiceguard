@@ -40,6 +40,20 @@ Compose v5 builds through Bake, which refuses to read the build contexts in `app
 Both images are multi-stage and run as non-root users. The web image uses Next.js `output: "standalone"` and reads
 `API_URL` at runtime, so one image works in every environment.
 
+## Helm (Kubernetes, R4-3)
+Two charts ([ADR-023](../docs/decisions/ADR-023-helm-chart-and-postgres.md)); install them in this order:
+
+- [`helm/invoiceguard-postgres`](helm/invoiceguard-postgres): PostgreSQL 16 with pgvector, a StatefulSet
+  with a local volume. On its first start an init script creates the non-superuser owner, its database and
+  the extensions.
+- [`helm/invoiceguard`](helm/invoiceguard): api, web, validator, `mcp-erp`, `mcp-registry`, `mcp-history`,
+  the migration hook and the demo-reset CronJob, plus the Traefik ingress with a body-size limit and the
+  NetworkPolicies. The images come from GHCR by commit SHA (`image.tag`, required).
+
+Secrets are referenced by name only. The install steps, the secret keys and the local k3d test are in
+[`docs/deploy.md`](../docs/deploy.md#kubernetes-helm-r4-3). CI lints, renders and installs both charts on
+k3d (job `helm`).
+
 ## Public demo (prod override)
 [`docker-compose.prod.yml`](docker-compose.prod.yml) is layered on top of the dev file for the demo server
 ([ADR-014](../docs/decisions/ADR-014-demo-hosting-single-vps.md)): it removes every host port, attaches the web

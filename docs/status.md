@@ -1,6 +1,6 @@
 # Status
 
-**Current milestone:** R4 — Platform (R4-1 and R4-2 done; next: R4-3)
+**Current milestone:** R4 — Platform (R4-1 to R4-3 done; next: R4-4)
 **Last updated:** 2026-11-19
 
 ## Done
@@ -271,18 +271,47 @@
       through the web container give `429` with `Retry-After: 899`, while another address still gets `401`.
     - Before the next demo deploy: add `INVOICEGUARD_APP_DB_PASSWORD` to the server's `.env`
       (`docs/deploy.md`).
-  - R4-3: Helm chart (api, web, three MCP servers, validator with a memory limit, Postgres StatefulSet with a
-    PVC, probes, resources, NetworkPolicy for the MCP servers, ingress body-size limit, demo reset as a
-    CronJob). It also covers these items:
-    - the `migrate` step as the Argo CD PreSync Job;
-    - a non-superuser owner role for migrations (today the migrator is the superuser from the PostgreSQL
-      image, see Known limitations);
-    - `INVOICEGUARD_TRUSTED_PROXIES` set to the pod network;
-    - the demo reset CronJob running as the owner. Done when: `helm lint` and `helm template` run in CI and the chart installs on k3d
+  - R4-3: Helm charts (done, ADR-023; ADR-021 and ADR-022 amended):
+    - `infra/helm/invoiceguard-postgres`: PostgreSQL 16 with pgvector, a StatefulSet with a local volume and
+      the image pinned by digest. It is installed first, because a hook runs before anything else in its
+      release.
+    - `infra/helm/invoiceguard`: api, web, validator (1 GiB limit) and the three MCP servers from GHCR by
+      commit SHA (`image.tag` required), probes, and memory requests of about 1.2 GB in total, measured on
+      k3d.
+    - Pods run as numeric non-root users with a read-only root and no ServiceAccount token. The
+      Dockerfiles name the same IDs (999, web 1000).
+    - NetworkPolicies: only Traefik reaches web, only web reaches the api, only the api reaches the MCP
+      servers and the validator, and only labelled clients reach PostgreSQL. Outgoing traffic is limited
+      for web, the MCP servers and the validator.
+    - Traefik ingress to web with a 413 above 11 MiB. `INVOICEGUARD_TRUSTED_PROXIES` is set to the pod
+      network.
+    - The migration as a `pre-install`/`pre-upgrade` hook (PreSync in Argo CD). The demo reset is a
+      CronJob at 03:00 Europe/Berlin. Both run as the owner `invoiceguard_owner`, which is no superuser:
+      the postgres chart creates it with `CREATEROLE`, together with the extensions, on first start. The
+      migrations needed no change.
+    - Secrets by name only (`invoiceguard-postgres`, `invoiceguard`); `docs/deploy.md` has a Kubernetes
+      section.
+    - Done-when check: the CI job `helm` lints and renders both charts, and fails if the chart renders
+      without an image tag. It then installs both charts on k3d (k3s v1.36.6) with images built in the job
+      and runs `.github/scripts/k3d-smoke-test.sh`, which checks:
+      - the owner is no superuser;
+      - the web page loads through Traefik, and a 12 MB body gets `413`;
+      - `/health` and `/ready` answer;
+      - the demo reset Job, run from the CronJob, loads the 6 samples with KoSIT passing;
+      - the seeded user can log in;
+      - the api reaches mcp-erp, and web and an unlabelled pod cannot;
+      - `helm upgrade` runs the hook again.
+
+      Checked by hand on a local k3d cluster first.
   - R4-4: cluster, Argo CD and CD: rescale the VPS to CX33 (ask first; about €9/month with IPv4, net, vs about
     €6 for CX23), k3s, Argo CD core, sealed-secrets; CI moves the `demo` tag after pushing images, Helm takes
     `$ARGOCD_APP_REVISION` as the image tag (no bot commits); Compose switched off afterwards; `docs/deploy.md`
     rewritten. Done when: a merge to `main` reaches the live demo with no manual step
+    - The two charts become two Argo CD Applications in sync waves: postgres first, then the app with its
+      PreSync hook.
+    - k3s's Traefik must trust `X-Forwarded-For` from Caddy (`trustedIPs` on its entry point). Otherwise it
+      replaces the header with Caddy's address, and the per-IP login limit counts every visitor as one.
+    - The server's nightly demo-reset cron goes, because the CronJob takes over.
   - R4-5: metrics: `/metrics` on the api (invoices, exceptions, approvals, model latency and cost), Prometheus
     (7 days, no node-exporter or alertmanager), Grafana dashboard JSON in the repo, alert rules for error rate,
     cost cap and validator down. Done when: the dashboard shows live demo traffic and one alert fires in a test
@@ -328,10 +357,13 @@
   - Users behind one shared address (an office NAT) share the limit.
   - Compose trusts `X-Forwarded-For` from Docker's private ranges. In dev the api's published port is reached
     through the Docker gateway, so a local caller can set any address. In prod the api has no public port.
-- Database roles (ADR-022): the api runs as the restricted `invoiceguard_app`, but the migrator is still
-  `POSTGRES_USER`, a superuser in the official PostgreSQL image. A non-superuser owner comes with the Helm chart
-  (R4-3), where the database is created fresh; `CREATE EXTENSION vector` may still need a superuser once. A new
+- Database roles (ADR-022, ADR-023): the api runs as the restricted `invoiceguard_app`. In Kubernetes the
+  migrator is the non-superuser owner `invoiceguard_owner`. Compose (dev and, until R4-4, the demo) still
+  migrates as `POSTGRES_USER`, a superuser in the official PostgreSQL image. In Kubernetes a new untrusted
+  extension needs the superuser once, by hand: the init script runs on an empty volume only. A new
   append-only table gets UPDATE and DELETE from the default privileges and must revoke them in its migration.
+- Helm (ADR-023): the uploads volume is ReadWriteOnce, so the api pods and the demo reset must share one node.
+  The CI job builds the six images again instead of reusing those of the `images` job.
 - Upload limit (R2-7): counted from the audit log without a lock, so parallel uploads can pass it by a few files; the
   demo accounts are shared, so on the demo it caps all visitors together. One file per upload (no bulk upload);
   there is no sample picker: visitors bring their own XRechnung or ZUGFeRD file.

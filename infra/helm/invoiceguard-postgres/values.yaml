@@ -1,0 +1,39 @@
+# PostgreSQL for InvoiceGuard (ADR-023). Install first:
+#   helm install invoiceguard-postgres infra/helm/invoiceguard-postgres --wait
+
+image:
+  # pgvector 0.8.7 on PostgreSQL 16, pinned by digest: a tag can be moved, a digest cannot.
+  repository: pgvector/pgvector
+  tag: 0.8.7-pg16@sha256:484e838076e04939d27d3e176e91c86eea96236126023be8d3059761122e579f
+  pullPolicy: IfNotPresent
+
+# Created on the first start only (an empty volume), by files/init-owner.sh as the superuser:
+# the owner role that runs the migrations (no superuser, ADR-023), its database, and the
+# extensions that need a superuser to create.
+database:
+  name: invoiceguard
+  owner: invoiceguard_owner
+
+# Secret created outside the chart (sealed-secrets from R4-4); only its name is here.
+# Keys: superuser-password (the `postgres` superuser, used inside this pod only) and
+# owner-password (URL-safe, for example `openssl rand -hex 24`).
+existingSecret: invoiceguard-postgres  # pragma: allowlist secret
+
+persistence:
+  size: 5Gi
+  # Empty: the cluster's default class (local-path on k3s).
+  storageClass: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 1Gi
+
+networkPolicy:
+  enabled: true
+  # Only pods with this label may connect; the invoiceguard chart sets it on the api, the MCP
+  # servers, the migration Job and the demo reset.
+  clientLabels:
+    invoiceguard.io/database-client: "true"

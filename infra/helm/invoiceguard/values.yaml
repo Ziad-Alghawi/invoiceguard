@@ -1,0 +1,141 @@
+# InvoiceGuard (ADR-021, ADR-023). The defaults are the public demo on one 8 GB k3s node.
+# Memory requests are a little above what the pods used idle on k3d (CI job `helm` prints
+# `kubectl top pods`); the limits leave room for processing.
+# Install after the invoiceguard-postgres chart:
+#   helm install invoiceguard infra/helm/invoiceguard --set image.tag=<full commit SHA> --wait
+
+image:
+  # CI pushes ghcr.io/<owner>/invoiceguard-<name>:<commit SHA> for api, web, validator and the
+  # three MCP servers (ADR-021).
+  registry: ghcr.io/ziad-alghawi
+  # Required: the full commit SHA of the images. There is no default and no `latest`.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# prod: secure session cookies (HTTPS only). The demo also refuses PDFs without e-invoice XML.
+env: prod
+demoMode: true
+logLevel: INFO
+# The embedding model of the booking history (ADR-020), for the api, mcp-history and the demo
+# reset; empty keeps the default in the api's settings.
+embeddingModel: ""
+
+database:
+  # The Service of the invoiceguard-postgres chart.
+  host: invoiceguard-postgres
+  port: 5432
+  name: invoiceguard
+  # The non-superuser owner created by the postgres chart (ADR-023): the migration hook and the
+  # demo reset log in as it; the api and the MCP servers use their restricted roles.
+  owner: invoiceguard_owner
+  # Labels of the PostgreSQL pods, for the egress rules of the MCP servers.
+  podLabels:
+    app.kubernetes.io/name: invoiceguard-postgres
+
+# Secrets created outside the chart (sealed-secrets from R4-4); only their names are here.
+secrets:
+  # Key owner-password (shared with the invoiceguard-postgres chart).
+  postgres: invoiceguard-postgres
+  # Keys app-db-password, mcp-erp-db-password, mcp-registry-db-password, mcp-history-db-password
+  # (URL-safe, for example `openssl rand -hex 24`), seed-user-email, seed-user-password and,
+  # optional, seed-approver-email, seed-approver-password and llm-api-key.
+  app: invoiceguard
+
+# The pod network (k3s default). The api believes X-Forwarded-For only from these addresses: the
+# web pods, which pass on what the ingress saw (R4-2).
+podCidr: 10.42.0.0/16
+
+api:
+  # Several pods are safe (R4-2), but the uploads volume is ReadWriteOnce: all pods that mount it
+  # must run on one node.
+  replicas: 1
+  # Further INVOICEGUARD_* settings (apps/api/src/invoiceguard_api/settings.py).
+  env:
+    INVOICEGUARD_LLM_DAILY_BUDGET_USD: "0.50"
+    INVOICEGUARD_UPLOAD_MAX_PER_HOUR: "30"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 768Mi
+
+web:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      memory: 256Mi
+
+validator:
+  # The JVM takes 75 % of the limit as its maximum heap (services/validator/Dockerfile).
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+
+# The read-only MCP servers (ADR-017); each logs in as its own role.
+mcp:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      memory: 192Mi
+
+# The pre-install/pre-upgrade hook (Argo CD runs it as PreSync): migrations and role passwords.
+migrate:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 768Mi
+
+# Deletes every invoice and reloads the samples, as the owner (ADR-022); needs demoMode.
+demoReset:
+  enabled: true
+  schedule: "0 3 * * *"
+  timeZone: Europe/Berlin
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 768Mi
+
+uploads:
+  size: 2Gi
+  # Empty: the cluster's default class (local-path on k3s).
+  storageClass: ""
+
+ingress:
+  enabled: true
+  className: traefik
+  # Empty: any host (local clusters). The demo sets its host name; TLS ends at Caddy (ADR-021).
+  host: ""
+  # Traefik refuses larger requests with 413: the api's 10 MiB upload limit plus multipart overhead.
+  maxRequestBodyBytes: 11534336
+
+networkPolicy:
+  enabled: true
+  # Who may reach the web pods: the ingress controller (k3s's Traefik).
+  ingressControllerFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: traefik
+  # The cluster DNS, for the pods whose outgoing traffic is restricted.
+  dnsTo:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns

@@ -1,0 +1,75 @@
+{{- /* The read-only MCP servers (ADR-017): each logs in as its own role with SELECT on its own tables. */ -}}
+{{- range $server := list "erp" "registry" "history" }}
+{{- $ctx := dict "ctx" $ "component" (printf "mcp-%s" $server) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "invoiceguard.name" $ctx }}
+  labels:
+    {{- include "invoiceguard.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "invoiceguard.selectorLabels" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "invoiceguard.labels" $ctx | nindent 8 }}
+        {{- include "invoiceguard.databaseClientLabel" $ | nindent 8 }}
+    spec:
+      {{- include "invoiceguard.podSpecCommon" (dict "uid" 999) | nindent 6 }}
+      containers:
+        - name: mcp
+          image: {{ include "invoiceguard.image" (dict "ctx" $ "image" (printf "mcp-%s" $server)) }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          env:
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.secrets.app }}
+                  key: {{ printf "mcp-%s-db-password" $server }}
+            - name: {{ printf "INVOICEGUARD_MCP_%s_DATABASE_URL" (upper $server) }}
+              value: "postgresql://invoiceguard_mcp_{{ $server }}:$(DATABASE_PASSWORD)@{{ $.Values.database.host }}:{{ $.Values.database.port }}/{{ $.Values.database.name }}"
+            {{- if and (eq $server "history") $.Values.embeddingModel }}
+            # The vectors it compares were made with this model (the api's setting).
+            - name: INVOICEGUARD_EMBEDDING_MODEL
+              value: {{ $.Values.embeddingModel | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 8000
+          # The MCP endpoint needs a POST; an open port means the server runs.
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+          resources:
+            {{- toYaml $.Values.mcp.resources | nindent 12 }}
+          {{- include "invoiceguard.containerSecurityContext" $ | nindent 10 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "invoiceguard.name" $ctx }}
+  labels:
+    {{- include "invoiceguard.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "invoiceguard.selectorLabels" $ctx | nindent 4 }}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+{{- end }}

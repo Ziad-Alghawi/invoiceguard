@@ -1,0 +1,100 @@
+{{- $ctx := dict "ctx" . "component" "api" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "invoiceguard.name" $ctx }}
+  labels:
+    {{- include "invoiceguard.labels" $ctx | nindent 4 }}
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      {{- include "invoiceguard.selectorLabels" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "invoiceguard.labels" $ctx | nindent 8 }}
+        {{- include "invoiceguard.databaseClientLabel" . | nindent 8 }}
+    spec:
+      {{- include "invoiceguard.podSpecCommon" (dict "uid" 999) | nindent 6 }}
+      containers:
+        - name: api
+          image: {{ include "invoiceguard.image" (dict "ctx" . "image" "api") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            {{- include "invoiceguard.commonApiEnv" . | nindent 12 }}
+            # The restricted role (ADR-022): data rights only, no TRUNCATE, DDL or trigger changes.
+            - name: DATABASE_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.app }}
+                  key: app-db-password
+            - name: INVOICEGUARD_DATABASE_URL
+              value: "postgresql+psycopg://invoiceguard_app:$(DATABASE_APP_PASSWORD)@{{ .Values.database.host }}:{{ .Values.database.port }}/{{ .Values.database.name }}"
+            - name: INVOICEGUARD_TRUSTED_PROXIES
+              value: {{ list .Values.podCidr | toJson | quote }}
+            {{- range $server := list "erp" "registry" "history" }}
+            - name: INVOICEGUARD_MCP_{{ upper $server }}_URL
+              value: "http://{{ include "invoiceguard.name" (dict "ctx" $ "component" (printf "mcp-%s" $server)) }}:8000/mcp"
+            {{- end }}
+            # LLM extraction and the exception agent (ADR-010, ADR-018); without a key both are off.
+            - name: INVOICEGUARD_LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.app }}
+                  key: llm-api-key
+                  optional: true
+            {{- range $name, $value := .Values.api.env }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 8000
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          # /ready checks the database: a pod that cannot reach it gets no traffic.
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          {{- include "invoiceguard.containerSecurityContext" . | nindent 10 }}
+          volumeMounts:
+            - name: uploads
+              mountPath: /data/uploads
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: {{ include "invoiceguard.name" (dict "ctx" . "component" "uploads") }}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "invoiceguard.name" $ctx }}
+  labels:
+    {{- include "invoiceguard.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "invoiceguard.selectorLabels" $ctx | nindent 4 }}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

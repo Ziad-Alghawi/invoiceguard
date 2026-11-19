@@ -1,0 +1,10 @@
+apiVersion: v2
+name: invoiceguard
+description: >-
+  InvoiceGuard on Kubernetes (ADR-021, ADR-023): api, web, KoSIT validator, the three read-only MCP
+  servers, the migration hook and the nightly demo reset. PostgreSQL comes from the separate
+  invoiceguard-postgres chart, installed first.
+type: application
+version: 0.1.0
+# The images are tagged with the commit they were built from (values: image.tag), not this version.
+appVersion: "0.1.0"

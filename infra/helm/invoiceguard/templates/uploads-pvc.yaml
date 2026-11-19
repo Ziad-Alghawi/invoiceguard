@@ -1,0 +1,17 @@
+{{- $ctx := dict "ctx" . "component" "uploads" -}}
+# The uploaded invoices, shared by the api and the demo reset. ReadWriteOnce (local-path on k3s):
+# every pod that mounts it must run on the same node, which holds on one node.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "invoiceguard.name" $ctx }}
+  labels:
+    {{- include "invoiceguard.labels" $ctx | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- with .Values.uploads.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.uploads.size }}

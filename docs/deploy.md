@@ -200,3 +200,54 @@ Roll back with `git checkout <previous commit or tag> && make prod-up`. A migrat
 Container logs rotate at 3 × 10 MB per container. Caddy writes no access log, because visitor IP addresses
 are personal data and the demo does not need them. There is no backup: the demo holds only sample data and is
 reset every night.
+
+## Kubernetes (Helm, R4-3)
+
+From R4-4 the demo runs on k3s on the same server, deployed by Argo CD
+([ADR-021](decisions/ADR-021-platform-k3s-argocd.md)). Until then it runs on Compose as described above. Two
+charts, installed in this order ([ADR-023](decisions/ADR-023-helm-chart-and-postgres.md)):
+
+1. [`infra/helm/invoiceguard-postgres`](../infra/helm/invoiceguard-postgres): PostgreSQL 16 with pgvector.
+   On its first start it creates the owner `invoiceguard_owner`, which is no superuser, its database and the
+   extensions.
+2. [`infra/helm/invoiceguard`](../infra/helm/invoiceguard): api, web, validator, the three MCP servers, the
+   migration hook (`pre-install`/`pre-upgrade`, PreSync in Argo CD) and the nightly demo-reset CronJob.
+   `image.tag` is the commit SHA of the GHCR images.
+
+The charts hold no secret values. Create the two secrets in the namespace first (sealed-secrets in R4-4). The
+passwords must be URL-safe, for example `openssl rand -hex 24`:
+
+| Secret | Keys |
+| --- | --- |
+| `invoiceguard-postgres` | `superuser-password`, `owner-password` |
+| `invoiceguard` | `app-db-password`, `mcp-erp-db-password`, `mcp-registry-db-password`, `mcp-history-db-password`, `seed-user-email`, `seed-user-password`; optional: `seed-approver-email`, `seed-approver-password`, `llm-api-key` | <!-- pragma: allowlist secret -->
+
+```sh
+helm install invoiceguard-postgres infra/helm/invoiceguard-postgres --namespace invoiceguard --wait
+helm install invoiceguard infra/helm/invoiceguard --namespace invoiceguard \
+  --set image.tag=<full commit SHA> --set ingress.host=invoiceguard.ziadalghawi.com --wait
+```
+
+Run the demo reset now: `kubectl -n invoiceguard create job reset-now --from=cronjob/invoiceguard-demo-reset`.
+
+**Local test on k3d.** This is what CI does (job `helm`): build the six images tagged
+`ghcr.io/ziad-alghawi/invoiceguard-<name>:<tag>`, then run:
+
+```sh
+k3d cluster create invoiceguard --image rancher/k3s:v1.36.6-k3s1 --port "8080:80@loadbalancer" --wait
+k3d image import --cluster invoiceguard ghcr.io/ziad-alghawi/invoiceguard-{api,web,mcp-erp,mcp-registry,mcp-history,validator}:<tag>
+.github/scripts/k3d-smoke-test.sh <tag> 8080
+```
+
+The script needs `kubectl`, `helm`, `curl`, `jq` and `openssl`. It creates the secrets with random values,
+installs both charts with [`infra/helm/ci-values.yaml`](../infra/helm/ci-values.yaml) and checks the following:
+
+- the owner is no superuser;
+- the web page loads through Traefik, and a 12 MB body gets `413`;
+- the api answers `/health` and `/ready`;
+- the demo reset, run once from the CronJob, loads the samples with KoSIT passing, and its user can log in;
+- the api reaches mcp-erp, while the web pod and an unlabelled pod cannot;
+- an upgrade runs the migration hook again.
+
+Still open for R4-4 on the server: k3s's Traefik has to trust `X-Forwarded-For` from Caddy (`trustedIPs` on
+its entry point). Without it, the per-IP login limit sees every visitor as Caddy's address.

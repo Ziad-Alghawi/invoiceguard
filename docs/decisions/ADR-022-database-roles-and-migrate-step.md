@@ -66,3 +66,11 @@ ADR-021 decides that migrations run as an Argo CD PreSync Job with the owner rol
   append-only log, a read-only table) has to say so, and the role tests should name it.
 - The migrator is still the superuser from the PostgreSQL image (known limitation, R4-3).
 - Supersedes the part of ADR-017 that sets the MCP passwords at api start: `migrate` sets them now.
+
+## Amendment (2026-11-19, R4-3)
+
+In Kubernetes the migrator is no superuser. The postgres chart creates `invoiceguard_owner` (`NOSUPERUSER
+NOCREATEDB CREATEROLE`) and the `vector` and `pg_trgm` extensions once, as the superuser, on an empty volume.
+The migration hook and the demo reset log in as that owner. The migrations needed no change: `CREATE
+EXTENSION IF NOT EXISTS` finds the extensions, and the owner manages the roles it creates. Compose keeps the
+superuser migrator until R4-4 switches it off. See [ADR-023](ADR-023-helm-chart-and-postgres.md).
