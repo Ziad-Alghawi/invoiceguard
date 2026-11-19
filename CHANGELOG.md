@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- ADR-021: the R4 platform (k3s on the demo VPS rescaled to CX33, Caddy in front of Traefik, Argo CD following a
+  `demo` tag, Alembic as a PreSync Job, sealed-secrets) and what R4 cuts; ADR-014's hosting is partly superseded.
 - Container images in CI (R4-1): all six images built, scanned by Trivy 0.76.2 (its image pinned by digest, not
   `trivy-action`; fixable HIGH and CRITICAL findings fail the job, accepted ones in `.trivyignore` with a reason
   and an expiry date) and pushed to GHCR on `main`, tagged with the commit SHA.
