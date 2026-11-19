@@ -35,7 +35,7 @@ from invoiceguard_api.booking.embedding import embed_invoice_lines
 from invoiceguard_api.booking.lines import invoice_lines
 from invoiceguard_api.booking.record import BookingChoice
 from invoiceguard_api.booking.suggest import suggest_invoice
-from invoiceguard_api.checkpoints import lock_invoice
+from invoiceguard_api.checkpoints import InvoiceBusy, lock_invoice
 from invoiceguard_api.db import DbSession
 from invoiceguard_api.invoices import ErrorOut, InvoiceOut, get_invoice_or_404
 from invoiceguard_api.models import (
@@ -66,12 +66,13 @@ Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, m
 # Every status a thread waits at review in (ready, blocked, failed, awaiting_extraction,
 # override_requested); not while processing: the run would overwrite the decision with its result.
 REJECTABLE = IN_REVIEW
+INVOICE_BUSY = "The invoice is being processed or decided right now; try again in a moment."
 
 DECISION_RESPONSES: dict[int | str, dict[str, Any]] = {
     status.HTTP_404_NOT_FOUND: {"model": ErrorOut, "description": "Unknown invoice"},
     status.HTTP_409_CONFLICT: {
         "model": ErrorOut,
-        "description": "Not in a status that allows this decision",
+        "description": "Not in a status that allows this decision, or the invoice is busy",
     },
 }
 OVERRIDE_DECISION_RESPONSES: dict[int | str, dict[str, Any]] = {
@@ -131,9 +132,17 @@ class AuditEventOut(BaseModel):
     details: dict[str, Any]
 
 
-def _lock(session: Session, invoice_id: uuid.UUID) -> Invoice:
-    """The invoice under its advisory lock, held until the request's transaction ends."""
-    lock_invoice(session, invoice_id)
+def _lock(session: Session, request: Request, invoice_id: uuid.UUID) -> Invoice:
+    """The invoice under its advisory lock, held until the request's transaction ends.
+
+    A run (an LLM extraction can take minutes) or another decision, in any api pod, may hold
+    the lock: after `decision_lock_timeout_ms` the request gives up with a 409.
+    """
+    timeout_ms = request.app.state.settings.decision_lock_timeout_ms
+    try:
+        lock_invoice(session, invoice_id, timeout_ms)
+    except InvoiceBusy:
+        raise _conflict(INVOICE_BUSY) from None
     invoice = session.get(Invoice, invoice_id, populate_existing=True)
     if invoice is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Invoice not found.")
@@ -214,7 +223,7 @@ def approve_invoice(
     request: Request,
 ) -> InvoiceOut:
     """Approve a `ready` invoice. A blocked invoice needs a four-eyes override instead."""
-    invoice = _lock(session, invoice_id)
+    invoice = _lock(session, request, invoice_id)
     if invoice.status is InvoiceStatus.BLOCKED:
         failed = ", ".join(failed_checks(session, invoice.id))
         raise _conflict(
@@ -239,7 +248,7 @@ def reject_invoice(
     request: Request,
 ) -> InvoiceOut:
     """Reject an invoice with a reason; it is then out of the review queue."""
-    invoice = _lock(session, invoice_id)
+    invoice = _lock(session, request, invoice_id)
     if invoice.status not in REJECTABLE:
         raise _conflict(
             f"The invoice is {invoice.status.value}; only ready, blocked, failed, "
@@ -261,7 +270,7 @@ def request_override(
     The invoice waits in `override_requested` until another user with the approver role
     confirms or declines the request.
     """
-    invoice = _lock(session, invoice_id)
+    invoice = _lock(session, request, invoice_id)
     _require_status(invoice, InvoiceStatus.BLOCKED, "get an override")
     decision = _decision(user, invoice, "request_override", body.reason)
     return _resume(session, request, invoice, decision)
@@ -284,7 +293,7 @@ def _decide_override(
             forbidden_event(request, user, UserRole.APPROVER),
             "Only a user with the approver role can decide an override.",
         )
-    invoice = _lock(session, invoice_id)
+    invoice = _lock(session, request, invoice_id)
     _require_status(invoice, InvoiceStatus.OVERRIDE_REQUESTED, "have an override decided")
     if override_requester(session, invoice.id) == user.id:
         attempt = security_event(
@@ -346,7 +355,7 @@ def reopen_invoice(
     A PDF without embedded XML is extracted again afterwards (with a model key, within the
     daily budget); poll `GET /invoices/{id}` while it is `awaiting_extraction` or `processing`.
     """
-    invoice = _lock(session, invoice_id)
+    invoice = _lock(session, request, invoice_id)
     if invoice.status is InvoiceStatus.APPROVED:
         raise _conflict(
             "Approved invoices cannot be reopened: they may already be in a DATEV export."

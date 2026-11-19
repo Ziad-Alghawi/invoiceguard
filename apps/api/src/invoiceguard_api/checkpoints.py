@@ -16,8 +16,10 @@ from contextlib import contextmanager
 import psycopg
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+from psycopg.errors import LockNotAvailable
 from psycopg.rows import dict_row
 from sqlalchemy import Engine, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 CHECKPOINT_SCHEMA = "langgraph"
@@ -46,22 +48,63 @@ def open_checkpointer(engine: Engine) -> Iterator[PostgresSaver]:
         yield PostgresSaver(connection, serde=JsonPlusSerializer(allowed_msgpack_modules=None))
 
 
-def lock_invoice(session: Session, invoice_id: uuid.UUID) -> None:
+class InvoiceBusy(Exception):
+    """Another session held the invoice's lock for longer than the caller would wait."""
+
+
+def lock_invoice(session: Session, invoice_id: uuid.UUID, timeout_ms: int | None = None) -> None:
     """Wait for and take the invoice's advisory lock until the session's transaction ends.
 
     Every graph run and every decision on an invoice takes it first, so work on one thread
-    happens one at a time. It locks no rows: graph nodes write the invoice on their own
-    connections while the holder waits for them.
+    happens one at a time, also across api pods (they share the database). It locks no rows:
+    graph nodes write the invoice on their own connections while the holder waits for them.
+
+    With `timeout_ms`, waiting longer raises `InvoiceBusy` (PostgreSQL's `lock_timeout`, set
+    for this one statement); the transaction is then rolled back.
     """
-    session.execute(
-        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"), {"key": str(invoice_id)}
+    if timeout_ms is not None:
+        session.execute(
+            text("SELECT set_config('lock_timeout', :timeout, true)"),
+            {"timeout": f"{timeout_ms}ms"},
+        )
+    try:
+        session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+            {"key": str(invoice_id)},
+        )
+    except OperationalError as error:
+        if not isinstance(error.orig, LockNotAvailable):
+            raise
+        session.rollback()
+        raise InvoiceBusy(str(invoice_id)) from error
+    if timeout_ms is not None:
+        # Later statements of the transaction wait as usual.
+        session.execute(text("SET LOCAL lock_timeout = DEFAULT"))
+
+
+def try_lock_invoice(session: Session, invoice_id: uuid.UUID) -> bool:
+    """Take the invoice's advisory lock (as `lock_invoice`) if it is free; never waits."""
+    locked: bool = session.scalar(
+        text("SELECT pg_try_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": str(invoice_id)},
     )
+    return locked
 
 
 @contextmanager
-def invoice_lock(session_factory: sessionmaker[Session], invoice_id: uuid.UUID) -> Iterator[None]:
-    """Hold the invoice's advisory lock for the block, on a session of its own."""
+def invoice_lock(
+    session_factory: sessionmaker[Session], invoice_id: uuid.UUID, *, wait: bool = True
+) -> Iterator[bool]:
+    """Hold the invoice's advisory lock for the block, on a session of its own.
+
+    Yields True. With `wait=False` it yields False at once while another session (a run or a
+    decision, maybe in another pod) holds the lock; the block then must not touch the invoice.
+    """
     with session_factory() as session:
-        lock_invoice(session, invoice_id)
-        yield
+        if wait:
+            lock_invoice(session, invoice_id)
+        elif not try_lock_invoice(session, invoice_id):
+            yield False
+            return
+        yield True
         session.commit()

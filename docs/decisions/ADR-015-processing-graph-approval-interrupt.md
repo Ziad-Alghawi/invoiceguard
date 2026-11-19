@@ -86,6 +86,9 @@ later changes.
 - Startup reads the thread of every invoice waiting for review (one query each). Fine for the demo; with
   many waiting invoices it should only look at threads that are not paused.
 - A decision waits while a run holds the invoice's lock, for example during an LLM extraction (seconds).
+  Since R4-2 it waits at most `INVOICEGUARD_DECISION_LOCK_TIMEOUT_MS` (default 2 s, PostgreSQL's
+  `lock_timeout` for the lock statement only) and then answers `409`, so a request never hangs behind an
+  extraction, whichever api pod runs it.
 - Checkpoint tables need the same backups and migrations as business data, and add a few kilobytes per
   invoice.
 - New dependencies: `langgraph` and `langgraph-checkpoint-postgres` (named in the plan and in ADR-003; the

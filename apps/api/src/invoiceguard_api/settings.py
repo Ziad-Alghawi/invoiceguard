@@ -73,6 +73,9 @@ class Settings(BaseSettings):
     agent_cost_cap_usd: Decimal = Field(default=Decimal("0.05"), gt=0)
     # Investigate every invoice that processing leaves `blocked` (when the agent can run).
     agent_auto_investigate: bool = True
+    # How long a decision waits for a run or another decision on the same invoice before it
+    # answers 409 (R4-2); an LLM extraction can hold the invoice for minutes.
+    decision_lock_timeout_ms: int = Field(default=2000, gt=0)
     # Login sessions (ADR-011): fixed lifetime, then log in again.
     session_ttl_minutes: int = Field(default=8 * 60, gt=0)
     # This many failed logins in a row lock the account for `login_lockout_minutes`.
