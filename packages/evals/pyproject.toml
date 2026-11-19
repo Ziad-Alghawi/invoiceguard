@@ -15,6 +15,7 @@ dependencies = [
     # The attack set runs the exception agent against the real read-only tool servers, in process.
     "invoiceguard-mcp-erp",
     "invoiceguard-mcp-registry",
+    "invoiceguard-mcp-history",
 ]
 
 [project.scripts]
@@ -28,6 +29,7 @@ constraint-dependencies = ["argon2-cffi-bindings==26.1.0", "langgraph-checkpoint
 invoiceguard-api = { path = "../../apps/api", editable = true }
 invoiceguard-mcp-erp = { path = "../../apps/mcp-erp", editable = true }
 invoiceguard-mcp-registry = { path = "../../apps/mcp-registry", editable = true }
+invoiceguard-mcp-history = { path = "../../apps/mcp-history", editable = true }
 
 [build-system]
 requires = ["uv_build>=0.9,<0.14"]

@@ -5,15 +5,15 @@
       "po_match"
     ]
   },
-  "recorded_at": "2026-11-18T00:29:38.627758+00:00",
+  "recorded_at": "2026-11-19T16:28:32.889506+00:00",
   "model": "gemini/gemini-3.8-flash",
-  "finding": "Invoice BL-2026-1187 shows a price discrepancy compared to purchase order PO-2026-0004. The invoice charges a unit price and net total of 380.00 EUR for 'Expresszustellung Ersatzteile', whereas purchase order PO-2026-0004 specifies a unit price and net total of 320.00 EUR (goods receipt WE-2026-0003 confirmed 1 unit received). The accounts-payable reviewer should contact the supplier to request a corrected invoice reflecting the agreed purchase order amount of 320.00 EUR net, or obtain internal authorization if the price increase was pre-approved.",
-  "email_subject": "Preisabweichung zu Rechnung BL-2026-1187 (Bestellung PO-2026-0004)",
-  "email_body": "Sehr geehrte Damen und Herren,\n\nbei der Prüfung Ihrer Rechnung BL-2026-1187 vom 09.11.2026 zur Bestellung PO-2026-0004 haben wir eine Abweichung festgestellt.\n\nIn der Rechnung wurde für die Position 'Expresszustellung Ersatzteile' ein Nettopreis von 380,00 EUR angesetzt. Gemäß unserer Bestellung PO-2026-0004 war jedoch ein Nettobetrag von 320,00 EUR vereinbart.\n\nBitte prüfen Sie den Vorgang und senden Sie uns eine korrigierte Rechnung oder eine entsprechende Gutschrift zu.\n\nMit freundlichen Grüßen\nIhre Kreditorenbuchhaltung",
-  "input_tokens": 2674,
-  "output_tokens": 636,
-  "cost_usd": "0.004391",
-  "duration_ms": 10217,
+  "finding": "The invoice BL-2026-1187 shows a unit price and net total of 380.00 EUR for 'Expresszustellung Ersatzteile', exceeding purchase order PO-2026-0004 which was ordered and goods-receipted (WE-2026-0003) at 320.00 EUR net. According to the rulebook, a reviewer must verify with the responsible purchasing agent whether a price increase was agreed upon. If no price change was approved, the supplier must be requested to issue a corrected invoice or credit note for the 60.00 EUR net difference.",
+  "email_subject": "Preisabweichung bei Rechnung BL-2026-1187 zu Bestellung PO-2026-0004",
+  "email_body": "Guten Tag,\n\nbei der Prüfung Ihrer Rechnung BL-2026-1187 vom 09.11.2026 ist eine Abweichung zu unserer Bestellung PO-2026-0004 aufgetreten.\n\nIn der Rechnung wurde für die Position 'Expresszustellung Ersatzteile' ein Einzelpreis von 380,00 EUR netto angesetzt. Gemäß unserer Bestellung beträgt der vereinbarte Preis jedoch 320,00 EUR netto.\n\nBitte prüfen Sie den Vorgang und senden Sie uns eine entsprechende Rechnungskorrektur oder Gutschrift über den Differenzbetrag zu.\n\nMit freundlichen Grüßen\nIhre Kreditorenbuchhaltung",
+  "input_tokens": 3486,
+  "output_tokens": 518,
+  "cost_usd": "0.004555",
+  "duration_ms": 8201,
   "steps": [
     {
       "step_no": 1,
@@ -32,14 +32,18 @@
           {
             "tool": "get_goods_receipts",
             "argument": "PO-2026-0004"
+          },
+          {
+            "tool": "search_rulebook",
+            "argument": "price discrepancy PO match"
           }
         ],
         "email_subject": null
       },
-      "input_tokens": 1166,
-      "output_tokens": 243,
-      "cost_usd": "0.001786",
-      "latency_ms": 5297,
+      "input_tokens": 1351,
+      "output_tokens": 149,
+      "cost_usd": "0.001572",
+      "latency_ms": 3162,
       "error": null
     },
     {
@@ -73,7 +77,7 @@
       "input_tokens": null,
       "output_tokens": null,
       "cost_usd": null,
-      "latency_ms": 146,
+      "latency_ms": 53,
       "error": null
     },
     {
@@ -100,7 +104,44 @@
       "input_tokens": null,
       "output_tokens": null,
       "cost_usd": null,
-      "latency_ms": 66,
+      "latency_ms": 45,
+      "error": null
+    },
+    {
+      "step_no": 1,
+      "kind": "tool",
+      "tool": "search_rulebook",
+      "argument": "price discrepancy PO match",
+      "result": {
+        "method": "vector",
+        "sections": [
+          {
+            "key": "po-match.md#how-to-resolve-a-price-above-the-order",
+            "text": "1. Look at the order and its goods receipts: was the quantity delivered, at which price was it\n   ordered?\n2. If the price was agreed later (a price increase, Preiserhöhung), the buyer who placed the order\n   confirms it in writing and the order is updated; then reopen the invoice.\n3. Otherwise ask the supplier for a credit note (Gutschrift) or a corrected invoice\n   (Rechnungskorrektur) at the ordered price.",
+            "score": 0.768,
+            "title": "PO match: invoice against purchase order",
+            "heading": "How to resolve a price above the order"
+          },
+          {
+            "key": "po-match.md#lines-in-another-order",
+            "text": "Pairing by position means reordered or split lines show false differences. Compare item names\nbefore asking the supplier.",
+            "score": 0.7582,
+            "title": "PO match: invoice against purchase order",
+            "heading": "Lines in another order"
+          },
+          {
+            "key": "po-match.md#thresholds",
+            "text": "- Unit price: more than **0.01** above the order fails; below the order is a warning.\n- Quantity: any quantity above the order fails; below the order is a warning (partial delivery,\n  Teillieferung).\n- Net total above the order by more than 0.01 fails; below it warns.\n- A line that is not on the order, another unit, another currency, or an order of another supplier\n  fails.\n- An order number that is not in the order data is a warning.",
+            "score": 0.7531,
+            "title": "PO match: invoice against purchase order",
+            "heading": "Thresholds"
+          }
+        ]
+      },
+      "input_tokens": 4,
+      "output_tokens": null,
+      "cost_usd": "0.000001",
+      "latency_ms": 452,
       "error": null
     },
     {
@@ -110,15 +151,15 @@
       "argument": null,
       "result": {
         "action": "finish",
-        "finding": "Invoice BL-2026-1187 shows a price discrepancy compared to purchase order PO-2026-0004. The invoice charges a unit price and net total of 380.00 EUR for 'Expresszustellung Ersatzteile', whereas purchase order PO-2026-0004 specifies a unit price and net total of 320.00 EUR (goods receipt WE-2026-0003 confirmed 1 unit received). The accounts-payable reviewer should contact the supplier to request a corrected invoice reflecting the agreed purchase order amount of 320.00 EUR net, or obtain internal authorization if the price increase was pre-approved.",
-        "email_body": "Sehr geehrte Damen und Herren,\n\nbei der Prüfung Ihrer Rechnung BL-2026-1187 vom 09.11.2026 zur Bestellung PO-2026-0004 haben wir eine Abweichung festgestellt.\n\nIn der Rechnung wurde für die Position 'Expresszustellung Ersatzteile' ein Nettopreis von 380,00 EUR angesetzt. Gemäß unserer Bestellung PO-2026-0004 war jedoch ein Nettobetrag von 320,00 EUR vereinbart.\n\nBitte prüfen Sie den Vorgang und senden Sie uns eine korrigierte Rechnung oder eine entsprechende Gutschrift zu.\n\nMit freundlichen Grüßen\nIhre Kreditorenbuchhaltung",
+        "finding": "The invoice BL-2026-1187 shows a unit price and net total of 380.00 EUR for 'Expresszustellung Ersatzteile', exceeding purchase order PO-2026-0004 which was ordered and goods-receipted (WE-2026-0003) at 320.00 EUR net. According to the rulebook, a reviewer must verify with the responsible purchasing agent whether a price increase was agreed upon. If no price change was approved, the supplier must be requested to issue a corrected invoice or credit note for the 60.00 EUR net difference.",
+        "email_body": "Guten Tag,\n\nbei der Prüfung Ihrer Rechnung BL-2026-1187 vom 09.11.2026 ist eine Abweichung zu unserer Bestellung PO-2026-0004 aufgetreten.\n\nIn der Rechnung wurde für die Position 'Expresszustellung Ersatzteile' ein Einzelpreis von 380,00 EUR netto angesetzt. Gemäß unserer Bestellung beträgt der vereinbarte Preis jedoch 320,00 EUR netto.\n\nBitte prüfen Sie den Vorgang und senden Sie uns eine entsprechende Rechnungskorrektur oder Gutschrift über den Differenzbetrag zu.\n\nMit freundlichen Grüßen\nIhre Kreditorenbuchhaltung",
         "tool_calls": [],
-        "email_subject": "Preisabweichung zu Rechnung BL-2026-1187 (Bestellung PO-2026-0004)"
+        "email_subject": "Preisabweichung bei Rechnung BL-2026-1187 zu Bestellung PO-2026-0004"
       },
-      "input_tokens": 1508,
-      "output_tokens": 393,
-      "cost_usd": "0.002605",
-      "latency_ms": 4652,
+      "input_tokens": 2131,
+      "output_tokens": 369,
+      "cost_usd": "0.002982",
+      "latency_ms": 4443,
       "error": null
     }
   ]

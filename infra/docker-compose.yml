@@ -1,5 +1,5 @@
 # Local development stack: api + web + db + validator (KoSIT, ADR-009) + the read-only MCP servers
-# mcp-erp and mcp-registry (ADR-017).
+# mcp-erp, mcp-registry and mcp-history (ADR-017).
 # Run from the repo root with `make dev`, which passes the root .env:
 #   docker compose --env-file .env -f infra/docker-compose.yml up --build --wait
 
@@ -24,7 +24,11 @@ services:
       start_period: 10s
 
   api:
-    build: ../apps/api
+    build:
+      context: ../apps/api
+      # The rulebook's Markdown files (docs/rulebook), copied to /app/rulebook for `make index`.
+      additional_contexts:
+        rulebook: ../docs/rulebook
     # Apply pending migrations, give the MCP roles their passwords (ADR-017), then serve. In
     # Kubernetes (R4) migrations become a separate Job.
     command:
@@ -68,6 +72,7 @@ services:
       # the defaults in settings.py.
       INVOICEGUARD_MCP_ERP_URL: http://mcp-erp:8000/mcp
       INVOICEGUARD_MCP_REGISTRY_URL: http://mcp-registry:8000/mcp
+      INVOICEGUARD_MCP_HISTORY_URL: http://mcp-history:8000/mcp
       INVOICEGUARD_AGENT_MODEL: ${INVOICEGUARD_AGENT_MODEL:-}
       # Booking suggestions (ADR-020): the embedding model; empty keeps the default.
       INVOICEGUARD_EMBEDDING_MODEL: ${INVOICEGUARD_EMBEDDING_MODEL:-}
@@ -81,6 +86,7 @@ services:
       # `invoiceguard-db-roles` at start; empty = the role cannot log in.
       INVOICEGUARD_MCP_ERP_DB_PASSWORD: ${INVOICEGUARD_MCP_ERP_DB_PASSWORD:-}
       INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD: ${INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD:-}
+      INVOICEGUARD_MCP_HISTORY_DB_PASSWORD: ${INVOICEGUARD_MCP_HISTORY_DB_PASSWORD:-}
     volumes:
       - uploads:/data/uploads
     depends_on:
@@ -117,6 +123,18 @@ services:
       INVOICEGUARD_MCP_REGISTRY_DATABASE_URL: postgresql://invoiceguard_mcp_registry:${INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD:?set INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD in .env}@db:5432/${POSTGRES_DB}
     ports:
       - "127.0.0.1:${MCP_REGISTRY_PORT:-8092}:8000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  mcp-history:
+    build: ../apps/mcp-history
+    environment:
+      INVOICEGUARD_MCP_HISTORY_DATABASE_URL: postgresql://invoiceguard_mcp_history:${INVOICEGUARD_MCP_HISTORY_DB_PASSWORD:?set INVOICEGUARD_MCP_HISTORY_DB_PASSWORD in .env}@db:5432/${POSTGRES_DB}
+      # The vectors it compares were made with this model (the api's setting).
+      INVOICEGUARD_EMBEDDING_MODEL: ${INVOICEGUARD_EMBEDDING_MODEL:-}
+    ports:
+      - "127.0.0.1:${MCP_HISTORY_PORT:-8093}:8000"
     depends_on:
       api:
         condition: service_healthy

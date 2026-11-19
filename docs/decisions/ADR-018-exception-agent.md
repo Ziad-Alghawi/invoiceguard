@@ -104,3 +104,27 @@ recording gets a clear `409`.
 - Recorded demo results go stale if the seed data changes; they are regenerated with
   `apps/api/scripts/run_agent.py`.
 - The api gains the dependency `mcp` 2.3.0 (client side, ADR-017).
+
+## Update 2026-11-19: history and rulebook tools (R3-4b)
+
+The allow-list grows to ten tools: `get_invoice_history`, `search_similar_invoices` and `search_rulebook` on
+`mcp-history` (ADR-017). What changed in the loop:
+
+- **Argument limits in code.** Each tool has a pattern (VAT ID, IBAN, order number, `current`, or a question of 3 to
+  200 characters without control characters), matched in full before anything is sent; the schema caps every
+  argument at 200 characters. An argument out of shape is a tool error the model sees, counts as a tool call, and
+  reaches no server and no embedder. The servers check again.
+- **The agent cannot choose an invoice.** `search_similar_invoices` takes the literal `current`; the loop passes the
+  investigated invoice's id. The model never sees an id, and the prompt stays the same across runs, which recorded
+  replay needs (ADR-019).
+- **The api embeds rulebook questions.** For `search_rulebook` the loop embeds the question (task `query`) and sends
+  the vector with it. The embedding is a model call with purpose `agent`, so it counts against the per-invoice cost
+  cap, the daily budget and the run's totals, and it is shown on the tool step. Without a key, on an error, or with
+  an unknown price, the vector is dropped and the server searches by full text.
+- **The prompt** names the history and the rulebook as data like any tool result ("past invoices were written by
+  suppliers too") and says what each is for. Every result stays inside `<<<UNTRUSTED_TOOL_RESULT>>>`.
+
+Poisoning through retrieval (OWASP ASI06): attack text that passed the scan on an earlier invoice reaches the model
+later through the history. The attack set has 10 such cases (ADR-019); the history excludes invoices that failed the
+injection check, but that check is heuristic, so the model must hold on its own. The recorded demo runs were made
+again with the new prompt and tools.

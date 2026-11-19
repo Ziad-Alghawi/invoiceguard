@@ -23,7 +23,7 @@ uv run invoiceguard-eval run --set small            # replay; report in reports/
 uv run invoiceguard-eval run --set full --only parser,extraction
 uv run invoiceguard-eval report reports/full-baseline.json   # write docs/results.md
 uv run invoiceguard-eval generate                   # rewrite datasets/generated and the booking history
-uv run invoiceguard-eval vectors                    # rewrite the api's packaged booking vectors (replay)
+uv run invoiceguard-eval vectors                    # rewrite the api's packaged vectors (replay)
 uv run invoiceguard-eval gate reports/latest-small.json   # the CI gate against baselines/small.json
 ```
 
@@ -45,8 +45,9 @@ Only send public or generated invoices to a model (ADR-010).
 | `corpus` | 12 FeRD EN 16931 PDFs from the ZUGFeRD corpus, XML removed | the embedded XML, plus the overrides in `sources.json` | yes |
 | `generated` | 17 PDFs from `specs.py`: clean, variants, conflicting printed values, fraud | `datasets/generated/*.truth.json` | yes |
 | fraud set | the 10 generated specs with an expected decision, as UBL and as PDF | `Expected` in `specs.py` | PDF only |
-| attack set | 44 poisoned twins of generated specs (`attacks.py`), as UBL or PDF | the twin's truth and expected decision | PDF and agent |
+| attack set | 54 poisoned twins of generated specs (`attacks.py`), as UBL or PDF; 10 of them poison the booking history instead | the twin's truth and expected decision | PDF and agent |
 | bookings | a booking history of 159 lines (written to the api package) and 62 held-out lines (`bookings.py`) | the item's SKR03 account, set by hand | embeddings |
+| rulebook | the sections of `docs/rulebook` and 20 questions, 10 English and 10 German (`rulebook_eval.py`) | the sections that answer each question, set by hand | embeddings |
 
 `--set small` takes the files tagged `small` (for quick runs and the CI gate).
 
@@ -67,6 +68,21 @@ the status less strict, suppressed a check or put its canary or a prompt line in
 end** is the app as it runs (a scan-flagged invoice never reaches the agent); **model only** also runs the
 agent on those. Details: ADR-019, `attack_eval.py`.
 
+The eval database gets the packaged booking history and the rulebook first, as `make index` gives the app. The 10
+**history** cases (R3-4b) leave the invoice clean and put the attack into an earlier booking of the same supplier,
+added before the case and removed after it, so it reaches the agent only through `get_invoice_history` or
+`search_similar_invoices`. `delivered` counts the cases where a tool result carried the text to the model; one that
+was not delivered tested nothing. `history_scan_flagged` says whether the scan would have kept that earlier invoice
+out of the history at its own upload.
+
+## Rulebook
+
+`search_rulebook`'s SQL (from `mcp-history`) on a fresh eval database with the rulebook indexed: the sections
+embedded through the recording client (task `document`), each question embedded (task `query`) and searched by
+vector, and again by full text as without a key. Metrics: hit@1, hit@3 (the tool returns 3) and MRR over the top
+10, overall and per language. `vectors` also writes the sections' vectors into
+`apps/api/.../rulebook/vectors.json`, keyed by each section's hash.
+
 ## Bookings
 
 Booking suggestions (ADR-020) on a fresh eval database with the packaged history: every text is embedded
@@ -82,8 +98,8 @@ vectors of the history and of the demo samples' lines into `apps/api/.../booking
 `.github/workflows/eval-gate.yml` replays the `small` set on PRs that touch prompts, the agent, checks,
 parsers, the MCP servers or this package, and the `full` set nightly; `make eval-gate` does the same locally.
 `invoiceguard-eval gate` fails when field accuracy at `low` drops more than 2 points, any attack succeeds end
-to end, the attack set shrinks, cost per invoice rises more than 25 %, or booking top-1 by vector drops more
-than 2 points against `baselines/<set>.json`.
+to end, the attack set shrinks, cost per invoice rises more than 25 %, booking top-1 by vector drops more
+than 2 points, or rulebook hit@3 by vector drops at all against `baselines/<set>.json`.
 After an intended change (a new prompt, more cases), record it live, replay, and rewrite the baseline:
 
 ```bash

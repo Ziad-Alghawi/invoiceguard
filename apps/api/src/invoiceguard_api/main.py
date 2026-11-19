@@ -10,9 +10,11 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from pydantic import AnyHttpUrl
 from starlette.concurrency import run_in_threadpool
 
 from invoiceguard_api.agent.loop import ExceptionAgent, Limits
+from invoiceguard_api.agent.schema import Server
 from invoiceguard_api.agent.service import fail_interrupted
 from invoiceguard_api.agent.tools import AgentTools, McpTools
 from invoiceguard_api.auth import router as auth_router
@@ -75,7 +77,10 @@ def make_extractor(settings: Settings, llm_client: LLMClient | None) -> PdfExtra
 
 
 def make_agent(
-    settings: Settings, llm_client: LLMClient | None, tools: AgentTools | None
+    settings: Settings,
+    llm_client: LLMClient | None,
+    tools: AgentTools | None,
+    embedder: Embedder | None = None,
 ) -> ExceptionAgent | None:
     """The exception agent (ADR-018), or None without a model or without the MCP servers: the
     "Investigate" button then shows a recorded run where there is one."""
@@ -83,12 +88,16 @@ def make_agent(
         logger.info("The exception agent is off: no LLM API key")
         return None
     if tools is None:
-        if settings.mcp_erp_url is None or settings.mcp_registry_url is None:
+        urls: dict[Server, AnyHttpUrl | None] = {
+            "erp": settings.mcp_erp_url,
+            "registry": settings.mcp_registry_url,
+            "history": settings.mcp_history_url,
+        }
+        if any(url is None for url in urls.values()):
             logger.info("The exception agent is off: INVOICEGUARD_MCP_*_URL is not set")
             return None
         tools = McpTools(
-            {"erp": str(settings.mcp_erp_url), "registry": str(settings.mcp_registry_url)},
-            settings.mcp_timeout_seconds,
+            {server: str(url) for server, url in urls.items()}, settings.mcp_timeout_seconds
         )
     return ExceptionAgent(
         llm_client,
@@ -102,6 +111,8 @@ def make_agent(
             settings.agent_timeout_seconds,
         ),
         settings.llm_daily_budget_usd,
+        embedder=embedder,
+        embedding_model=settings.embedding_model,
     )
 
 
@@ -126,8 +137,8 @@ def create_app(
     )
     llm_client = make_llm_client(settings, llm_client)
     extractor = make_extractor(settings, llm_client)
-    agent = make_agent(settings, llm_client, agent_tools)
     embedder = make_embedder(settings, embedder)
+    agent = make_agent(settings, llm_client, agent_tools, embedder)
 
     def recover() -> None:
         try:

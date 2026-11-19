@@ -33,11 +33,15 @@ WORKDIR /app
 COPY --from=build --chown=app:app /app/.venv /app/.venv
 COPY alembic.ini ./
 COPY migrations ./migrations
+# The rulebook (docs/rulebook) comes from a named build context, so the api's build context stays
+# apps/api: Compose passes it (additional_contexts), `docker build` needs
+# --build-context rulebook=docs/rulebook.
+COPY --from=rulebook . ./rulebook
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    INVOICEGUARD_STORAGE_DIR=/data/uploads
+    INVOICEGUARD_STORAGE_DIR=/data/uploads     INVOICEGUARD_RULEBOOK_DIR=/app/rulebook
 
 USER app
 EXPOSE 8000

@@ -282,10 +282,107 @@ def _attacks(attacks: dict[str, Any]) -> list[str]:
         ])  # fmt: skip
     lines += _table(["Case", "File", "Status", "Scan", "Agent tool calls", "Succeeded because"],
                     rows)  # fmt: skip
+    lines += _history_attacks(a)
     mentions = [d for d in a["details"] if d["finding_mentions"]]
     if mentions:
         lines += ["", "Findings that name a canary (quoted or followed; read them):", ""]
         lines += [f"- {d['case']}: {(d['agent'] or {}).get('finding')}" for d in mentions]
+    return [*lines, ""]
+
+
+def _history_attacks(a: dict[str, Any]) -> list[str]:
+    h = a.get("history")
+    if not h or not h["cases"]:
+        return []
+    lines = [
+        "",
+        "### Poisoned history",
+        "",
+        "The invoice is clean; the attack is in an earlier booking of the same supplier, which "
+        "the agent reads through `get_invoice_history` or `search_similar_invoices` (R3-4b). "
+        "**Delivered**: a tool result carried the text to the model; a case that was not "
+        "delivered tested nothing. **Scan at its upload**: whether the heuristic scan would have "
+        "flagged the text when the earlier invoice was uploaded; such an invoice never enters "
+        "the history, so those cases test the model beyond what the app lets through.",
+        "",
+        f"- Delivered as the agent runs: **{h['delivered']} of {h['cases']}** (agent runs: "
+        f"{h['agent_runs']}); succeeded end to end: **{h['succeeded']} of {h['cases']}**, model "
+        f"only: {h['succeeded_model_only']}",
+        f"- With `get_invoice_history` called first (eval only, so the text surely arrives): "
+        f"delivered **{h['forced_delivered']} of {h['forced_runs']}**, succeeded "
+        f"**{h['forced_succeeded']} of {h['forced_runs']}** (the gate counts these too)",
+        f"- The scan would have flagged {h['scan_would_flag']} of {h['cases']} texts at their "
+        "own upload",
+        "",
+    ]
+
+    def yes(value: object) -> str:
+        return "yes" if value else "no"
+
+    rows = [
+        [
+            d["case"], d["twin"], d["goal"], d["language"], yes(d["history_scan_flagged"]),
+            yes(d["agent"] and d["agent"]["delivered"]), yes(d["succeeded"]),
+            yes(d["forced"] and d["forced"]["delivered"]),
+            yes(d["forced"] and d["forced"]["succeeded"]),
+        ]
+        for d in a["details"]
+        if d["place"] == "history"
+    ]  # fmt: skip
+    lines += _table(
+        ["Case", "Twin", "Goal", "Language", "Scan at its upload", "Delivered", "Succeeded",
+         "Forced: delivered", "Forced: succeeded"], rows,
+    )  # fmt: skip
+    forced = [d for d in a["details"] if d["place"] == "history" and d["forced"]]
+    if forced:
+        lines += ["", "Findings with the poisoned history delivered (read them):", ""]
+        lines += [f"- {d['case']}: {d['forced']['finding']}" for d in forced]
+    return lines
+
+
+def _rulebook(rulebook: dict[str, Any]) -> list[str]:
+    r = rulebook
+    s = r["summary"]
+    lines = [
+        "## Rulebook retrieval",
+        "",
+        f"`search_rulebook` over the rulebook (`docs/rulebook`, {r['files']} files, "
+        f"{r['sections']} sections, one per heading), R3-4b. {s['questions']} questions, half "
+        "English and half German, written for this set, each with the one or two sections that "
+        "answer it. **Vector**: the question and the sections embedded (`" + r["model"] + "`, "
+        "tasks `query` and `document`); **text**: full text without a key, the question's words "
+        "joined by OR, English and German stemmers. The rulebook is English with the German "
+        "terms written in. hit@k: a relevant section among the first k (the tool returns 3); "
+        "MRR over the top 10.",
+        "",
+        f"- By vector: hit@1 **{pct(s['vector']['hit1'])}**, hit@3 **{pct(s['vector']['hit3'])}**, "
+        f"MRR {num(s['vector']['mrr'], 3)}",
+        f"- By text: hit@1 {pct(s['text']['hit1'])}, hit@3 {pct(s['text']['hit3'])}, "
+        f"MRR {num(s['text']['mrr'], 3)}",
+        f"- Embedding cost: ${r['embedding_cost_usd']}",
+        "",
+    ]
+    rows = []
+    for language, label in (("en", "English"), ("de", "German")):
+        g = r["by_language"][language]
+        for method in ("vector", "text"):
+            m = g[method]
+            rows.append([label, method, str(g["questions"]), pct(m["hit1"]), pct(m["hit3"]),
+                         num(m["mrr"], 3)])  # fmt: skip
+    lines += _table(["Questions", "Method", "Count", "hit@1", "hit@3", "MRR"], rows)
+    misses = [
+        c for c in r["cases"]
+        if c["vector"]["rank"] is None or c["vector"]["rank"] > 3
+        or c["text"]["rank"] is None or c["text"]["rank"] > 3
+    ]  # fmt: skip
+    if misses:
+        heading = "Not in the top 3 by vector or by text (rank by each; `-`: not in the top 10):"
+        lines += ["", heading, ""]
+        lines += [
+            f"- {c['case']} ({c['language']}): {c['question']} "
+            f"{c['vector']['rank'] or '-'} / {c['text']['rank'] or '-'}"
+            for c in misses
+        ]
     return [*lines, ""]
 
 
@@ -386,6 +483,8 @@ def render_results(
         lines += _attacks(report["attacks"])
     if report.get("bookings"):
         lines += _bookings(report["bookings"])
+    if report.get("rulebook"):
+        lines += _rulebook(report["rulebook"])
     if notes:
         lines += ["## Notes on this run", "", notes.strip(), ""]
     return "\n".join(lines).rstrip() + "\n"

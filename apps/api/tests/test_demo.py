@@ -17,12 +17,16 @@ from invoiceguard_api.models import (
     DatevExport,
     Embedding,
     Invoice,
+    RulebookChunk,
     SecurityEvent,
     Supplier,
     User,
 )
+from invoiceguard_api.rulebook.chunks import load
 from invoiceguard_api.settings import Settings, get_settings
 from invoiceguard_api.storage import FileStorage
+
+RULEBOOK = Path(__file__).resolve().parents[3] / "docs" / "rulebook"
 
 # What a visitor sees after a reset (without the KoSIT validator and without an LLM key).
 EXPECTED = {
@@ -43,6 +47,7 @@ def _reset(engine: Engine, settings: Settings) -> None:
         KositValidator(None, 1.0),
         None,
         settings.embedding_model,
+        RULEBOOK,
     )
 
 
@@ -66,6 +71,10 @@ def test_reset_loads_the_samples_with_their_outcomes(
     _reset(engine, settings)
     assert db_session.scalar(select(func.count(Booking.id))) == 159
     assert db_session.scalar(select(func.count(Embedding.id))) == 59
+    # The rulebook's sections (R3-4b), with their packaged vectors.
+    chunks = db_session.scalars(select(RulebookChunk)).all()
+    assert len(chunks) == len(load(RULEBOOK))
+    assert all(chunk.vector is not None for chunk in chunks)
 
 
 def test_reset_deletes_invoices_exports_and_files_and_keeps_the_audit_log(

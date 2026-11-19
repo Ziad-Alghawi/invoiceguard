@@ -735,6 +735,7 @@ dependencies = [
     { name = "httpx2" },
     { name = "invoiceguard-api" },
     { name = "invoiceguard-mcp-erp" },
+    { name = "invoiceguard-mcp-history" },
     { name = "invoiceguard-mcp-registry" },
     { name = "reportlab" },
 ]
@@ -753,6 +754,7 @@ requires-dist = [
     { name = "httpx2", specifier = ">=2.16.0" },
     { name = "invoiceguard-api", editable = "../../apps/api" },
     { name = "invoiceguard-mcp-erp", editable = "../../apps/mcp-erp" },
+    { name = "invoiceguard-mcp-history", editable = "../../apps/mcp-history" },
     { name = "invoiceguard-mcp-registry", editable = "../../apps/mcp-registry" },
     { name = "reportlab", specifier = "==5.1.0" },
 ]
@@ -770,6 +772,29 @@ dev = [
 name = "invoiceguard-mcp-erp"
 version = "0.1.0"
 source = { editable = "../../apps/mcp-erp" }
+dependencies = [
+    { name = "mcp" },
+    { name = "psycopg", extra = ["binary"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mcp", specifier = "==2.3.0" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.3.8" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.4.1" },
+    { name = "pytest", specifier = ">=9.2.0" },
+    { name = "pytest-cov", specifier = ">=7.1.0" },
+    { name = "ruff", specifier = ">=0.17.5" },
+]
+
+[[package]]
+name = "invoiceguard-mcp-history"
+version = "0.1.0"
+source = { editable = "../../apps/mcp-history" }
 dependencies = [
     { name = "mcp" },
     { name = "psycopg", extra = ["binary"] },

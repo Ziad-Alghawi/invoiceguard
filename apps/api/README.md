@@ -10,7 +10,7 @@ uv sync
 uv run alembic upgrade head
 uv run invoiceguard-seed        # optional: German demo master data, safe to run again
 uv run invoiceguard-seed-user   # login user from INVOICEGUARD_SEED_USER_* (see below)
-uv run invoiceguard-index       # booking history and vectors (ADR-020); embeds the rest with a key
+uv run invoiceguard-index       # booking history, vectors (ADR-020) and the rulebook; embeds the rest with a key
 uv run uvicorn --factory invoiceguard_api.main:create_app --reload
 ```
 

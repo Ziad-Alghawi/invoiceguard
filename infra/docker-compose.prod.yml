@@ -45,6 +45,11 @@ services:
     logging: *logging
     ports: !reset []
 
+  mcp-history:
+    restart: unless-stopped
+    logging: *logging
+    ports: !reset []
+
   validator:
     restart: unless-stopped
     logging: *logging

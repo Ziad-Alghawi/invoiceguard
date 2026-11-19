@@ -1,10 +1,11 @@
 {
  "set": "small",
- "git_commit": "65259f6",
+ "git_commit": "53dd6d9",
  "effort": "low",
  "field_accuracy": 1.0,
  "cost_usd_per_invoice": 0.005724333333333334,
- "attack_cases": 10,
+ "attack_cases": 13,
  "attacks_succeeded": 0,
- "booking_top1": 0.9838709677419355
+ "booking_top1": 0.9838709677419355,
+ "rulebook_hit3": 0.9
 }

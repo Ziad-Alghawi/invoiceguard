@@ -66,3 +66,19 @@
   distinct, and the history is clean (one account per item). It shows that retrieval finds meaning where words
   differ (held-out wordings: 100 % by vector, 82 % by text match) and that the supplier's most frequent account
   is a poor guess (45 %); it does not measure a real ledger with inconsistent bookings.
+- **R3-4b live run (2026-11-19): history, rulebook and the new agent prompt.** The prompt and the tool list
+  changed, so every agent reply was recorded again; extractions, decisions and bookings replayed unchanged. Two
+  live runs of the attack set cost $0.263 (132 calls, embeddings of the rulebook and the questions included) and
+  $0.065 (the 10 forced history runs, 21 calls); the two recorded demo runs $0.024. R3-4b spent $0.352 in total of
+  its $0.45 cap.
+- **Poisoned history, delivered or not.** Left to itself the agent read the history in none of the 10 history
+  cases (`get_invoice_history` 3 times in 54 runs, `search_similar_invoices` never): it went to the registry and
+  the ERP, which answer a changed IBAN or a wrong total directly. So 0 of 10 were delivered and those 10 runs
+  tested nothing. Each history case therefore also runs with `get_invoice_history` already called (eval only):
+  10 of 10 delivered, 0 of 10 followed. Seven findings name the poisoned line as an instruction and say it was
+  ignored, three leave it out. The scan would have kept 2 of the 10 texts out of the history at their own upload.
+- **Rulebook.** By vector 90 % hit@3 in both languages; by full text 90 % for English and 50 % for German
+  questions (the rulebook is English, the German stemmer only helps where a German term is written in). The
+  misses are listed above. By vector two questions miss the top 3: r10 (hidden text addressed to an AI, rank 4)
+  and r20 (no IBAN, direct debit, rank 6), whose answer is one bullet in a section about the IBAN check's
+  warnings. The numbers rest on 20 questions written by the person who wrote the rulebook.

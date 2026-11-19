@@ -1,4 +1,4 @@
-"""Give the MCP servers' database roles (migration 0010, ADR-017) their login passwords.
+"""Give the MCP servers' database roles (migrations 0010 and 0013, ADR-017) their login passwords.
 
 Migration 0010 creates the roles without LOGIN and grants them SELECT on their own tables; the
 passwords are secrets, so they come from the environment here, never from a migration. A role
@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 ERP_ROLE = "invoiceguard_mcp_erp"
 REGISTRY_ROLE = "invoiceguard_mcp_registry"
+HISTORY_ROLE = "invoiceguard_mcp_history"
 
 
 class RolePasswords(BaseSettings):
@@ -36,9 +37,14 @@ class RolePasswords(BaseSettings):
 
     mcp_erp_db_password: SecretStr | None = None
     mcp_registry_db_password: SecretStr | None = None
+    mcp_history_db_password: SecretStr | None = None
 
     def by_role(self) -> dict[str, SecretStr | None]:
-        return {ERP_ROLE: self.mcp_erp_db_password, REGISTRY_ROLE: self.mcp_registry_db_password}
+        return {
+            ERP_ROLE: self.mcp_erp_db_password,
+            REGISTRY_ROLE: self.mcp_registry_db_password,
+            HISTORY_ROLE: self.mcp_history_db_password,
+        }
 
 
 def statement(role: str, password: SecretStr | None) -> sql.Composed:

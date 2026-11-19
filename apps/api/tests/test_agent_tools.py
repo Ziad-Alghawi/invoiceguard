@@ -18,11 +18,12 @@ FRAUD_IBAN = "DE58876543210000000099"  # pragma: allowlist secret
 URLS: dict[Any, str] = {
     "erp": "http://mcp-erp:8000/mcp",
     "registry": "http://mcp-registry:8000/mcp",
+    "history": "http://mcp-history:8000/mcp",
 }
 
 
 class FakeClient:
-    calls: ClassVar[list[tuple[str, str, dict[str, str]]]] = []
+    calls: ClassVar[list[tuple[str, str, dict[str, Any]]]] = []
     result: ClassVar[Any] = None
     error: ClassVar[Exception | None] = None
     delay: ClassVar[float] = 0.0
@@ -43,7 +44,7 @@ class FakeClient:
     ) -> None:
         return None
 
-    async def call_tool(self, tool: str, arguments: dict[str, str]) -> Any:
+    async def call_tool(self, tool: str, arguments: dict[str, Any]) -> Any:
         FakeClient.calls.append((self.url, tool, arguments))
         await anyio.sleep(FakeClient.delay)
         return FakeClient.result
@@ -67,6 +68,24 @@ def test_calls_the_tool_on_its_server_with_its_parameter() -> None:
     assert FakeClient.calls == [
         (URLS["registry"], "check_iban", {"iban": FRAUD_IBAN}),
         (URLS["erp"], "get_goods_receipts", {"po_number": "PO-2026-0004"}),
+    ]
+
+
+def test_the_rulebook_gets_the_query_vector_and_other_tools_do_not() -> None:
+    tools = McpTools(URLS, timeout_seconds=5)
+
+    tools.call("search_rulebook", "IBAN changed?", [0.5, 0.25])
+    tools.call("search_rulebook", "IBAN changed?")
+    tools.call("get_invoice_history", "DE999000033", [0.5])
+
+    assert FakeClient.calls == [
+        (
+            URLS["history"],
+            "search_rulebook",
+            {"query": "IBAN changed?", "query_vector": [0.5, 0.25]},
+        ),
+        (URLS["history"], "search_rulebook", {"query": "IBAN changed?", "query_vector": None}),
+        (URLS["history"], "get_invoice_history", {"vat_id": "DE999000033"}),
     ]
 
 

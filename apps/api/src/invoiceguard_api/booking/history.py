@@ -11,22 +11,23 @@
 imported history, loads the packaged vectors, and with a model key embeds every booking and
 invoice line text that has no vector for the configured model yet (after a model change, every
 text). Approved invoices are indexed when they are approved (record.py); nothing else changes.
+With `INVOICEGUARD_RULEBOOK_DIR` set it also syncs the rulebook's chunks (rulebook/index.py).
 """
 
-import base64
 import json
 import logging
-import struct
 import sys
+from dataclasses import asdict
 from datetime import date
 from importlib.resources import files
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from invoiceguard_api.booking.embedding import EmbeddingFailed, embed_missing
+from invoiceguard_api.booking.embedding import EmbeddingFailed, decode_vector, embed_missing
 from invoiceguard_api.booking.text import normalise, text_sha256
 from invoiceguard_api.checks.supplier import normalise_vat_id
 from invoiceguard_api.db import make_engine, make_session_factory
@@ -41,6 +42,9 @@ from invoiceguard_api.models import (
     InvoiceField,
 )
 from invoiceguard_api.parsing.fields import LINE_TERMS
+from invoiceguard_api.rulebook import chunks as rulebook_chunks
+from invoiceguard_api.rulebook import index as rulebook_index
+from invoiceguard_api.rulebook.chunks import RulebookError
 from invoiceguard_api.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -48,16 +52,6 @@ logger = logging.getLogger(__name__)
 PACKAGE = files("invoiceguard_api") / "booking"
 HISTORY = PACKAGE / "history.json"
 VECTORS = PACKAGE / "vectors.json"
-# Little-endian float32: 3 KB per 768-dimension vector in base64.
-_FORMAT = f"<{EMBEDDING_DIMENSIONS}f"
-
-
-def encode_vector(vector: tuple[float, ...] | list[float]) -> str:
-    return base64.b64encode(struct.pack(_FORMAT, *vector)).decode("ascii")
-
-
-def decode_vector(encoded: str) -> list[float]:
-    return list(struct.unpack(_FORMAT, base64.b64decode(encoded)))
 
 
 def packaged_history() -> list[dict[str, Any]]:
@@ -142,14 +136,21 @@ def all_texts(session: Session) -> list[str]:
     return [*bookings, *lines]
 
 
-def rebuild(session: Session, model: str, embedder: Embedder | None) -> dict[str, int]:
-    """`invoiceguard-index`: import the packaged index, then embed what is missing."""
+def rebuild(
+    session: Session, model: str, embedder: Embedder | None, rulebook_dir: Path | None = None
+) -> dict[str, int]:
+    """`invoiceguard-index`: import the packaged index, then embed what is missing; then the
+    rulebook, when its directory is given."""
     imported, loaded = import_packaged(session, model)
     session.commit()
     embedded = (
         0 if embedder is None else embed_missing(session, embedder, model, all_texts(session))
     )
-    return {"imported_bookings": imported, "loaded_vectors": loaded, "embedded_texts": embedded}
+    counts = {"imported_bookings": imported, "loaded_vectors": loaded, "embedded_texts": embedded}
+    if rulebook_dir is not None:
+        synced = rulebook_index.sync(session, rulebook_chunks.load(rulebook_dir), model, embedder)
+        counts |= {f"rulebook_{name}": value for name, value in asdict(synced).items()}
+    return counts
 
 
 def main() -> None:
@@ -161,9 +162,11 @@ def main() -> None:
     engine = make_engine(str(settings.database_url))
     try:
         with make_session_factory(engine)() as session:
-            counts = rebuild(session, settings.embedding_model, embedder)
+            counts = rebuild(session, settings.embedding_model, embedder, settings.rulebook_dir)
+    except RulebookError as error:
+        sys.exit(f"Rulebook: {error}")
     except EmbeddingFailed as error:
         sys.exit(f"Embedding failed: {error}. The texts embedded before it are stored.")
     finally:
         engine.dispose()
-    logger.info("Booking index: %s", counts)
+    logger.info("Index: %s", counts)

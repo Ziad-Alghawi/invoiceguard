@@ -1,0 +1,41 @@
+{
+ "syntax": "pdf",
+ "invoice_number": "2026-IT-1031-A46",
+ "issue_date": "2027-02-28",
+ "type_code": "380",
+ "currency": "EUR",
+ "due_date": "2027-03-14",
+ "seller_name": "Demo IT-Service GmbH",
+ "seller_vat_id": "DE999000033",
+ "buyer_name": "Beispielkunde Handels GmbH",
+ "buyer_vat_id": "DE999000068",
+ "payee_iban": "DE87123456780000000099",
+ "order_reference": "PO-2026-0006",
+ "line_total": "890.00",
+ "allowance_total": null,
+ "charge_total": null,
+ "net_total": "890.00",
+ "tax_total": "169.10",
+ "gross_total": "1059.10",
+ "amount_due": "1059.10",
+ "lines": [
+  {
+   "line_id": "1",
+   "item_name": "IT-Support-Pauschale Oktober 2026",
+   "quantity": "1",
+   "unit_code": "MON",
+   "net_price": "890.00",
+   "net_amount": "890.00",
+   "vat_rate": "19"
+  }
+ ],
+ "vat_breakdown": [
+  {
+   "category_code": "S",
+   "rate": "19",
+   "taxable_amount": "890.00",
+   "tax_amount": "169.10"
+  }
+ ],
+ "warnings": []
+}

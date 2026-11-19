@@ -109,3 +109,30 @@ Forces:
   errors). The numbers show that the mechanism works, not how it does on a real ledger.
 - `create_app` takes an `embedder`; a given `llm_client` does not embed, so the fraud and attack
   evals need no embedding recordings.
+
+## Update 2026-11-19: the rulebook and the agent's history tools (R3-4b)
+
+The second PR of R3-4 adds what PLAN section 9 calls the rulebook, and gives the agent the history (ADR-017,
+ADR-018).
+
+- **Rulebook:** `docs/rulebook`, 10 short English files with the German terms written in (one per check, the
+  review rules, SKR03 guidance), split by `##` heading into 42 sections of at most 1,500 characters; a longer one is
+  an error, not cut. `rulebook_chunks` (migration 0013) holds them with their file's SHA-256 as the version, a
+  generated `tsvector` (English and German stemmers, GIN index) and a vector.
+- **Vectors on the chunks, other task types.** Rulebook search compares a question with passages, not two lines, so
+  sections are embedded with `RETRIEVAL_DOCUMENT` and questions with `RETRIEVAL_QUERY` (same model, 768 dimensions);
+  the vector sits on `rulebook_chunks` rather than in `embeddings`, whose key (model, text) assumes one task.
+  `invoiceguard-index` and the demo reset sync the table (a changed section loses its vector) and load packaged
+  vectors written from the eval's recordings, so the demo and CI need no key.
+- **Search:** by vector when the api sends the question's vector; otherwise full text, the question's words joined
+  by OR (a natural question rarely has all its words in one section) and ranked with `ts_rank`. Measured on 20
+  questions: hit@3 90 % by vector in both languages; full text 90 % for English, 50 % for German.
+- **The image gets the files** through a named build context (`additional_contexts` in Compose), so the api's
+  build context stays `apps/api` and the rulebook has one copy.
+
+Alternatives: the rulebook in the api package (two places to edit, or a copy and a drift test); one vector store for
+lines and sections (one key would mix task types); German and English sections (twice the text to keep in step).
+
+Consequences: changing a section means new packaged vectors (`invoiceguard-eval vectors --live`), or the section is
+found by full text only; a test fails while a section has none. German questions without a key do noticeably
+worse.

@@ -46,9 +46,10 @@ mechanism, not real separation of duties.
   instructions to an AI (English and German) and hidden Unicode characters; a hit blocks the invoice. Failed logins,
   lockouts, refused role checks, self-approval attempts and injections go to an append-only security log that
   approvers can read.
-- **Exception agent:** a blocked invoice is investigated by an LLM agent with read-only tools on two MCP servers
-  (ERP and supplier registry, each with its own read-only database role). It writes a finding for the reviewer and a
-  German email draft to the supplier, with every step, token and cent shown; it cannot approve or change anything.
+- **Exception agent:** a blocked invoice is investigated by an LLM agent with read-only tools on three MCP servers
+  (ERP, supplier registry, and booking history with the accounts-payable rulebook; each with its own read-only
+  database role). It writes a finding for the reviewer and a German email draft to the supplier, with every step,
+  token and cent shown; it cannot approve or change anything.
 - **Booking suggestions (RAG, no chat model):** each invoice line gets an SKR03 account suggested from the
   accounts booked for similar lines before (Gemini embeddings in pgvector, a trigram text match without a key),
   with the bookings it rests on. The reviewer picks the account per line when approving; only approved invoices
@@ -69,7 +70,7 @@ flowchart LR
     api -- "XML" --> kosit["KoSIT validator<br/>(Java service)"]
     api -. "plain PDFs only,<br/>strict schema, cost cap" .-> llm[("Gemini Flash<br/>via LiteLLM")]
     api -- "approved invoices" --> datev[/"DATEV-style CSV"/]
-    api -. "blocked invoices:<br/>exception agent" .-> mcp["mcp-erp, mcp-registry<br/>read-only MCP servers"]
+    api -. "blocked invoices:<br/>exception agent" .-> mcp["mcp-erp, mcp-registry, mcp-history<br/>read-only MCP servers"]
     mcp -- "own read-only roles" --> db
 ```
 
@@ -135,7 +136,8 @@ the user's session. The public demo runs this stack on one VPS with Docker Compo
    **Blocked invoices are investigated** by the exception agent ([ADR-018](docs/decisions/ADR-018-exception-agent.md)):
    an own bounded loop over the model (at most 8 steps, 12 tool calls, 90 s and $0.05 per invoice) that calls
    read-only MCP tools ([ADR-017](docs/decisions/ADR-017-read-only-mcp-servers.md)), for example "which supplier
-   has this IBAN?" or "what did we order and receive?". It returns an English finding and a German email draft;
+   has this IBAN?", "what did we order and receive?", "what did this supplier invoice before?" or "how do we resolve
+   a changed IBAN?" (a search over the short rulebook in [docs/rulebook](docs/rulebook)). It returns an English finding and a German email draft;
    the recipient comes from the supplier master data, never from the invoice. It runs outside the approval graph and
    cannot change the invoice. Invoices flagged for prompt injection are never sent to it. On the public demo (no model
    key) the "Investigate" button shows a recorded real run for the sample invoices, labelled as recorded.
@@ -153,10 +155,11 @@ the user's session. The public demo runs this stack on one VPS with Docker Compo
 - **Humans decide:** approval is an `interrupt()` in the processing graph; a blocked invoice needs two people
   (ADR-003, ADR-015, ADR-016). No tool can pay, post or write to the ERP or registry; none exists.
 - **Read-only tools, least privilege:** each MCP server logs in with its own PostgreSQL role that may only `SELECT`
-  its own tables (the registry server sees four supplier columns); tests prove other tables and all writes are refused
-  (ADR-017).
-- **Untrusted content stays data:** invoice fields and tool results go to models as JSON between labelled markers,
-  never into system prompts; the injection scan blocks suspicious invoices and keeps them away from the agent.
+  its own tables (the registry server sees four supplier columns; the history server sees views of approved history
+  and the rulebook, never the invoices table); tests prove other tables and all writes are refused (ADR-017).
+- **Untrusted content stays data:** invoice fields and tool results, history and rulebook text included, go to
+  models as JSON between labelled markers, never into system prompts; the injection scan blocks suspicious invoices,
+  keeps them away from the agent and out of the history it can retrieve.
 - **Bounded agent:** a closed list of tools in the response schema and again in code, step, tool-call, time and
   per-invoice cost limits, every step saved with its cost (ADR-018).
 
@@ -164,7 +167,16 @@ _The full OWASP Agentic Top 10 mapping comes with the attack set in R3._
 
 ## Results
 
-_Coming in R3 (field accuracy, fraud recall, attack success rate, cost per invoice, p95 latency)._
+Measured with the eval harness and replayed in CI ([docs/results.md](docs/results.md), ADR-019):
+
+- PDF extraction (`gemini/gemini-3.8-flash`, thinking `low`): 99.2 % of document terms right on completed
+  extractions, $0.0058 per invoice
+- Fraud set: 10 of 10 decided as expected, as XML and as PDF; no clean invoice flagged
+- Prompt injection: 0 of 54 attacks succeeded, including 10 that arrive later through the booking history
+- Booking suggestions: 98.4 % top-1 by vector on 62 held-out lines
+- Rulebook search: 90 % hit@3 by vector on 20 German and English questions
+
+The sets are small and generated or public; the numbers show the mechanisms work, not how they do on real invoices.
 
 ## Model comparison
 
@@ -245,6 +257,9 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
 - [ADR-014: R1 demo on one VPS with Docker Compose and Caddy](docs/decisions/ADR-014-demo-hosting-single-vps.md)
 - [ADR-015: Processing graph with LangGraph, approval as `interrupt()`](docs/decisions/ADR-015-processing-graph-approval-interrupt.md)
 - [ADR-016: Four-eyes override of blocked invoices and reopening rejected invoices](docs/decisions/ADR-016-four-eyes-override-and-reopen.md)
+- [ADR-017: Read-only MCP servers with one database role each](docs/decisions/ADR-017-read-only-mcp-servers.md)
+- [ADR-018: Exception agent: an own bounded loop outside the graph, with a per-invoice cost cap](docs/decisions/ADR-018-exception-agent.md)
+- [ADR-019: Evaluation harness with pinned datasets and recorded model replies](docs/decisions/ADR-019-eval-harness.md)
 - [ADR-020: Booking suggestions by retrieval over pgvector, with Gemini embeddings](docs/decisions/ADR-020-booking-suggestions-pgvector.md)
 
 ## Roadmap

@@ -10,7 +10,7 @@ API = cd apps/api &&
 EVALS = cd packages/evals &&
 WEB = cd apps/web &&
 # The read-only MCP servers (ADR-017), each its own uv project.
-MCP_SERVERS = apps/mcp-erp apps/mcp-registry
+MCP_SERVERS = apps/mcp-erp apps/mcp-registry apps/mcp-history
 
 # The api tests need INVOICEGUARD_TEST_DATABASE_URL (and INVOICEGUARD_TEST_VALIDATOR_URL for the
 # KoSIT tests); read them from the root .env when there is one.
@@ -41,7 +41,7 @@ seed: ## Load the German demo master data into the running stack (safe to run ag
 seed-user: ## Create or reset the login users from INVOICEGUARD_SEED_USER_* / _APPROVER_* in .env (safe to run again)
 	$(COMPOSE) $(SEED_USER)
 
-index: ## (Re)build the booking index: packaged history and vectors, embed the rest with a key (ADR-020)
+index: ## (Re)build the booking index and the rulebook: packaged history and vectors, embed the rest with a key
 	$(COMPOSE) exec api invoiceguard-index
 
 down: ## Stop and remove the containers (the database volume is kept)

@@ -17,7 +17,7 @@ from conftest import FinishedInvoice, poll_until_done
 from fakes import KeywordEmbedder
 from invoiceguard_api import main
 from invoiceguard_api.auth import SESSION_COOKIE
-from invoiceguard_api.booking import history
+from invoiceguard_api.booking import embedding, history
 from invoiceguard_api.booking.embedding import (
     EMBEDDING_PURPOSE,
     EmbeddingFailed,
@@ -546,7 +546,7 @@ def test_the_packaged_vectors_cover_the_history_and_the_demo_samples() -> None:
     assert vectors["model"] == Settings.model_fields["embedding_model"].default
     assert vectors["dimensions"] == 768
     assert {normalise(text) for text in [*texts, *_demo_line_texts()]} <= set(vectors["vectors"])
-    assert all(len(history.decode_vector(v)) == 768 for v in vectors["vectors"].values())
+    assert all(len(embedding.decode_vector(v)) == 768 for v in vectors["vectors"].values())
 
 
 def test_importing_history_replaces_imports_and_keeps_approved_bookings(

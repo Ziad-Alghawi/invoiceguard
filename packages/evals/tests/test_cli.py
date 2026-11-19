@@ -8,6 +8,8 @@ from typing import Any
 
 import pytest
 from invoiceguard_api.booking import history
+from invoiceguard_api.rulebook import index as rulebook_index
+from invoiceguard_api.rulebook.chunks import load
 
 from invoiceguard_evals import cli
 from invoiceguard_evals.attacks import ATTACKS
@@ -136,13 +138,15 @@ def test_the_attack_set_records_replays_and_reports(
     )  # fmt: skip
     assert attacks["agent_runs"] > 0
     assert replay["meta"]["live_calls"] == 0
-    assert replay["meta"]["replayed_calls"] == model.calls
+    # The model's calls and one embedding call for the rulebook's sections.
+    assert replay["meta"]["replayed_calls"] == model.calls + 1
     assert replay["attacks"]["details"] == attacks["details"]
     results = isolated / "results.md"
+    assert attacks["history"]["cases"] == 3
     cli.main(["report", str(isolated / "b.json"), "--out", str(results)])
-    assert "## Attacks: prompt injection through the app and the agent" in results.read_text(
-        "utf-8"
-    )
+    markdown = results.read_text("utf-8")
+    assert "## Attacks: prompt injection through the app and the agent" in markdown
+    assert "### Poisoned history" in markdown
 
 
 def test_the_booking_eval_records_replays_and_reports(
@@ -167,18 +171,42 @@ def test_the_booking_eval_records_replays_and_reports(
     assert "## Booking suggestions and retrieval" in results.read_text("utf-8")
 
 
+def test_the_rulebook_eval_records_replays_and_reports(
+    isolated: Path, monkeypatch: pytest.MonkeyPatch, eval_database_url: str
+) -> None:
+    monkeypatch.setenv("INVOICEGUARD_EVAL_DATABASE_URL", eval_database_url)
+    _model(monkeypatch, [])
+    common = ["--only", "rulebook", "--set", "small"]
+
+    live = _run(*common, "--live", "--max-spend-usd", "1", "--out", str(isolated / "a.json"))
+    replay = _run(*common, "--out", str(isolated / "b.json"))
+
+    assert live["rulebook"]["summary"]["questions"] == 20
+    assert replay["meta"]["live_calls"] == 0
+    assert replay["rulebook"]["cases"] == live["rulebook"]["cases"]
+    results = isolated / "results.md"
+    cli.main(["report", str(isolated / "b.json"), "--out", str(results)])
+    assert "## Rulebook retrieval" in results.read_text("utf-8")
+
+
 def test_the_vectors_command_writes_the_packaged_vectors(
     isolated: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _model(monkeypatch, [])
     path = isolated / "vectors.json"
+    rulebook_path = isolated / "rulebook-vectors.json"
     monkeypatch.setattr(history, "VECTORS", path)
+    monkeypatch.setattr(rulebook_index, "VECTORS", rulebook_path)
 
     cli.main(["vectors", "--live", "--max-spend-usd", "1"])
     written = json.loads(path.read_text("utf-8"))
+    rulebook = json.loads(rulebook_path.read_text("utf-8"))
     cli.main(["vectors"])
 
     assert json.loads(path.read_text("utf-8")) == written
     assert written["dimensions"] == 768
     assert "Notebook 14 Zoll, 32 GB RAM" in written["vectors"]
     assert len(written["vectors"]) == 59
+    assert json.loads(rulebook_path.read_text("utf-8")) == rulebook
+    chunks = load(Path(__file__).resolve().parents[3] / "docs" / "rulebook")
+    assert set(rulebook["vectors"]) == {chunk.text_sha256 for chunk in chunks}

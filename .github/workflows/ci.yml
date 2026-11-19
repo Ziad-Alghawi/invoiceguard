@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        server: [mcp-erp, mcp-registry]
+        server: [mcp-erp, mcp-registry, mcp-history]
     services:
       db:
         image: pgvector/pgvector:pg16
@@ -168,6 +168,7 @@ jobs:
           echo "INVOICEGUARD_SEED_APPROVER_PASSWORD=$(openssl rand -hex 24)" >> .env
           echo "INVOICEGUARD_MCP_ERP_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
           echo "INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
+          echo "INVOICEGUARD_MCP_HISTORY_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
       - name: Demo prod override, shared Caddy and its sites are valid (ADR-014)
         working-directory: infra
         run: |
@@ -205,6 +206,24 @@ jobs:
           test "$(jq -r '.receipts[0].number' receipts.json)" = WE-2026-0003
           call mcp-registry check_iban '{"iban": "DE58876543210000000099"}' | tee iban.json
           test "$(jq -r '.registered_to | length' iban.json)" = 0
+      - name: The index loads the booking history and the rulebook; mcp-history answers (R3-4b)
+        working-directory: infra
+        run: |
+          docker compose --env-file ../.env exec -T api invoiceguard-index
+          docker compose --env-file ../.env exec -T mcp-history python -c "
+          import anyio, json
+          from mcp import Client
+          async def main():
+              async with Client('http://127.0.0.1:8000/mcp') as client:
+                  history = await client.call_tool('get_invoice_history', {'vat_id': 'DE999000033'})
+                  rulebook = await client.call_tool('search_rulebook', {'query': 'IBAN changed'})
+              print(json.dumps([history.structured_content, rulebook.structured_content]))
+          anyio.run(main)
+          " | tee history.json
+          test "$(jq '.[0].invoices | length' history.json)" -gt 0
+          # No key in CI: full text. Ranking is close between sections that mention an IBAN, so
+          # this checks the wiring (an IBAN section among the 3 results), not the order.
+          jq -e '.[1].method == "text" and (.[1].sections | map(.key) | any(startswith("iban.md#")))' history.json
       - name: Invoices need a login; the seeded user logs in
         run: |
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8000/invoices)" = 401
@@ -314,6 +333,7 @@ jobs:
           echo "INVOICEGUARD_SEED_APPROVER_PASSWORD=$(openssl rand -hex 24)" >> .env
           echo "INVOICEGUARD_MCP_ERP_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
           echo "INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
+          echo "INVOICEGUARD_MCP_HISTORY_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
       # No LLM key: the tests upload XML invoices only, so no model is called; "Investigate" shows
       # the recorded run (ADR-018).
       - name: Start the stack, seed demo data and the login users

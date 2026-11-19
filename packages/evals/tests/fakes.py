@@ -87,7 +87,7 @@ class ScriptedModel(FakeEmbeddings):
         return LLMReply(reply, 1000, 500, Decimal("0.005"), 9000)
 
 
-class RoutingModel:
+class RoutingModel(FakeEmbeddings):
     """Extraction calls get the truth of the attached PDF (by its hash); every other call (the
     agent) gets `agent_reply`. For runs whose call order a test does not want to script."""
 

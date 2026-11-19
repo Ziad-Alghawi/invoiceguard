@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- History and rulebook for the exception agent (R3-4b; ADR-017, ADR-018, ADR-019, ADR-020 updated): a third
+  read-only MCP server, `mcp-history`, with `get_invoice_history`, `search_similar_invoices` and `search_rulebook`.
+  Its database role reads three views of approved, injection-free history, the rulebook and the vectors of
+  `embeddings`, nothing of the invoices (migration 0013). A short rulebook in `docs/rulebook` (10 files, 42
+  sections: what each check means, thresholds, how to resolve it, SKR03 guidance), synced by `make index` and the
+  demo reset with packaged vectors. The agent has 10 allow-listed tools with a pattern per argument, never sees an
+  invoice id, and has rulebook questions embedded by the api (cost counted in its cap); full text without a key.
+  Evals: 10 poisoned-history attack cases (0 of 10 delivered as the agent runs; 10 of 10 delivered and 0 followed
+  with the history forced in; 0 of 54 attacks succeeded), rulebook retrieval on 20 DE/EN questions (hit@3 90 % by
+  vector, 70 % by full text), and a gate rule on rulebook hit@3. New container and secret
+  `INVOICEGUARD_MCP_HISTORY_DB_PASSWORD` (`docs/deploy.md`). Live spend $0.352.
 - Booking suggestions (R3-4a, ADR-020): pgvector in our PostgreSQL (migration 0012: `embeddings`, `bookings`,
   extensions `vector` and `pg_trgm`). The lines of a new invoice are embedded after processing
   (`gemini/gemini-embedding-001`, 768 dimensions, through LiteLLM; logged and within the daily budget); a line

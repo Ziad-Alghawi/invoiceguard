@@ -27,6 +27,7 @@ TABLES = {
     "agent_steps",
     "embeddings",
     "bookings",
+    "rulebook_chunks",
 }
 
 

@@ -1,6 +1,6 @@
 """Reset the public demo (ADR-014): delete every invoice, export, stored file and graph thread,
-restore the master data and the booking history with its packaged vectors (ADR-020), and process
-the sample invoices again, so each visitor finds the same queue.
+restore the master data and the booking history with its packaged vectors (ADR-020), sync the
+rulebook (R3-4b), and process the sample invoices again, so each visitor finds the same queue.
 
 Deletes data, so it runs only with INVOICEGUARD_DEMO_MODE=true. The audit log is append-only and
 is kept; the reset itself is an audit event. LLM costs stay in `model_calls` (the invoice link is
@@ -13,6 +13,7 @@ import logging
 import sys
 import uuid
 from importlib.resources import files
+from pathlib import Path
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -27,6 +28,8 @@ from invoiceguard_api.logging import configure_logging
 from invoiceguard_api.main import make_extractor
 from invoiceguard_api.models import AuditEvent, DatevExport, Invoice
 from invoiceguard_api.processing import delete_threads, process_invoice
+from invoiceguard_api.rulebook import chunks as rulebook_chunks
+from invoiceguard_api.rulebook import index as rulebook_index
 from invoiceguard_api.seed import seed_demo_data
 from invoiceguard_api.settings import get_settings
 from invoiceguard_api.storage import FileStorage
@@ -48,6 +51,7 @@ def _clear(
     session: Session,
     storage: FileStorage,
     embedding_model: str,
+    rulebook_dir: Path | None,
 ) -> tuple[int, int]:
     """Delete invoices (fields, checks and bookings cascade) and exports, then their files and
     threads; restore the master data and the booking history."""
@@ -69,6 +73,9 @@ def _clear(
     seed_demo_data(session)
     import_packaged(session, embedding_model)
     session.commit()
+    if rulebook_dir is not None:
+        # No key on the demo: the packaged vectors only.
+        rulebook_index.sync(session, rulebook_chunks.load(rulebook_dir), embedding_model, None)
     for path in paths:
         storage.delete(path)
     delete_threads(session_factory, [row.id for row in rows])
@@ -81,13 +88,14 @@ def reset_demo(
     validator: KositValidator,
     extractor: PdfExtractor | None,
     embedding_model: str,
+    rulebook_dir: Path | None = None,
 ) -> list[uuid.UUID]:
     """Empty the demo and load the samples; returns the new invoice IDs in loading order.
 
     The samples are processed here, one after another, not by the API's background tasks.
     """
     with session_factory() as session:
-        invoices, exports = _clear(session_factory, session, storage, embedding_model)
+        invoices, exports = _clear(session_factory, session, storage, embedding_model, rulebook_dir)
         logger.info("Deleted %d invoices and %d DATEV exports", invoices, exports)
         ids = []
         for name, content in sample_invoices():
@@ -121,6 +129,7 @@ def main() -> None:
             ),
             make_extractor(settings, None),
             settings.embedding_model,
+            settings.rulebook_dir,
         )
     finally:
         engine.dispose()
