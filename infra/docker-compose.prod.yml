@@ -19,6 +19,15 @@ services:
     # No host port: only the api reaches the database, over the Compose network.
     ports: !reset []
 
+  # One-shot (no restart): migrations and role passwords before the api starts, and
+  # `make demo-reset` as the database owner (ADR-022).
+  migrate:
+    logging: *logging
+    environment:
+      INVOICEGUARD_ENV: prod
+      # Allows `make demo-reset`, which deletes every invoice.
+      INVOICEGUARD_DEMO_MODE: "true"
+
   api:
     restart: unless-stopped
     logging: *logging
@@ -27,7 +36,7 @@ services:
     environment:
       # Secure session cookies (HTTPS only); see Settings.secure_cookies.
       INVOICEGUARD_ENV: prod
-      # Allows `make demo-reset`, which deletes every invoice.
+      # Refuses PDF uploads without embedded e-invoice XML (no visitor PDF goes to a model).
       INVOICEGUARD_DEMO_MODE: "true"
       # Stop LLM extraction for the day once this much is spent (US dollars).
       INVOICEGUARD_LLM_DAILY_BUDGET_USD: ${INVOICEGUARD_LLM_DAILY_BUDGET_USD:-0.50}

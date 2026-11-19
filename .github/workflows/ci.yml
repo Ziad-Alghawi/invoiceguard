@@ -174,9 +174,10 @@ jobs:
       - name: Install the api test dependencies (for the KoSIT tests)
         working-directory: apps/api
         run: uv sync --locked
-      - name: Create .env with random passwords for the seed users and MCP roles (never in the repo)
+      - name: Create .env with random passwords for the seed users and database roles (never in the repo)
         run: |
           cp .env.example .env
+          echo "INVOICEGUARD_APP_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
           echo "INVOICEGUARD_SEED_USER_PASSWORD=$(openssl rand -hex 24)" >> .env
           echo "INVOICEGUARD_SEED_APPROVER_PASSWORD=$(openssl rand -hex 24)" >> .env
           echo "INVOICEGUARD_MCP_ERP_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
@@ -302,7 +303,7 @@ jobs:
           test "$(jq -r '.[-1].actor' audit.json)" = approver@example.com
       - name: Demo reset in the built image loads the samples (KoSIT included)
         run: |
-          (cd infra && docker compose --env-file ../.env exec -T -e INVOICEGUARD_DEMO_MODE=true api invoiceguard-demo-reset)
+          (cd infra && docker compose --env-file ../.env run --rm -T -e INVOICEGUARD_DEMO_MODE=true migrate invoiceguard-demo-reset)
           curl --fail --silent --show-error --cookie cookies.txt 'http://localhost:8000/invoices?limit=10' > demo.json
           jq -r '.[] | .original_filename + " " + .status' demo.json | sort | tee demo.txt
           diff demo.txt - <<'TXT'
@@ -339,9 +340,10 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm exec playwright install --with-deps chromium
-      - name: Create .env with random passwords for the seed users and MCP roles (never in the repo)
+      - name: Create .env with random passwords for the seed users and database roles (never in the repo)
         run: |
           cp .env.example .env
+          echo "INVOICEGUARD_APP_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
           echo "INVOICEGUARD_SEED_USER_PASSWORD=$(openssl rand -hex 24)" >> .env
           echo "INVOICEGUARD_SEED_APPROVER_PASSWORD=$(openssl rand -hex 24)" >> .env
           echo "INVOICEGUARD_MCP_ERP_DB_PASSWORD=$(openssl rand -hex 24)" >> .env

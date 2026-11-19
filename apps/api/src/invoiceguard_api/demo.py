@@ -2,11 +2,13 @@
 restore the master data and the booking history with its packaged vectors (ADR-020), sync the
 rulebook (R3-4b), and process the sample invoices again, so each visitor finds the same queue.
 
-Deletes data, so it runs only with INVOICEGUARD_DEMO_MODE=true. The audit log is append-only and
-is kept; the reset itself is an audit event. LLM costs stay in `model_calls` (the invoice link is
+Deletes data, so it runs only with INVOICEGUARD_DEMO_MODE=true, and only as the database owner
+(ADR-022): `make demo-reset` runs it in a one-off `migrate` container, and it refuses to run as
+the api's restricted role. The audit log is append-only and is kept; the reset itself is an
+audit event. LLM costs stay in `model_calls` (the invoice link is
 set to null), so a reset does not refill the daily budget.
 
-Run with `make demo-reset` or `uv run invoiceguard-demo-reset`.
+Run with `make demo-reset`, or `uv run invoiceguard-demo-reset` with the owner's database URL.
 """
 
 import logging
@@ -15,12 +17,13 @@ import uuid
 from importlib.resources import files
 from pathlib import Path
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from invoiceguard_api.booking.history import import_packaged
 from invoiceguard_api.checks import KositValidator
 from invoiceguard_api.db import make_engine, make_session_factory
+from invoiceguard_api.db_roles import APP_ROLE
 from invoiceguard_api.extraction import PdfExtractor
 from invoiceguard_api.filetype import source_type_for
 from invoiceguard_api.invoices import add_received
@@ -120,6 +123,12 @@ def main() -> None:
         )
     engine = make_engine(str(settings.database_url))
     try:
+        with engine.connect() as connection:
+            if connection.execute(text("SELECT current_user")).scalar_one() == APP_ROLE:
+                sys.exit(
+                    f"Refusing to reset as {APP_ROLE}: owner tasks run as the database owner. "
+                    "Use `make demo-reset`."
+                )
         ids = reset_demo(
             make_session_factory(engine),
             FileStorage(settings.storage_dir),

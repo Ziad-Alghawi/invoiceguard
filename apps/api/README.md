@@ -247,5 +247,7 @@ Compose validator.
 ## Docker
 The [Dockerfile](Dockerfile) installs the locked runtime dependencies with uv in a build stage and copies only the
 virtual environment and the migrations into a `python:3.12-slim` image that runs as a non-root user on port 8000.
-In Compose the container runs `alembic upgrade head` before starting uvicorn. The whole stack (api + web + db +
+In Compose a one-shot `migrate` service from the same image runs `alembic upgrade head` and
+`invoiceguard-db-roles` as the database owner, and the api starts after it as the restricted `invoiceguard_app`
+role (ADR-022). The whole stack (api + web + db +
 validator) starts with `make dev` from the repo root; see [infra](../../infra/README.md).

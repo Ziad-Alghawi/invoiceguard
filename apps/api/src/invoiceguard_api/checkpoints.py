@@ -35,15 +35,22 @@ def engine_of(session_factory: sessionmaker[Session]) -> Engine:
 
 @contextmanager
 def open_checkpointer(engine: Engine) -> Iterator[PostgresSaver]:
-    """A checkpointer on a new connection to the engine's database, closed afterwards."""
-    conninfo = engine.url.set(drivername="postgresql").render_as_string(hide_password=False)
+    """A checkpointer on a new connection to the engine's database, closed afterwards.
+
+    Server options in the database URL (`?options=...`) are kept: the search path is added to
+    them, since a keyword argument would replace the URL's value.
+    """
+    url = engine.url.set(drivername="postgresql")
+    given = url.query.get("options", ())
+    given = (given,) if isinstance(given, str) else tuple(given)
+    options = " ".join((*given, f"-c search_path={CHECKPOINT_SCHEMA}"))
     with psycopg.connect(
-        conninfo,
+        url.difference_update_query(["options"]).render_as_string(hide_password=False),
         autocommit=True,
         prepare_threshold=0,
         row_factory=dict_row,
         connect_timeout=CONNECT_TIMEOUT_SECONDS,
-        options=f"-c search_path={CHECKPOINT_SCHEMA}",
+        options=options,
     ) as connection:
         yield PostgresSaver(connection, serde=JsonPlusSerializer(allowed_msgpack_modules=None))
 

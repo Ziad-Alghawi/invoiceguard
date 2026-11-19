@@ -26,3 +26,4 @@ New ADRs start from the [template](ADR-000-template.md).
 | [ADR-019](ADR-019-eval-harness.md) | Evaluation harness with pinned datasets and recorded model replies | Accepted |
 | [ADR-020](ADR-020-booking-suggestions-pgvector.md) | Booking suggestions by retrieval over pgvector, with Gemini embeddings | Accepted |
 | [ADR-021](ADR-021-platform-k3s-argocd.md) | Platform: k3s on the demo VPS, Helm, Argo CD and GHCR images | Accepted |
+| [ADR-022](ADR-022-database-roles-and-migrate-step.md) | A restricted database role for the api, migrations as a separate step | Accepted |

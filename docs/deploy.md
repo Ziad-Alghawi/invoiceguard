@@ -127,6 +127,7 @@ Edit `.env` (`nano .env`). Never commit it or copy it anywhere else:
 | `INVOICEGUARD_SEED_APPROVER_EMAIL` | `approver@example.com` (shown on the login page; confirms overrides, ADR-016) |
 | `INVOICEGUARD_SEED_APPROVER_PASSWORD` | output of `openssl rand -hex 12` (shown on the login page, like the reviewer's) |
 | `INVOICEGUARD_SEED_APPROVER_NAME` | `Demo Approver` |
+| `INVOICEGUARD_APP_DB_PASSWORD` | output of `openssl rand -hex 24` (the api's restricted database role, ADR-022) |
 | `INVOICEGUARD_MCP_ERP_DB_PASSWORD` | output of `openssl rand -hex 24` (read-only database role of `mcp-erp`, ADR-017) |
 | `INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD` | output of `openssl rand -hex 24` (read-only database role of `mcp-registry`) |
 | `INVOICEGUARD_MCP_HISTORY_DB_PASSWORD` | output of `openssl rand -hex 24` (read-only database role of `mcp-history`, R3-4b) |
@@ -134,7 +135,9 @@ Edit `.env` (`nano .env`). Never commit it or copy it anywhere else:
 | `INVOICEGUARD_LLM_DAILY_BUDGET_USD` | optional; the prod override defaults to `0.50` |
 
 The other values keep their defaults. `INVOICEGUARD_DATABASE_URL` is only used outside Docker. Compose builds the
-API's database URL from the `POSTGRES_*` values.
+database URLs: the one-shot `migrate` service logs in as the owner (`POSTGRES_*`) to run migrations, set the role
+passwords and reset the demo; the api logs in as `invoiceguard_app`, which cannot TRUNCATE, change the schema or
+touch the append-only logs beyond inserting (ADR-022).
 
 ```sh
 make prod-up      # builds the images, starts db, validator, api, MCP servers and web, waits until healthy
@@ -161,7 +164,7 @@ make deploy       # ssh $DEPLOY_HOST "cd /opt/invoiceguard && git pull && make p
 
 `DEPLOY_HOST` is set in your local `.env` (for example `deploy@<IP>`; it stays empty on the server). Without it,
 `make deploy` stops with a message and does nothing. `make prod-up` rebuilds changed images and recreates changed
-containers; migrations run at api start. The same by hand:
+containers; the `migrate` service runs the migrations before the api starts. The same by hand:
 
 ```sh
 ssh deploy@<IP>
@@ -170,8 +173,8 @@ git pull
 make prod-up
 ```
 
-A release that adds a required `.env` variable (for example the MCP role passwords in R2-5, or
-`INVOICEGUARD_MCP_HISTORY_DB_PASSWORD` for `mcp-history` in R3-4b) needs it on the server before `make prod-up`:
+A release that adds a required `.env` variable (for example the MCP role passwords in R2-5,
+`INVOICEGUARD_MCP_HISTORY_DB_PASSWORD` for `mcp-history` in R3-4b, or `INVOICEGUARD_APP_DB_PASSWORD` in R4-2) needs it on the server before `make prod-up`:
 Compose stops with `set ... in .env` otherwise. Compare with `.env.example` after `git pull`.
 
 The rulebook (`docs/rulebook`) is built into the api image and synced into the database by every `make demo-reset`
@@ -181,7 +184,7 @@ The rulebook (`docs/rulebook`) is built into the api image and synced into the d
 If `infra/edge/sites/invoiceguard.caddy` changed: copy it to `/opt/edge/sites/` and reload Caddy (above).
 
 Roll back with `git checkout <previous commit or tag> && make prod-up`. A migration is not undone that way:
-`docker compose ... exec api alembic downgrade -1` first, if the new release added one.
+`docker compose ... run --rm migrate alembic downgrade -1` first (as the owner), if the new release added one.
 
 ## 7. Operate
 
@@ -190,7 +193,7 @@ Roll back with `git checkout <previous commit or tag> && make prod-up`. A migrat
 | Status | `cd infra && docker compose --env-file ../.env -f docker-compose.yml -f docker-compose.prod.yml ps` |
 | Logs | same, with `logs --tail 100 api` (or `web`, `validator`, `db`, `mcp-erp`, `mcp-registry`, `mcp-history`); Caddy: `cd /opt/edge && docker compose logs caddy` |
 | LLM cost today | `... exec db psql -U invoiceguard -c "select sum(cost_usd) from model_calls where at >= current_date"` |
-| Reset the demo now | `make demo-reset` |
+| Reset the demo now | `make demo-reset` (as the database owner, in a one-off `migrate` container) |
 | Stop | `make prod-down` (data stays in volumes; Caddy and other sites keep running) |
 | Disk | `df -h /` and `docker system df`; `docker image prune` after updates |
 

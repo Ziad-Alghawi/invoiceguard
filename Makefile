@@ -57,7 +57,8 @@ prod-down: ## Demo server: stop the stack (volumes with data are kept)
 	$(PROD) down
 
 demo-reset: ## Demo server: delete all invoices, reload the samples, reset the demo logins
-	$(PROD) exec api invoiceguard-demo-reset
+	# As the database owner in a one-off `migrate` container, never as the api's role (ADR-022).
+	$(PROD) run --rm migrate invoiceguard-demo-reset
 	$(PROD) $(SEED_USER)
 
 deploy: ## From your machine: pull and restart the demo over SSH (DEPLOY_HOST in .env, docs/deploy.md)
