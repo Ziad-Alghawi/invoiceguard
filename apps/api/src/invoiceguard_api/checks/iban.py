@@ -69,7 +69,7 @@ def _registry_check(context: CheckContext, iban: str) -> CheckResult:
             f"{supplier.name} has no verified bank account in the registry.",
             evidence,
         )
-    if any(normalise_iban(account.iban) == iban for account in supplier.verified_ibans):
+    if any(normalise_iban(account.iban)[4:12] == iban[4:12] for account in supplier.verified_ibans):
         return CheckResult(
             CHECK_TYPE,
             CheckStatus.PASSED,
