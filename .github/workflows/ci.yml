@@ -506,7 +506,7 @@ jobs:
   demo-tag:
     name: move the demo tag (main only)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [pins, api, mcp, evals, web, compose-smoke, images, helm]
+    needs: [pins, api, mcp, evals, web, compose-smoke, e2e, images, helm]
     runs-on: ubuntu-latest
     # Writing the tag needs this job only.
     permissions:
