@@ -13,7 +13,9 @@ from invoiceguard_api.checks import KositValidator
 from invoiceguard_api.db import make_session_factory
 from invoiceguard_api.models import (
     AuditEvent,
+    Booking,
     DatevExport,
+    Embedding,
     Invoice,
     SecurityEvent,
     Supplier,
@@ -40,6 +42,7 @@ def _reset(engine: Engine, settings: Settings) -> None:
         FileStorage(settings.storage_dir),
         KositValidator(None, 1.0),
         None,
+        settings.embedding_model,
     )
 
 
@@ -59,6 +62,10 @@ def test_reset_loads_the_samples_with_their_outcomes(
 
     assert _outcomes(db_session) == EXPECTED
     assert db_session.scalar(select(func.count(Supplier.id))) == 5
+    # The booking history with its vectors (ADR-020), again after a second reset, not twice.
+    _reset(engine, settings)
+    assert db_session.scalar(select(func.count(Booking.id))) == 159
+    assert db_session.scalar(select(func.count(Embedding.id))) == 59
 
 
 def test_reset_deletes_invoices_exports_and_files_and_keeps_the_audit_log(

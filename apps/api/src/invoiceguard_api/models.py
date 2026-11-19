@@ -6,8 +6,10 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -110,6 +112,15 @@ class AgentRunSource(enum.StrEnum):
 class AgentStepKind(enum.StrEnum):
     MODEL = "model"
     TOOL = "tool"
+
+
+class BookingSource(enum.StrEnum):
+    """Where a booking comes from (ADR-020)."""
+
+    # A reviewer chose the account for a line when approving the invoice.
+    INVOICE = "invoice"
+    # Imported booking history, as a company would bring it from its old system (demo, eval).
+    IMPORT = "import"
 
 
 class CheckStatus(enum.StrEnum):
@@ -558,3 +569,65 @@ class AgentStep(Base):
     run: Mapped[AgentRun] = relationship(back_populates="steps")
 
     __table_args__ = (Index("ix_agent_steps_run_id", "run_id"),)
+
+
+# The size of every stored embedding (ADR-020): the configured model must return vectors of it.
+EMBEDDING_DIMENSIONS = 768
+
+
+class Embedding(Base):
+    """The vector of one text under one embedding model (ADR-020), stored once per text.
+
+    Texts are normalised (`booking.text.normalise`) before hashing, so the same line description
+    on many invoices is embedded once.
+    """
+
+    __tablename__ = "embeddings"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    model: Mapped[str] = mapped_column(String(100))
+    text_sha256: Mapped[str] = mapped_column(String(64))
+    text: Mapped[str] = mapped_column(Text)
+    vector: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIMENSIONS))
+    created_at: Mapped[datetime] = _created_at()
+
+    __table_args__ = (UniqueConstraint("model", "text_sha256"),)
+
+
+class Booking(Base):
+    """The account booked for one invoice line (ADR-020): chosen by a person when approving the
+    invoice, or imported history. Booking suggestions are retrieved from these rows.
+    """
+
+    __tablename__ = "bookings"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    source: Mapped[BookingSource] = mapped_column(_str_enum(BookingSource, "booking_source"))
+    # The approved invoice; null for imported history.
+    invoice_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("invoices.id", ondelete="CASCADE")
+    )
+    line_no: Mapped[int] = mapped_column(Integer)
+    # Normalised (no spaces, upper case); null when the invoice states none.
+    supplier_vat_id: Mapped[str | None] = mapped_column(String(20))
+    supplier_name: Mapped[str | None] = mapped_column(Text)
+    invoice_number: Mapped[str | None] = mapped_column(String(100))
+    issue_date: Mapped[date | None] = mapped_column(Date)
+    # The line's item name (BT-153), normalised; the text that is embedded.
+    text: Mapped[str] = mapped_column(Text)
+    text_sha256: Mapped[str] = mapped_column(String(64))
+    # The SKR03 account (booking/accounts.py).
+    account: Mapped[str] = mapped_column(String(8))
+    # The top suggestion when the person chose; null when there was none, and for imports.
+    suggested_account: Mapped[str | None] = mapped_column(String(8))
+    # False when the invoice failed the prompt-injection check: the decision is kept, but its
+    # text is never retrieved for another invoice (ADR-020, poisoning of the index).
+    searchable: Mapped[bool] = mapped_column(Boolean)
+    # Who chose the account; null for imports.
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = _created_at()
+
+    __table_args__ = (
+        UniqueConstraint("invoice_id", "line_no"),
+        Index("ix_bookings_text_sha256", "text_sha256"),
+    )

@@ -48,7 +48,8 @@ class EvalDatabaseError(Exception):
     """The eval database URL is missing or could name a real database."""
 
 
-def _recreate(url: str) -> str:
+def recreate_database(url: str) -> str:
+    """Drop and create the eval database and migrate it to head; returns its URL."""
     parsed = make_url(url)
     # The database is dropped, so never anything but a database for the eval.
     if not (parsed.database or "").endswith("_eval"):
@@ -104,7 +105,7 @@ def app_client(
     validator_url: str | None,
     threshold: Decimal,
 ) -> Iterator[TestClient]:
-    url = _recreate(database_url)
+    url = recreate_database(database_url)
     token = _login(url)
     with tempfile.TemporaryDirectory() as storage:
         settings = Settings(

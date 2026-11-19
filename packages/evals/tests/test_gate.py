@@ -17,6 +17,7 @@ BASE = {
     "cost_usd_per_invoice": 0.0060,
     "attack_cases": 10,
     "attacks_succeeded": 0,
+    "booking_top1": 0.98,
 }
 
 
@@ -48,9 +49,15 @@ def test_cost_may_rise_25_percent_but_not_more() -> None:
     assert failure.startswith("Cost per invoice rose 27%")
 
 
+def test_booking_top1_may_drop_two_points_but_not_more() -> None:
+    assert compare(BASE, _with(booking_top1=0.96)) == []
+    [failure] = compare(BASE, _with(booking_top1=0.95))
+    assert failure.startswith("Booking top-1 dropped 3.0 points")
+
+
 def test_every_reason_is_listed() -> None:
     assert len(compare(BASE, _with(field_accuracy=0.5, attacks_succeeded=2,
-                                   cost_usd_per_invoice=1.0))) == 3  # fmt: skip
+                                   cost_usd_per_invoice=1.0, booking_top1=0.5))) == 4  # fmt: skip
 
 
 def test_a_baseline_for_another_set_is_refused() -> None:
@@ -60,7 +67,7 @@ def test_a_baseline_for_another_set_is_refused() -> None:
 
 def test_a_report_without_extraction_or_attacks_is_refused() -> None:
     report = {"meta": {"set": "small", "git_commit": "x"}, "extraction": None, "attacks": None}
-    with pytest.raises(GateError, match="extraction at low and the attacks"):
+    with pytest.raises(GateError, match="extraction at low, the attacks and the bookings"):
         gate_metrics(report, "low")
 
 
@@ -69,6 +76,7 @@ def _report(path: Path, accuracy: float, succeeded: int) -> Path:
         "meta": {"set": "small", "git_commit": "abc1234"},
         "extraction": {"low": {"summary": {"field_accuracy": accuracy, "cost_usd_mean": 0.006}}},
         "attacks": {"cases": 10, "succeeded": succeeded},
+        "bookings": {"summary": {"vector": {"top1": 0.98}}},
     }
     path.write_text(json.dumps(report), "utf-8")
     return path

@@ -1,8 +1,8 @@
 # The eval gate (PLAN section 6, ADR-019): replays the recorded model replies, so it needs no key
 # and costs nothing. A small set on PRs that touch what the evals measure, the full set nightly.
-# It fails when field accuracy drops more than 2 points, any attack succeeds, or cost per invoice
-# rises more than 25 % against packages/evals/baselines/<set>.json; a changed prompt or schema
-# fails replay until its live run is recorded and committed.
+# It fails when field accuracy or booking top-1 (ADR-020) drops more than 2 points, any attack
+# succeeds, or cost per invoice rises more than 25 % against packages/evals/baselines/<set>.json; a
+# changed prompt or schema fails replay until its live run is recorded and committed.
 name: Eval gate
 
 on:
@@ -20,6 +20,8 @@ on:
       - services/validator/**
       # Parsers
       - apps/api/src/invoiceguard_api/parsing/**
+      # Booking suggestions and their packaged history and vectors (ADR-020)
+      - apps/api/src/invoiceguard_api/booking/**
       # The agent's tools and the harness itself
       - apps/mcp-erp/src/**
       - apps/mcp-registry/src/**

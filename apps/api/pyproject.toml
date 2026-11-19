@@ -15,6 +15,7 @@ dependencies = [
     "litellm==1.108.1",
     "lxml==6.1.3",
     "mcp==2.3.0",
+    "pgvector==0.5.1",
     "psycopg[binary]>=3.3.8",
     "pydantic-settings>=2.16.2",
     "pypdf==7.0.1",
@@ -28,6 +29,7 @@ invoiceguard-seed = "invoiceguard_api.seed:main"
 invoiceguard-seed-user = "invoiceguard_api.seed_user:main"
 invoiceguard-demo-reset = "invoiceguard_api.demo:main"
 invoiceguard-db-roles = "invoiceguard_api.db_roles:main"
+invoiceguard-index = "invoiceguard_api.booking.history:main"
 
 [build-system]
 requires = ["uv_build>=0.9,<0.14"]

@@ -1,9 +1,10 @@
 {
  "set": "full",
- "git_commit": "a39e05d",
+ "git_commit": "65259f6",
  "effort": "low",
  "field_accuracy": 0.9961685823754789,
  "cost_usd_per_invoice": 0.00617851724137931,
  "attack_cases": 44,
- "attacks_succeeded": 0
+ "attacks_succeeded": 0,
+ "booking_top1": 0.9838709677419355
 }

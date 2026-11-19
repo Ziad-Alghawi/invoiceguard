@@ -10,6 +10,7 @@ uv sync
 uv run alembic upgrade head
 uv run invoiceguard-seed        # optional: German demo master data, safe to run again
 uv run invoiceguard-seed-user   # login user from INVOICEGUARD_SEED_USER_* (see below)
+uv run invoiceguard-index       # booking history and vectors (ADR-020); embeds the rest with a key
 uv run uvicorn --factory invoiceguard_api.main:create_app --reload
 ```
 
@@ -221,6 +222,7 @@ Invalid values stop the app at startup.
 | `INVOICEGUARD_VALIDATOR_TIMEOUT_SECONDS` | positive number | `20` |
 | `INVOICEGUARD_LLM_API_KEY` | API key of the extraction model's provider (Gemini: Google AI Studio) | unset (or empty): plain PDFs stay `awaiting_extraction` |
 | `INVOICEGUARD_EXTRACTION_MODEL` | LiteLLM model string with a known price | `gemini/gemini-3.8-flash` |
+| `INVOICEGUARD_EMBEDDING_MODEL` | LiteLLM embedding model with 768-number vectors (ADR-020) | `gemini/gemini-embedding-001` |
 | `INVOICEGUARD_LLM_TIMEOUT_SECONDS` | positive number | `120` |
 | `INVOICEGUARD_EXTRACTION_REASONING_EFFORT` | `minimal`, `low`, `medium`, `high`: how much the model thinks (billed as output tokens); Gemini 3.8 Flash's lowest is `low` | `low` |
 | `INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD` | 0 to 1: fields below it are flagged | `0.9` |

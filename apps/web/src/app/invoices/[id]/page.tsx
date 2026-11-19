@@ -18,6 +18,7 @@ import { FieldsTable } from "@/components/fields-table";
 import { InvestigationPanel } from "@/components/investigation-panel";
 import { StatusBadge } from "@/components/status-badge";
 import { apiGet, ApiError } from "@/lib/api";
+import type { Bookings } from "@/lib/bookings";
 import type { Investigation } from "@/lib/investigations";
 import {
   type AuditEvent,
@@ -46,13 +47,14 @@ function Section({
 
 async function load(
   id: string,
-): Promise<[InvoiceDetail, AuditEvent[], User, Investigation]> {
+): Promise<[InvoiceDetail, AuditEvent[], User, Investigation, Bookings]> {
   try {
     return await Promise.all([
       apiGet<InvoiceDetail>(`/invoices/${id}`),
       apiGet<AuditEvent[]>(`/invoices/${id}/audit`),
       apiGet<User>("/auth/me"),
       apiGet<Investigation>(`/invoices/${id}/investigation`),
+      apiGet<Bookings>(`/invoices/${id}/bookings`),
     ]);
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
@@ -67,7 +69,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
   if (!isInvoiceId(id)) {
     notFound();
   }
-  const [invoice, history, user, investigation] = await load(id);
+  const [invoice, history, user, investigation, bookings] = await load(id);
   const requestedBy = overrideRequester(history);
   const failedChecks = invoice.checks
     .filter((check) => check.status === "failed")
@@ -134,6 +136,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
               requestedBy,
               blocker: overrideBlocker(user, requestedBy),
             }}
+            bookings={bookings}
             actions={{
               approve: approve.bind(null, invoice.id),
               reject: reject.bind(null, invoice.id),

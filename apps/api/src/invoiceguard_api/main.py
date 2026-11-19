@@ -17,6 +17,7 @@ from invoiceguard_api.agent.service import fail_interrupted
 from invoiceguard_api.agent.tools import AgentTools, McpTools
 from invoiceguard_api.auth import router as auth_router
 from invoiceguard_api.body_limit import ContentLengthLimitMiddleware
+from invoiceguard_api.booking.routes import router as bookings_router
 from invoiceguard_api.checks import KositValidator
 from invoiceguard_api.db import make_engine, make_session_factory
 from invoiceguard_api.exports import router as exports_router
@@ -24,7 +25,7 @@ from invoiceguard_api.extraction import PdfExtractor
 from invoiceguard_api.health import router as health_router
 from invoiceguard_api.investigations import router as investigations_router
 from invoiceguard_api.invoices import router as invoices_router
-from invoiceguard_api.llm import LLMClient
+from invoiceguard_api.llm import Embedder, LLMClient
 from invoiceguard_api.logging import configure_logging
 from invoiceguard_api.processing import recover_unfinished
 from invoiceguard_api.review import router as review_router
@@ -43,6 +44,16 @@ def make_llm_client(settings: Settings, llm_client: LLMClient | None) -> LLMClie
     if llm_client is not None or settings.llm_api_key is None:
         return llm_client
     # Imported here: LiteLLM takes seconds to import and is not needed without a key.
+    from invoiceguard_api.llm.litellm_client import LiteLLMClient
+
+    return LiteLLMClient(settings.llm_api_key.get_secret_value(), settings.llm_timeout_seconds)
+
+
+def make_embedder(settings: Settings, embedder: Embedder | None) -> Embedder | None:
+    """The given embedder (tests, evals), a LiteLLM client when an API key is set, else None:
+    booking suggestions then use the text match for lines without a stored vector (ADR-020)."""
+    if embedder is not None or settings.llm_api_key is None:
+        return embedder
     from invoiceguard_api.llm.litellm_client import LiteLLMClient
 
     return LiteLLMClient(settings.llm_api_key.get_secret_value(), settings.llm_timeout_seconds)
@@ -98,9 +109,11 @@ def create_app(
     settings: Settings | None = None,
     llm_client: LLMClient | None = None,
     agent_tools: AgentTools | None = None,
+    embedder: Embedder | None = None,
 ) -> FastAPI:
-    """`llm_client` replaces the LiteLLM client and `agent_tools` the MCP servers, for tests
-    with recorded model replies and fake tools."""
+    """`llm_client` replaces the LiteLLM client, `agent_tools` the MCP servers and `embedder`
+    the embedding client, for tests with recorded model replies and fake tools. A given
+    `llm_client` does not embed: without a key or an `embedder`, lines are not embedded."""
     settings = settings or get_settings()
     configure_logging(settings.log_level)
     # The engine connects lazily, so creating the app does not need a running database.
@@ -114,6 +127,7 @@ def create_app(
     llm_client = make_llm_client(settings, llm_client)
     extractor = make_extractor(settings, llm_client)
     agent = make_agent(settings, llm_client, agent_tools)
+    embedder = make_embedder(settings, embedder)
 
     def recover() -> None:
         try:
@@ -142,6 +156,7 @@ def create_app(
     app.state.validator = validator
     app.state.extractor = extractor
     app.state.agent = agent
+    app.state.embedder = embedder
     app.add_middleware(
         ContentLengthLimitMiddleware,
         max_bytes=settings.max_upload_bytes + MULTIPART_OVERHEAD_BYTES,
@@ -150,6 +165,7 @@ def create_app(
     app.include_router(auth_router)
     app.include_router(invoices_router)
     app.include_router(review_router)
+    app.include_router(bookings_router)
     app.include_router(investigations_router)
     app.include_router(exports_router)
     app.include_router(security_events_router)

@@ -25,6 +25,8 @@ TABLES = {
     "security_events",
     "agent_runs",
     "agent_steps",
+    "embeddings",
+    "bookings",
 }
 
 

@@ -11,7 +11,15 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from invoiceguard_api.llm import LLMError, LLMReply, ReasoningEffort, UserPart
+from invoiceguard_api.llm import (
+    EmbeddingReply,
+    EmbeddingTask,
+    LLMError,
+    LLMReply,
+    ReasoningEffort,
+    UserPart,
+)
+from invoiceguard_api.models import EMBEDDING_DIMENSIONS
 
 LLM_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "llm"
 COST_USD = Decimal("0.000412")
@@ -71,3 +79,41 @@ class FakeLLMClient:
         if isinstance(reply, LLMError):
             raise reply
         return LLMReply(reply, INPUT_TOKENS, OUTPUT_TOKENS, self.cost_usd, LATENCY_MS)
+
+
+class KeywordEmbedder:
+    """Vectors from keywords, so a test decides which texts are similar: each keyword of `axes`
+    found in a text (case-insensitive) adds one on its axis; the last axis is always a little
+    set, so no vector is zero. Texts sharing a keyword point the same way."""
+
+    def __init__(
+        self,
+        axes: dict[str, int],
+        *,
+        cost_usd: Decimal | None = Decimal("0.000002"),
+        fail: bool = False,
+        dimensions: int = EMBEDDING_DIMENSIONS,
+    ) -> None:
+        self.axes = axes
+        self.cost_usd = cost_usd
+        self.fail = fail
+        self.dimensions = dimensions
+        self.calls: list[list[str]] = []
+
+    def vector(self, text: str) -> tuple[float, ...]:
+        values = [0.0] * self.dimensions
+        for keyword, axis in self.axes.items():
+            if keyword.casefold() in text.casefold():
+                values[axis] += 1.0
+        values[-1] = 0.01
+        return tuple(values)
+
+    def embed(
+        self, *, model: str, texts: Sequence[str], dimensions: int, task: EmbeddingTask
+    ) -> EmbeddingReply:
+        self.calls.append(list(texts))
+        if self.fail:
+            raise LLMError("The LLM provider's rate limit or quota is used up.", 40)
+        return EmbeddingReply(
+            tuple(self.vector(text) for text in texts), 3 * len(texts), self.cost_usd, 120
+        )

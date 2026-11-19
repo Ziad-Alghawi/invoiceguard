@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { apiFetch, apiPostAnonymous, errorMessage } from "@/lib/api";
+import { type BookingChoice, bookingsFromForm } from "@/lib/bookings";
 import type { ExportState } from "@/lib/exports";
 import { type Invoice, type InvoiceStatus, isInvoiceId } from "@/lib/invoices";
 import { parseSessionCookie, SESSION_COOKIE } from "@/lib/session";
@@ -69,7 +70,7 @@ type DecisionPath =
 async function decide(
   invoiceId: string,
   path: DecisionPath,
-  body: Record<string, string>,
+  body: Record<string, string | BookingChoice[]>,
 ): Promise<ActionState> {
   if (!isInvoiceId(invoiceId)) {
     return { error: "Unknown invoice." };
@@ -80,7 +81,7 @@ async function decide(
     body: JSON.stringify(body),
   });
   if (response.status === 422) {
-    return { error: "Enter a reason; it cannot be empty." };
+    return { error: "Enter a reason and choose an account for every line." };
   }
   if (!response.ok) {
     return { error: await errorMessage(response) };
@@ -89,8 +90,13 @@ async function decide(
   return { error: null };
 }
 
-export async function approve(invoiceId: string): Promise<ActionState> {
-  return decide(invoiceId, "approve", {});
+/** Approves a ready invoice with the account chosen per line (ADR-020). */
+export async function approve(
+  invoiceId: string,
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return decide(invoiceId, "approve", { bookings: bookingsFromForm(formData) });
 }
 
 export async function reject(
@@ -123,6 +129,7 @@ export async function confirmOverride(
 ): Promise<ActionState> {
   return decide(invoiceId, "override/confirm", {
     reason: text(formData, "approver_reason"),
+    bookings: bookingsFromForm(formData),
   });
 }
 

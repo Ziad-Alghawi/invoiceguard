@@ -193,3 +193,55 @@ def test_extractor_needs_a_key(settings: Settings) -> None:
     assert isinstance(extractor.client, LiteLLMClient)
     assert (extractor.model, extractor.confidence_threshold) == (MODEL, Decimal("0.9"))
     assert extractor.reasoning_effort == "low"
+
+
+EMBEDDING_MODEL = "gemini/gemini-embedding-001"
+
+
+@pytest.fixture
+def embedded(monkeypatch: pytest.MonkeyPatch) -> Any:
+    """Make every `litellm.embedding` a mock call (two vectors) and collect its arguments."""
+    calls: list[dict[str, Any]] = []
+    real = litellm.embedding
+
+    def mocked(**kwargs: Any) -> Any:
+        calls.append(kwargs)
+        response = real(mock_response=[0.5] * 768, **kwargs)
+        response.data = [*response.data, response.data[0]]
+        return response
+
+    def use(error: Exception | None = None) -> list[dict[str, Any]]:
+        def failing(**kwargs: Any) -> Any:
+            raise error  # type: ignore[misc]
+
+        monkeypatch.setattr(litellm, "embedding", mocked if error is None else failing)
+        return calls
+
+    return use
+
+
+def test_embedding_request_and_reply(embedded: Any) -> None:
+    calls = embedded()
+
+    reply = LiteLLMClient(FAKE_KEY, 30).embed(
+        model=EMBEDDING_MODEL, texts=["Toner", "Papier"], dimensions=768, task="similarity"
+    )
+
+    assert len(reply.vectors) == 2
+    assert reply.vectors[0] == (0.5,) * 768
+    # LiteLLM's mock usage: 10 prompt tokens, priced from the pinned table ($0.15 per million).
+    assert reply.input_tokens == 10
+    assert reply.cost_usd == Decimal("0.000002")
+    request = calls[0]
+    assert request["input"] == ["Toner", "Papier"]
+    assert (request["dimensions"], request["task_type"]) == (768, "SEMANTIC_SIMILARITY")
+    assert (request["api_key"], request["timeout"], request["num_retries"]) == (FAKE_KEY, 30, 0)
+
+
+def test_embedding_errors_become_llm_errors(embedded: Any) -> None:
+    embedded(Timeout("slow", EMBEDDING_MODEL, "gemini"))
+
+    with pytest.raises(LLMError, match="timed out"):
+        LiteLLMClient(FAKE_KEY, 30).embed(
+            model=EMBEDDING_MODEL, texts=["Toner"], dimensions=768, task="similarity"
+        )

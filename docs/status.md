@@ -1,6 +1,6 @@
 # Status
 
-**Current milestone:** R3 — Evals, RAG, CI gate (in progress: R3-2 and R3-3 done, next R3-4)
+**Current milestone:** R3 — Evals, RAG, CI gate (in progress: R3-2, R3-3 and R3-4a done, next R3-4b)
 **Last updated:** 2026-11-19
 
 ## Done
@@ -192,14 +192,34 @@
     the evals, `full` nightly; KoSIT validator built in the job) fails on a field-accuracy drop over 2 points,
     any successful attack, a smaller attack set, or cost per invoice up more than 25 % against
     `packages/evals/baselines/`; `make eval-gate` locally. promptfoo not used (ADR-019)
+  - Booking suggestions (R3-4a, ADR-020): pgvector in our PostgreSQL (migration 0012: `embeddings` one vector per
+    text and model, `bookings` one row per booked line; extensions `vector` and `pg_trgm`, `pgvector` 0.5.1 for the
+    SQLAlchemy type). `LLMClient` gained `Embedder.embed`: `gemini/gemini-embedding-001`, 768 dimensions, task
+    `SEMANTIC_SIMILARITY` (checked with one live call before coding). After processing (upload, reopen) a
+    background task embeds the new line texts within the daily budget, logged in `model_calls`; a failure changes
+    nothing on the invoice. `GET /invoices/{id}/bookings`: the 10 nearest searchable bookings by cosine (or by
+    trigram text match for a line without a vector), +0.1 for the same supplier, a vote that weighs each neighbour
+    by exp((score - best) / 0.05), top 3 accounts with their sources; an invoice is never its own evidence; no
+    chat model. `/approve` and `/override/confirm` take an account per line (all or none, from a short SKR03
+    list), written by the decide node with the top suggestion and the user, listed in the audit row; an
+    injection-flagged invoice's bookings are `searchable = false`. Web: one account dropdown per line in the
+    approve and confirm forms, preselected with the suggestion and its evidence. `make index` /
+    `invoiceguard-index` imports the generated booking history (10 suppliers, 79 invoices, 159 lines) and packaged
+    vectors (history and demo sample lines), then embeds what is missing with a key; the demo reset imports both.
+    Eval part `bookings` (62 held-out lines): **98.4 % top-1 / 100 % top-3 by vector**, hit@1 98.4 %, MRR 0.984;
+    text match 91.9 % / 100 % (held-out wordings 82.1 %); the supplier's most frequent account 45.2 %. The first
+    vote (plain sum of similarities) scored 95.2 % and was replaced after that run, so the new number is
+    optimistic (results.md shows both). Gate: booking top-1 may drop 2 points at most. Live spend under $0.001.
+    The DATEV export does not use the chosen accounts yet (issue #24)
 
 ## Open decisions
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
 - R3 — Evals, RAG, CI gate (PLAN.md §11), three rounds, one PR each:
-  - R3-4 RAG: pgvector booking suggestions and rulebook search with evidence in the UI, top-1/top-3 eval; agent
-    tools `get_invoice_history` with `search_similar_invoices`, and `search_rulebook`
+  - R3-4b: MCP server `mcp-history` with its own role (`get_invoice_history`, `search_similar_invoices`,
+    `search_rulebook`; the api embeds rulebook queries), rulebook docs and chunks, agent prompt and allow-list,
+    attack cases that poison the history, rulebook retrieval eval (hit@k, MRR), live attack rerun
 - Backlog: scan-like generated PDFs (image noise, no text layer) for the eval set
 
 ## Known limitations
@@ -252,10 +272,18 @@
 - A PDF the model cannot read a required term from (invoice number, date, totals) ends in `failed`, not in review.
 - DATEV export (ADR-013): not certified and not yet imported into a real DATEV installation; one row per invoice, so
   several VAT rates (or a line without a rate) mean no BU key; one collective creditor and one expense account until
-  creditor numbers and booking suggestions (R3); no exchange rate for non-EUR invoices; disallowed characters in the
+  creditor numbers; the accounts chosen per line (ADR-020) are not exported yet (#24); no exchange rate for non-EUR invoices; disallowed characters in the
   invoice number become `-` in Belegfeld 1. Storing BG-23 (VAT breakdown) would allow one row per rate.
 
+- Booking suggestions (ADR-020): measured on a generated history with clean, distinct wordings per item (62
+  test lines), not on a real ledger; the vote was changed once after seeing that set. Lines of a visitor's upload
+  on the demo (no key) use the text match. Suggestions are computed on every `GET .../bookings` (an exact scan,
+  milliseconds at thousands of bookings; no vector index yet). Lines embedded while the key was missing or the
+  budget used up wait for `make index`.
+
 ## Lessons learned
+- Embedding similarities are compressed (unrelated texts still score ~0.8): do not use raw cosine scores as vote
+  weights; and with NULL on both sides, `IS DISTINCT FROM` is false, so test a filter with its parameter absent.
 - Check every eval "error" against the document first: 5 corpus PDFs print terms their XML leaves out, and two
   unit codes mean the same piece. Write each truth correction down with the printed text as its note.
 - Run the checks on the official conformance set, not only the parser: the first eval run found a check that

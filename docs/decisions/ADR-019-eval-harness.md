@@ -153,3 +153,10 @@ flagged 14 of 44. The regexes were not tuned to the set.
 
 The fraud set was rerun on the eval database at threshold 0.9: as expected in 10 of 10 cases as XML and as PDF,
 no clean invoice flagged. `docs/results.md` no longer carries numbers over from `c94c320`.
+
+## Update 2026-11-19: bookings part (R3-4, ADR-020)
+
+A fifth part, `bookings`, measures booking suggestions on a generated history with held-out lines (top-1,
+top-3, hit@k, MRR). The recording client also records embeddings, one file per text. The gate now also fails
+when booking top-1 by vector drops more than 2 points; the baselines gained `booking_top1`. A given
+`llm_client` in `create_app` does not embed, so the fraud and attack parts need no embedding recordings.

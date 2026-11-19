@@ -2,11 +2,19 @@
 
 import hashlib
 import json
+import random
 from collections.abc import Sequence
 from decimal import Decimal
 from typing import Any
 
-from invoiceguard_api.llm import FilePart, LLMReply, ReasoningEffort, UserPart
+from invoiceguard_api.llm import (
+    EmbeddingReply,
+    EmbeddingTask,
+    FilePart,
+    LLMReply,
+    ReasoningEffort,
+    UserPart,
+)
 from invoiceguard_api.parsing import ParsedInvoice
 from invoiceguard_api.parsing.fields import DOCUMENT_TERMS
 
@@ -41,7 +49,23 @@ def reply_for(invoice: ParsedInvoice, confidence: float = 1.0, **wrong: str) -> 
     return json.dumps(body)
 
 
-class ScriptedModel:
+def fake_vector(text: str, dimensions: int) -> tuple[float, ...]:
+    """The same numbers for the same text, unrelated numbers for different texts."""
+    rng = random.Random(hashlib.sha256(text.encode()).digest())
+    return tuple(rng.uniform(-1, 1) for _ in range(dimensions))
+
+
+class FakeEmbeddings:
+    """Embeddings without meaning: equal texts are similar (1.0), others are not."""
+
+    def embed(
+        self, *, model: str, texts: Sequence[str], dimensions: int, task: EmbeddingTask
+    ) -> EmbeddingReply:
+        vectors = tuple(fake_vector(text, dimensions) for text in texts)
+        return EmbeddingReply(vectors, 4 * len(texts), Decimal("0.000001") * len(texts), 300)
+
+
+class ScriptedModel(FakeEmbeddings):
     """Answers each call with the next reply text; an Exception item raises instead."""
 
     def __init__(self, replies: list[str | Exception]) -> None:

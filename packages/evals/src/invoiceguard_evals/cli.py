@@ -1,5 +1,6 @@
-"""`invoiceguard-eval`: fetch the pinned sources, regenerate the generated set, run the evals,
-and write `docs/results.md` (ADR-019).
+"""`invoiceguard-eval`: fetch the pinned sources, regenerate the generated set and the booking
+history, run the evals, write `docs/results.md` (ADR-019), and write the demo's packaged booking
+vectors (ADR-020).
 
 Replay is the default: every model reply comes from `recordings/`, free and offline. `--live`
 calls the model for requests without a recording, up to `--max-spend-usd`.
@@ -17,14 +18,29 @@ from pathlib import Path
 from typing import Any, cast, get_args
 
 from invoiceguard_api.agent.loop import ExceptionAgent, Limits
+from invoiceguard_api.booking import history
+from invoiceguard_api.booking.text import normalise
+from invoiceguard_api.demo import sample_invoices
 from invoiceguard_api.extraction import PdfExtractor
+from invoiceguard_api.filetype import source_type_for
 from invoiceguard_api.llm import LLMClient, ReasoningEffort
+from invoiceguard_api.models import EMBEDDING_DIMENSIONS
+from invoiceguard_api.parsing import invoice_xml, read_invoice_xml
 from invoiceguard_api.settings import Settings
 
-from invoiceguard_evals import attack_eval, datasets, decisions, evaluate, gate, report
+from invoiceguard_evals import (
+    attack_eval,
+    booking_eval,
+    bookings,
+    datasets,
+    decisions,
+    evaluate,
+    gate,
+    report,
+)
 from invoiceguard_evals.attacks import ATTACKS
 from invoiceguard_evals.metrics import as_expected, decision_summary
-from invoiceguard_evals.recording import RecordingClient
+from invoiceguard_evals.recording import LiveClient, RecordingClient
 from invoiceguard_evals.sources import PACKAGE_DIR, fetch, load_manifest
 from invoiceguard_evals.specs import ALL
 
@@ -32,10 +48,11 @@ RECORDINGS_DIR = PACKAGE_DIR / "recordings"
 BASELINES_DIR = PACKAGE_DIR / "baselines"
 REPORTS_DIR = PACKAGE_DIR / "reports"
 RESULTS = PACKAGE_DIR.parents[1] / "docs" / "results.md"
-PARTS = ("parser", "extraction", "decisions", "attacks")
+PARTS = ("parser", "extraction", "decisions", "attacks", "bookings")
 DEFAULT_MODEL = cast(str, Settings.model_fields["extraction_model"].default)
 DEFAULT_EFFORT = cast(ReasoningEffort, Settings.model_fields["extraction_reasoning_effort"].default)
 THRESHOLD = cast(Decimal, Settings.model_fields["extraction_confidence_threshold"].default)
+EMBEDDING_MODEL = cast(str, Settings.model_fields["embedding_model"].default)
 
 
 def _default(name: str) -> Any:
@@ -62,7 +79,14 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="invoiceguard-eval", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("fetch", help="download the pinned corpus files into the cache")
-    commands.add_parser("generate", help="rewrite datasets/generated from the specs")
+    commands.add_parser(
+        "generate", help="rewrite datasets/generated and the api's booking history from the specs"
+    )
+    vectors = commands.add_parser(
+        "vectors", help="write the api's packaged vectors (booking history, demo samples)"
+    )
+    vectors.add_argument("--live", action="store_true", help="embed texts without a recording")
+    vectors.add_argument("--max-spend-usd", type=Decimal, default=Decimal(0))
     run = commands.add_parser("run", help="run the evals and write a JSON report")
     run.add_argument("--set", choices=get_args(datasets.SetName), default="small")
     run.add_argument("--only", type=_parts, default=list(PARTS), help=",".join(PARTS))
@@ -93,7 +117,7 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _live_client() -> LLMClient:
+def _live_client() -> LiveClient:
     key = os.environ.get("INVOICEGUARD_LLM_API_KEY")
     if not key:
         sys.exit("--live needs INVOICEGUARD_LLM_API_KEY (uv run --env-file ../../.env ...).")
@@ -201,6 +225,46 @@ def _attacks(args: argparse.Namespace, client: RecordingClient) -> dict[str, Any
     return summary
 
 
+def _bookings(client: RecordingClient) -> dict[str, Any]:
+    result = booking_eval.evaluate_bookings(_database_url(), client, EMBEDDING_MODEL)
+    vector = result["summary"]["vector"]
+    print(f"bookings: {result['summary']['lines']} lines, top-1 {vector['top1']:.1%}, "
+          f"top-3 {vector['top3']:.1%} by vector; ${client.spent_usd} spent so far")  # fmt: skip
+    return result
+
+
+def _demo_texts() -> list[str]:
+    """The line texts of the demo samples (demo reset)."""
+    texts: list[str] = []
+    for name, content in sample_invoices():
+        source_type = source_type_for(name, content)
+        if source_type is None:
+            raise ValueError(f"Demo sample {name} is not an XML or PDF invoice")
+        parsed = read_invoice_xml(invoice_xml(content, source_type))
+        texts.extend(line.item_name for line in parsed.lines if line.item_name)
+    return texts
+
+
+def write_vectors(client: RecordingClient, path: Path) -> int:
+    """The vectors of the booking history and the demo samples' lines, for the demo (ADR-020)."""
+    texts = [line["text"] for invoice in history.packaged_history() for line in invoice["lines"]]
+    unique = sorted(set(normalise(text) for text in [*texts, *_demo_texts()]))
+    reply = client.embed(
+        model=EMBEDDING_MODEL, texts=unique, dimensions=EMBEDDING_DIMENSIONS, task="similarity"
+    )
+    document = {
+        "description": "Written by `invoiceguard-eval vectors` from recorded embeddings.",
+        "model": EMBEDDING_MODEL,
+        "dimensions": EMBEDDING_DIMENSIONS,
+        "vectors": {
+            text: history.encode_vector(vector)
+            for text, vector in zip(unique, reply.vectors, strict=True)
+        },
+    }
+    path.write_text(json.dumps(document, indent=1) + "\n", "utf-8", newline="\n")
+    return len(unique)
+
+
 def run(args: argparse.Namespace) -> Path:
     client = RecordingClient(
         RECORDINGS_DIR,
@@ -216,6 +280,7 @@ def run(args: argparse.Namespace) -> Path:
         "extraction": _extraction(args, client) if "extraction" in args.only else None,
         "decisions": _decisions(args, client) if "decisions" in args.only else None,
         "attacks": _attacks(args, client) if "attacks" in args.only else None,
+        "bookings": _bookings(client) if "bookings" in args.only else None,
     }
     created = datetime.now(UTC)
     result = {
@@ -233,6 +298,7 @@ def run(args: argparse.Namespace) -> Path:
             "replayed_calls": client.replayed,
             "live_spend_usd": str(client.spent_usd),
             "validator": bool(os.environ.get("INVOICEGUARD_EVAL_VALIDATOR_URL")),
+            "embedding_model": EMBEDDING_MODEL,
         },
         **result,
     }
@@ -268,6 +334,13 @@ def main(argv: Sequence[str] | None = None) -> None:
         print(f"downloaded {fetch(load_manifest())} file(s); every cached file matches its pin")
     elif args.command == "generate":
         print(f"wrote {datasets.write_generated()} files to {datasets.GENERATED_DIR}")
+        print(f"wrote {bookings.write_history()} booking lines to {bookings.HISTORY_PATH}")
+    elif args.command == "vectors":
+        client = RecordingClient(
+            RECORDINGS_DIR, _live_client() if args.live else None, args.max_spend_usd
+        )
+        path = Path(str(history.VECTORS))
+        print(f"wrote {write_vectors(client, path)} vectors to {path}; ${client.spent_usd} spent")
     elif args.command == "run":
         print(f"report: {run(args)}")
     elif args.command == "gate":
