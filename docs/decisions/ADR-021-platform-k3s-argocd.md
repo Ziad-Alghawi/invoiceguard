@@ -77,3 +77,11 @@ images built, scanned and pushed by CI.
 - Caddy and Traefik are two proxies in a row: request limits (body size) are set in both, and the api must
   trust forwarded client addresses from the proxies only (R4-2, per-IP login limit).
 - Supersedes the hosting part of ADR-014 once R4-4 is live; until then the demo runs on Compose.
+
+## Amendment (2026-11-19, R4-3)
+
+- **Migrations:** the Job is a Helm `pre-install`/`pre-upgrade` hook, which Argo CD runs as PreSync, so
+  `helm install` and Argo CD run it the same way.
+- **Database:** PostgreSQL has its own chart (`infra/helm/invoiceguard-postgres`), installed before the app
+  chart, because a hook runs before anything else in its release exists. In R4-4 the two charts become two
+  Applications in sync waves. Details in [ADR-023](ADR-023-helm-chart-and-postgres.md).

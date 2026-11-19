@@ -1,0 +1,58 @@
+{{- $ctx := dict "ctx" . "component" "migrate" -}}
+# Migrations and the restricted roles' passwords, as the owner (ADR-022, ADR-023), before any pod of
+# a new release starts. Argo CD runs pre-install and pre-upgrade hooks as PreSync. Hooks run before
+# the release's other objects exist, so everything the Job needs is set here, not in a ConfigMap.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "invoiceguard.name" $ctx }}
+  labels:
+    {{- include "invoiceguard.labels" $ctx | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    # Replaced on each run and removed once it succeeded; a failed Job stays for its logs.
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        {{- include "invoiceguard.labels" $ctx | nindent 8 }}
+        {{- include "invoiceguard.databaseClientLabel" . | nindent 8 }}
+    spec:
+      {{- include "invoiceguard.podSpecCommon" (dict "uid" 999) | nindent 6 }}
+      restartPolicy: Never
+      initContainers:
+        {{- include "invoiceguard.waitForDatabase" . | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ include "invoiceguard.image" (dict "ctx" . "image" "api") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["sh", "-c", "alembic upgrade head && invoiceguard-db-roles"]
+          env:
+            - name: INVOICEGUARD_LOG_LEVEL
+              value: {{ .Values.logLevel | quote }}
+            {{- include "invoiceguard.ownerDatabaseEnv" . | nindent 12 }}
+            # Set as the roles' passwords by invoiceguard-db-roles (ADR-017, ADR-022).
+            - name: INVOICEGUARD_APP_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.app }}
+                  key: app-db-password
+            {{- range $server := list "erp" "registry" "history" }}
+            - name: {{ printf "INVOICEGUARD_MCP_%s_DB_PASSWORD" (upper $server) }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.secrets.app }}
+                  key: {{ printf "mcp-%s-db-password" $server }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.migrate.resources | nindent 12 }}
+          {{- include "invoiceguard.containerSecurityContext" . | nindent 10 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

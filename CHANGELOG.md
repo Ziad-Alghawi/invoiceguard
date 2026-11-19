@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Helm charts (R4-3, ADR-023):
+  - `infra/helm/invoiceguard-postgres`: PostgreSQL 16 with pgvector, pinned by digest. On first start it
+    creates the owner `invoiceguard_owner`, which is no superuser, its database and the extensions.
+  - `infra/helm/invoiceguard`: api, web, validator and the three MCP servers from GHCR by commit SHA, with
+    probes, memory requests and limits, numeric non-root users and read-only root filesystems.
+  - The migration runs as a `pre-install`/`pre-upgrade` hook (PreSync in Argo CD); the demo reset is a
+    nightly CronJob. Both run as the owner.
+  - NetworkPolicies (only the api reaches the MCP servers), a Traefik ingress with a 413 above 11 MiB, and
+    secrets referenced by name only.
+  - CI job `helm`: lint, render, and install on k3d with a smoke test (`.github/scripts/k3d-smoke-test.sh`).
+  - The Dockerfiles set numeric user IDs (the same as before), so Kubernetes can check `runAsNonRoot`.
+  - ADR-021 and ADR-022 amended; `docs/deploy.md` has a Kubernetes section.
 - Several api pods safely (R4-2):
   - Startup recovery only tries each invoice's advisory lock: it skips the invoices another pod holds and
     resets a `processing` invoice only when nobody holds its lock.

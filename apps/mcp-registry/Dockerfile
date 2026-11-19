@@ -19,14 +19,15 @@ RUN --mount=type=cache,target=/root/.cache/uv     uv sync --locked --no-dev --no
 # Run: only the virtual environment, as a non-root user.
 FROM python:3.12-slim AS run
 
-RUN groupadd --system app && useradd --system --gid app --no-create-home app
+# Fixed IDs, so Kubernetes can check runAsNonRoot and the chart sets the same user (R4-3).
+RUN groupadd --system --gid 999 app && useradd --system --uid 999 --gid app --no-create-home app
 
 WORKDIR /app
 COPY --from=build --chown=app:app /app/.venv /app/.venv
 
 ENV PATH="/app/.venv/bin:$PATH"     PYTHONDONTWRITEBYTECODE=1     PYTHONUNBUFFERED=1
 
-USER app
+USER 999:999
 EXPOSE 8000
 # The port accepts connections once the server runs (the MCP endpoint needs a POST).
 HEALTHCHECK --interval=5s --timeout=3s --start-period=5s --retries=10     CMD ["python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), timeout=2).close()"]

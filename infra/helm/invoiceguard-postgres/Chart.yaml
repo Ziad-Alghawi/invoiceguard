@@ -1,0 +1,8 @@
+apiVersion: v2
+name: invoiceguard-postgres
+description: >-
+  PostgreSQL 16 with pgvector for InvoiceGuard, one instance with a local volume (ADR-023). Install it
+  before the invoiceguard chart, whose migration hook needs the database.
+type: application
+version: 0.1.0
+appVersion: "16"

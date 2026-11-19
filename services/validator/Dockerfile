@@ -24,10 +24,11 @@ RUN mkdir /opt/kosit/configuration \
 # --- runtime: JRE only, non-root ---------------------------------------------------------------
 FROM eclipse-temurin:21-jre-noble@sha256:977602aad3cf25b74bbb4c8e7532060eef80e1f1288932da35f5fbecd6159b65
 
-RUN useradd --system --no-create-home --shell /usr/sbin/nologin kosit
+# Fixed IDs, so Kubernetes can check runAsNonRoot and the chart sets the same user (R4-3).
+RUN groupadd --system --gid 999 kosit && useradd --system --uid 999 --gid kosit --no-create-home --shell /usr/sbin/nologin kosit
 COPY --from=download --chown=root:root /opt/kosit /opt/kosit
 
-USER kosit
+USER 999:999
 EXPOSE 8080
 
 # Health: GET /server/health. Validate: POST the invoice XML to /; 200 = accepted, 406 = rejected.

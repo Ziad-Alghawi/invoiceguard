@@ -26,7 +26,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM python:3.12-slim AS run
 
 # A named volume mounted on /data/uploads takes over this owner, so the app user can write uploads.
-RUN groupadd --system app && useradd --system --gid app --no-create-home app \
+# Fixed IDs, so Kubernetes can check runAsNonRoot and the chart sets the same user (R4-3).
+RUN groupadd --system --gid 999 app && useradd --system --uid 999 --gid app --no-create-home app \
     && mkdir -p /data/uploads && chown app:app /data/uploads
 
 WORKDIR /app
@@ -43,7 +44,7 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     INVOICEGUARD_STORAGE_DIR=/data/uploads     INVOICEGUARD_RULEBOOK_DIR=/app/rulebook
 
-USER app
+USER 999:999
 EXPOSE 8000
 # --no-proxy-headers: the app decides which proxies to believe (INVOICEGUARD_TRUSTED_PROXIES).
 CMD ["uvicorn", "--factory", "invoiceguard_api.main:create_app", "--host", "0.0.0.0", "--port", "8000", "--no-proxy-headers"]

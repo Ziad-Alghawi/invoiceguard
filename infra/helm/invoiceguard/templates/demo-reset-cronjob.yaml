@@ -1,0 +1,79 @@
+{{- if .Values.demoReset.enabled }}
+{{- if not .Values.demoMode }}
+{{- fail "demoReset deletes every invoice and needs demoMode: true" }}
+{{- end }}
+{{- $ctx := dict "ctx" . "component" "demo-reset" -}}
+# The nightly demo reset (ADR-014): deletes every invoice, reloads the samples and resets the demo
+# logins. Runs as the owner, never as the api's role (ADR-022).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "invoiceguard.name" $ctx }}
+  labels:
+    {{- include "invoiceguard.labels" $ctx | nindent 4 }}
+spec:
+  schedule: {{ .Values.demoReset.schedule | quote }}
+  timeZone: {{ .Values.demoReset.timeZone | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 900
+      template:
+        metadata:
+          labels:
+            {{- include "invoiceguard.labels" $ctx | nindent 12 }}
+            {{- include "invoiceguard.databaseClientLabel" . | nindent 12 }}
+        spec:
+          {{- include "invoiceguard.podSpecCommon" (dict "uid" 999) | nindent 10 }}
+          restartPolicy: Never
+          initContainers:
+            {{- include "invoiceguard.waitForDatabase" . | nindent 12 }}
+          containers:
+            - name: demo-reset
+              image: {{ include "invoiceguard.image" (dict "ctx" . "image" "api") }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["sh", "-c", "invoiceguard-demo-reset && invoiceguard-seed-user"]
+              env:
+                {{- include "invoiceguard.commonApiEnv" . | nindent 16 }}
+                {{- include "invoiceguard.ownerDatabaseEnv" . | nindent 16 }}
+                # The login users for invoiceguard-seed-user; the approver is optional.
+                - name: INVOICEGUARD_SEED_USER_EMAIL
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secrets.app }}
+                      key: seed-user-email
+                - name: INVOICEGUARD_SEED_USER_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secrets.app }}
+                      key: seed-user-password
+                - name: INVOICEGUARD_SEED_APPROVER_EMAIL
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secrets.app }}
+                      key: seed-approver-email
+                      optional: true
+                - name: INVOICEGUARD_SEED_APPROVER_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secrets.app }}
+                      key: seed-approver-password
+                      optional: true
+              resources:
+                {{- toYaml .Values.demoReset.resources | nindent 16 }}
+              {{- include "invoiceguard.containerSecurityContext" . | nindent 14 }}
+              volumeMounts:
+                - name: uploads
+                  mountPath: /data/uploads
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: uploads
+              persistentVolumeClaim:
+                claimName: {{ include "invoiceguard.name" (dict "ctx" . "component" "uploads") }}
+            - name: tmp
+              emptyDir: {}
+{{- end }}

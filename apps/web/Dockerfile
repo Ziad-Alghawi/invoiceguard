@@ -36,6 +36,7 @@ RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /us
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 
-USER node
+# Numeric (the image's `node` user), so Kubernetes can check runAsNonRoot (R4-3).
+USER 1000:1000
 EXPOSE 3000
 CMD ["node", "server.js"]

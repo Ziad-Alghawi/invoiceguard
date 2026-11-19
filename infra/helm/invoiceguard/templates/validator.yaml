@@ -1,0 +1,69 @@
+{{- $ctx := dict "ctx" . "component" "validator" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "invoiceguard.name" $ctx }}
+  labels:
+    {{- include "invoiceguard.labels" $ctx | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "invoiceguard.selectorLabels" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "invoiceguard.labels" $ctx | nindent 8 }}
+    spec:
+      {{- include "invoiceguard.podSpecCommon" (dict "uid" 999) | nindent 6 }}
+      containers:
+        # The KoSIT validator (ADR-009). The api does not wait for it: while it is down, the KoSIT
+        # check is skipped and the other checks run.
+        - name: validator
+          image: {{ include "invoiceguard.image" (dict "ctx" . "image" "validator") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          # The JVM loads the XRechnung configuration first.
+          startupProbe:
+            httpGet:
+              path: /server/health
+              port: http
+            periodSeconds: 2
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /server/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /server/health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            {{- toYaml .Values.validator.resources | nindent 12 }}
+          {{- include "invoiceguard.containerSecurityContext" . | nindent 10 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "invoiceguard.name" $ctx }}
+  labels:
+    {{- include "invoiceguard.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "invoiceguard.selectorLabels" $ctx | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

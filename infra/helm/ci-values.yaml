@@ -1,0 +1,6 @@
+# Values for the chart test on k3d (CI job `helm`, .github/scripts/k3d-smoke-test.sh).
+image:
+  # The images are built in the job and imported into the cluster, not pulled from GHCR.
+  pullPolicy: Never
+# dev: session cookies without the Secure flag, so curl sends them back over plain http.
+env: dev

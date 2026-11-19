@@ -1,0 +1,94 @@
+{{- $ctx := dict "ctx" . "component" "web" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "invoiceguard.name" $ctx }}
+  labels:
+    {{- include "invoiceguard.labels" $ctx | nindent 4 }}
+spec:
+  replicas: {{ .Values.web.replicas }}
+  selector:
+    matchLabels:
+      {{- include "invoiceguard.selectorLabels" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "invoiceguard.labels" $ctx | nindent 8 }}
+    spec:
+      {{- include "invoiceguard.podSpecCommon" (dict "uid" 1000) | nindent 6 }}
+      containers:
+        - name: web
+          image: {{ include "invoiceguard.image" (dict "ctx" . "image" "web") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            # Backend for frontend: the browser talks to this server only, which calls the api.
+            - name: API_URL
+              value: "http://{{ include "invoiceguard.name" (dict "ctx" . "component" "api") }}:8000"
+            {{- if .Values.demoMode }}
+            # The shared demo accounts shown on the login page (ADR-006, ADR-016); the same
+            # values the demo reset seeds. The approver is optional.
+            - name: DEMO_LOGIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.app }}
+                  key: seed-user-email
+            - name: DEMO_LOGIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.app }}
+                  key: seed-user-password
+            - name: DEMO_APPROVER_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.app }}
+                  key: seed-approver-email
+                  optional: true
+            - name: DEMO_APPROVER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.app }}
+                  key: seed-approver-password
+                  optional: true
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 3000
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+          # The login page renders without a session, so it does not depend on the api.
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+          {{- include "invoiceguard.containerSecurityContext" . | nindent 10 }}
+          volumeMounts:
+            # Next.js caches rendered pages and images here; the rest of the root stays read-only.
+            - name: next-cache
+              mountPath: /app/.next/cache
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: next-cache
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "invoiceguard.name" $ctx }}
+  labels:
+    {{- include "invoiceguard.labels" $ctx | nindent 4 }}
+spec:
+  selector:
+    {{- include "invoiceguard.selectorLabels" $ctx | nindent 4 }}
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http

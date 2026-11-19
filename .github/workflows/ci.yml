@@ -428,3 +428,62 @@ jobs:
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io --username "${{ github.actor }}" --password-stdin
           docker push "$IMAGE"
+
+  helm:
+    name: helm (lint, template, install on k3d)
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.sha }}
+      # k3d runs k3s in Docker: the same Traefik, local-path storage and NetworkPolicy controller as
+      # the server (ADR-021, ADR-023).
+      K3D_VERSION: v5.9.0
+      K3D_SHA256: 06d8f25bc3a971c4eb29e0ff08429b180402db0f4dec838c9eac427e296800a0  # pragma: allowlist secret
+      K3S_IMAGE: rancher/k3s:v1.36.6-k3s1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.1
+      - name: Lint and render both charts; without an image tag the chart refuses to render
+        run: |
+          helm lint --strict infra/helm/invoiceguard-postgres
+          helm lint --strict infra/helm/invoiceguard --set image.tag="$TAG"
+          helm template invoiceguard-postgres infra/helm/invoiceguard-postgres > /dev/null
+          helm template invoiceguard infra/helm/invoiceguard --set image.tag="$TAG" > /dev/null
+          if helm template invoiceguard infra/helm/invoiceguard > /dev/null 2>&1; then
+            echo "::error::the chart rendered without image.tag"; exit 1
+          fi
+      - name: Install k3d (pinned version, checked against its SHA-256)
+        run: |
+          curl --fail --silent --show-error --location --output k3d \
+            "https://github.com/k3d-io/k3d/releases/download/$K3D_VERSION/k3d-linux-amd64"
+          echo "$K3D_SHA256  k3d" | sha256sum --check
+          sudo install k3d /usr/local/bin/k3d && rm k3d
+      # The images of a pull request are not in GHCR (only main pushes), so they are built here and
+      # imported into the cluster under the names the chart uses.
+      - name: Build the six images
+        run: |
+          prefix=ghcr.io/ziad-alghawi/invoiceguard
+          docker build --build-context rulebook=docs/rulebook --tag "$prefix-api:$TAG" apps/api
+          docker build --tag "$prefix-web:$TAG" apps/web
+          for server in mcp-erp mcp-registry mcp-history; do
+            docker build --tag "$prefix-$server:$TAG" "apps/$server"
+          done
+          docker build --tag "$prefix-validator:$TAG" services/validator
+      - name: Start k3d and import the images
+        run: |
+          k3d cluster create invoiceguard --image "$K3S_IMAGE" --port "8080:80@loadbalancer" --wait
+          k3d image import --cluster invoiceguard \
+            $(for image in api web mcp-erp mcp-registry mcp-history validator; do
+              echo "ghcr.io/ziad-alghawi/invoiceguard-$image:$TAG"; done)
+      - name: Install both charts; owner, ingress, 413, health, demo reset, login, NetworkPolicies, upgrade
+        run: .github/scripts/k3d-smoke-test.sh "$TAG" 8080
+      - name: Cluster state and logs
+        if: failure()
+        run: |
+          kubectl --namespace invoiceguard get all,pvc,jobs,networkpolicies
+          kubectl --namespace invoiceguard get events --sort-by=.lastTimestamp
+          for pod in $(kubectl --namespace invoiceguard get pods --output name); do
+            echo "=== $pod"
+            kubectl --namespace invoiceguard logs "$pod" --all-containers --tail=100
+          done

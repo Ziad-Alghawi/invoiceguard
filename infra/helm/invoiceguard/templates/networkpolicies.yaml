@@ -1,0 +1,116 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $dns := dict "to" .Values.networkPolicy.dnsTo "ports" (list (dict "port" 53 "protocol" "UDP") (dict "port" 53 "protocol" "TCP")) -}}
+{{- $database := dict "to" (list (dict "podSelector" (dict "matchLabels" .Values.database.podLabels))) "ports" (list (dict "port" .Values.database.port "protocol" "TCP")) -}}
+# Nothing reaches a pod of this release unless a policy below allows it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "invoiceguard.name" (dict "ctx" . "component" "default-deny") }}
+  labels:
+    {{- include "invoiceguard.labels" (dict "ctx" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: invoiceguard
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress]
+---
+# The web server: reached by the ingress controller only; talks to the api and nothing else.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "invoiceguard.name" (dict "ctx" . "component" "web") }}
+  labels:
+    {{- include "invoiceguard.labels" (dict "ctx" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "invoiceguard.selectorLabels" (dict "ctx" . "component" "web") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        {{- toYaml .Values.networkPolicy.ingressControllerFrom | nindent 8 }}
+      ports:
+        - port: 3000
+          protocol: TCP
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "invoiceguard.selectorLabels" (dict "ctx" . "component" "api") | nindent 14 }}
+      ports:
+        - port: 8000
+          protocol: TCP
+    - {{- toYaml $dns | nindent 6 }}
+---
+# The api: reached by the web server only. Outgoing traffic stays open: it calls the model APIs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "invoiceguard.name" (dict "ctx" . "component" "api") }}
+  labels:
+    {{- include "invoiceguard.labels" (dict "ctx" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "invoiceguard.selectorLabels" (dict "ctx" . "component" "api") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "invoiceguard.selectorLabels" (dict "ctx" . "component" "web") | nindent 14 }}
+      ports:
+        - port: 8000
+          protocol: TCP
+{{- range $server := list "erp" "registry" "history" }}
+---
+# mcp-{{ $server }} (ADR-017): reached by the api only; talks to the database only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "invoiceguard.name" (dict "ctx" $ "component" (printf "mcp-%s" $server)) }}
+  labels:
+    {{- include "invoiceguard.labels" (dict "ctx" $ "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "invoiceguard.selectorLabels" (dict "ctx" $ "component" (printf "mcp-%s" $server)) | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "invoiceguard.selectorLabels" (dict "ctx" $ "component" "api") | nindent 14 }}
+      ports:
+        - port: 8000
+          protocol: TCP
+  egress:
+    - {{- toYaml $database | nindent 6 }}
+    - {{- toYaml $dns | nindent 6 }}
+{{- end }}
+---
+# The validator: reached by the api and the demo reset; needs no outgoing traffic at all.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "invoiceguard.name" (dict "ctx" . "component" "validator") }}
+  labels:
+    {{- include "invoiceguard.labels" (dict "ctx" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "invoiceguard.selectorLabels" (dict "ctx" . "component" "validator") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "invoiceguard.selectorLabels" (dict "ctx" . "component" "api") | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              {{- include "invoiceguard.selectorLabels" (dict "ctx" . "component" "demo-reset") | nindent 14 }}
+      ports:
+        - port: 8080
+          protocol: TCP
+{{- end }}

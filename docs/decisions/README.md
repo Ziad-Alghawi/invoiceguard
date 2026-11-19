@@ -25,5 +25,6 @@ New ADRs start from the [template](ADR-000-template.md).
 | [ADR-018](ADR-018-exception-agent.md) | Exception agent: an own bounded loop outside the graph, with a per-invoice cost cap | Accepted |
 | [ADR-019](ADR-019-eval-harness.md) | Evaluation harness with pinned datasets and recorded model replies | Accepted |
 | [ADR-020](ADR-020-booking-suggestions-pgvector.md) | Booking suggestions by retrieval over pgvector, with Gemini embeddings | Accepted |
-| [ADR-021](ADR-021-platform-k3s-argocd.md) | Platform: k3s on the demo VPS, Helm, Argo CD and GHCR images | Accepted |
-| [ADR-022](ADR-022-database-roles-and-migrate-step.md) | A restricted database role for the api, migrations as a separate step | Accepted |
+| [ADR-021](ADR-021-platform-k3s-argocd.md) | Platform: k3s on the demo VPS, Helm, Argo CD and GHCR images | Accepted, amended by ADR-023 |
+| [ADR-022](ADR-022-database-roles-and-migrate-step.md) | A restricted database role for the api, migrations as a separate step | Accepted, amended by ADR-023 |
+| [ADR-023](ADR-023-helm-chart-and-postgres.md) | Helm chart, a separate PostgreSQL chart and a non-superuser owner | Accepted |
