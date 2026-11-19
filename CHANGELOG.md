@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- R3 closed (R4-1): the eval gate is shown to fail on a deliberate regression (draft PR #23, never merged);
+  the R4 plan in `docs/status.md`.
 - History and rulebook for the exception agent (R3-4b; ADR-017, ADR-018, ADR-019, ADR-020 updated): a third
   read-only MCP server, `mcp-history`, with `get_invoice_history`, `search_similar_invoices` and `search_rulebook`.
   Its database role reads three views of approved, injection-free history, the rulebook and the vectors of
