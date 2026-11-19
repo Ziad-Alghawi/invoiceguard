@@ -11,6 +11,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Computed,
     Date,
     DateTime,
     Enum,
@@ -27,7 +28,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # Stable constraint names, so migrations can alter and drop them by name.
@@ -630,4 +631,39 @@ class Booking(Base):
     __table_args__ = (
         UniqueConstraint("invoice_id", "line_no"),
         Index("ix_bookings_text_sha256", "text_sha256"),
+    )
+
+
+# Both stemmers (migration 0013): the rulebook is English with German terms.
+RULEBOOK_TSVECTOR = (
+    "to_tsvector('english', title || ' ' || heading || ' ' || text) || "
+    "to_tsvector('german', title || ' ' || heading || ' ' || text)"
+)
+
+
+class RulebookChunk(Base):
+    """One section of a rulebook file (docs/rulebook, R3-4b): what the agent's
+    `search_rulebook` finds, by vector or by full text."""
+
+    __tablename__ = "rulebook_chunks"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    # The file name in docs/rulebook and the heading's anchor in it.
+    source: Mapped[str] = mapped_column(String(100))
+    anchor: Mapped[str] = mapped_column(String(200))
+    title: Mapped[str] = mapped_column(Text)
+    heading: Mapped[str] = mapped_column(Text)
+    text: Mapped[str] = mapped_column(Text)
+    text_sha256: Mapped[str] = mapped_column(String(64))
+    # The whole file's SHA-256: the rulebook version the chunk comes from.
+    file_sha256: Mapped[str] = mapped_column(String(64))
+    # Null until embedded; without a vector the chunk is found by full text only.
+    model: Mapped[str | None] = mapped_column(String(100))
+    vector: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIMENSIONS))
+    tsv: Mapped[str] = mapped_column(TSVECTOR, Computed(RULEBOOK_TSVECTOR, persisted=True))
+    created_at: Mapped[datetime] = _created_at()
+
+    __table_args__ = (
+        UniqueConstraint("source", "anchor"),
+        Index("ix_rulebook_chunks_tsv", "tsv", postgresql_using="gin"),
     )

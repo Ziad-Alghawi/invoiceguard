@@ -1,5 +1,5 @@
-"""The MCP servers' database roles (migration 0010, ADR-017): each reads only its own tables
-and columns and writes nothing.
+"""The MCP servers' database roles (migrations 0010 and 0013, ADR-017): each reads only its own
+tables, views and columns and writes nothing.
 
 The checks run as the role with `SET LOCAL ROLE` inside a rolled-back transaction, so PostgreSQL
 applies exactly that role's privileges. The tests never change the roles' passwords: roles
@@ -16,7 +16,13 @@ from sqlalchemy import Connection, Engine, text
 from sqlalchemy.exc import ProgrammingError
 
 from invoiceguard_api import db_roles
-from invoiceguard_api.db_roles import ERP_ROLE, REGISTRY_ROLE, RolePasswords, apply_passwords
+from invoiceguard_api.db_roles import (
+    ERP_ROLE,
+    HISTORY_ROLE,
+    REGISTRY_ROLE,
+    RolePasswords,
+    apply_passwords,
+)
 from invoiceguard_api.settings import get_settings
 
 ERP_TABLES = (
@@ -39,6 +45,8 @@ APP_TABLES = (
     "model_calls",
     "datev_exports",
 )
+HISTORY_VIEWS = ("history_lines", "history_invoices", "invoice_item_names")
+ROLES = (ERP_ROLE, REGISTRY_ROLE, HISTORY_ROLE)
 
 
 @pytest.fixture
@@ -68,7 +76,7 @@ def test_erp_role_reads_its_tables(connection: Connection, table: str) -> None:
     run_as(connection, ERP_ROLE, f"SELECT * FROM {table}")
 
 
-@pytest.mark.parametrize("table", (*REGISTRY_TABLES, *APP_TABLES))
+@pytest.mark.parametrize("table", (*REGISTRY_TABLES, *APP_TABLES, *HISTORY_VIEWS, "bookings"))
 def test_erp_role_cannot_read_other_tables(connection: Connection, table: str) -> None:
     assert_refused(connection, ERP_ROLE, f"SELECT * FROM {table}")
 
@@ -88,10 +96,38 @@ def test_registry_role_cannot_read_other_supplier_columns(
 
 
 @pytest.mark.parametrize(
-    "table", ("purchase_orders", "purchase_order_lines", "goods_receipts", *APP_TABLES)
+    "table",
+    ("purchase_orders", "purchase_order_lines", "goods_receipts", *APP_TABLES, *HISTORY_VIEWS),
 )
 def test_registry_role_cannot_read_other_tables(connection: Connection, table: str) -> None:
     assert_refused(connection, REGISTRY_ROLE, f"SELECT * FROM {table}")
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        *(f"SELECT * FROM {view}" for view in HISTORY_VIEWS),
+        "SELECT * FROM rulebook_chunks",
+        "SELECT model, text_sha256, vector FROM embeddings",
+    ],
+)
+def test_history_role_reads_its_views(connection: Connection, statement: str) -> None:
+    run_as(connection, HISTORY_ROLE, statement)
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        *(f"SELECT * FROM {table}" for table in (*APP_TABLES, *ERP_TABLES, *REGISTRY_TABLES)),
+        "SELECT * FROM bookings",
+        "SELECT * FROM agent_runs",
+        # The embeddings' texts are every invoice's line texts; the role reads only vectors.
+        "SELECT text FROM embeddings",
+        "SELECT * FROM embeddings",
+    ],
+)
+def test_history_role_cannot_read_anything_else(connection: Connection, statement: str) -> None:
+    assert_refused(connection, HISTORY_ROLE, statement)
 
 
 WRITES = (
@@ -108,8 +144,14 @@ WRITES = (
     (REGISTRY_ROLE, "DELETE FROM supplier_bank_accounts"),
     (REGISTRY_ROLE, "TRUNCATE supplier_bank_accounts"),
     (REGISTRY_ROLE, "UPDATE suppliers SET name = 'x'"),
+    (HISTORY_ROLE, "UPDATE rulebook_chunks SET text = 'x'"),
+    (HISTORY_ROLE, "DELETE FROM rulebook_chunks"),
+    (HISTORY_ROLE, "TRUNCATE rulebook_chunks"),
+    (HISTORY_ROLE, "UPDATE embeddings SET vector = vector"),
+    (HISTORY_ROLE, "UPDATE invoice_item_names SET item_name = 'x'"),
     (ERP_ROLE, "CREATE TABLE public.mcp_scratch (id int)"),
     (REGISTRY_ROLE, "CREATE TABLE public.mcp_scratch (id int)"),
+    (HISTORY_ROLE, "CREATE TABLE public.mcp_scratch (id int)"),
 )  # fmt: skip
 
 
@@ -119,7 +161,7 @@ def test_roles_cannot_write(connection: Connection, role: str, statement: str) -
 
 
 def test_roles_cannot_read_the_graph_checkpoints(connection: Connection) -> None:
-    for role in (ERP_ROLE, REGISTRY_ROLE):
+    for role in ROLES:
         assert_refused(connection, role, "SELECT * FROM langgraph.checkpoints")
 
 
@@ -129,10 +171,10 @@ def test_roles_have_no_login_without_a_password(engine: Engine) -> None:
     with engine.connect() as connection:
         rows = connection.execute(
             text("SELECT rolname, rolsuper, rolcreaterole, rolcreatedb FROM pg_roles "
-                 "WHERE rolname IN (:erp, :registry)"),
-            {"erp": ERP_ROLE, "registry": REGISTRY_ROLE},
+                 "WHERE rolname IN (:erp, :registry, :history)"),
+            {"erp": ERP_ROLE, "registry": REGISTRY_ROLE, "history": HISTORY_ROLE},
         ).all()  # fmt: skip
-    assert {row.rolname for row in rows} == {ERP_ROLE, REGISTRY_ROLE}
+    assert {row.rolname for row in rows} == set(ROLES)
     assert not any(row.rolsuper or row.rolcreaterole or row.rolcreatedb for row in rows)
 
 
@@ -174,11 +216,13 @@ def test_statement_quotes_the_password() -> None:
 def test_role_passwords_come_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("INVOICEGUARD_MCP_ERP_DB_PASSWORD", "erp-secret")
     monkeypatch.setenv("INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD", "")
+    monkeypatch.setenv("INVOICEGUARD_MCP_HISTORY_DB_PASSWORD", "history-secret")
 
     passwords = RolePasswords().by_role()
 
     assert passwords[ERP_ROLE] == SecretStr("erp-secret")
     assert passwords[REGISTRY_ROLE] is None
+    assert passwords[HISTORY_ROLE] == SecretStr("history-secret")
 
 
 def test_main_applies_the_passwords(database_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
