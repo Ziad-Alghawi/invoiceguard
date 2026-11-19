@@ -1,0 +1,35 @@
+{
+ "recorded_at": "2026-11-19T00:48:41+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "low",
+  "run": 1,
+  "schema_name": "exception_agent_action",
+  "schema_sha256": "32cf63b46c66b2dc1a2dc002b37db100c7f346202e1e15476a621841e61633c8",
+  "system_sha256": "e2b185323379e341fe5f8428bfba5e0ae92fd83378597832b6e9dfa2a3baeac0",
+  "user": [
+   {
+    "text": "Investigate this blocked invoice. Its data and failed checks:"
+   },
+   {
+    "text": "<<<UNTRUSTED_INVOICE>>>\n{\"invoice\":{\"invoice_number\":\"FG-26-1129-A18\",\"line_total\":\"1450.00\",\"net_total\":\"1450.00\",\"tax_total\":\"275.50\",\"gross_total\":\"1825.50\",\"amount_due\":\"1825.50\",\"order_reference\":\"PO-2026-0008\",\"issue_date\":\"2026-12-22\",\"seller_name\":\"Fiktiv Gebäudereinigung GmbH\",\"type_code\":\"380\",\"seller_vat_id\":\"DE999000041\",\"buyer_name\":\"Beispielkunde Handels GmbH\",\"buyer_vat_id\":\"DE999000068\",\"currency\":\"EUR\",\"payee_iban\":\"DE33123456780000000004\",\"due_date\":\"2027-01-05\"},\"lines\":[{\"line_no\":1,\"line_id\":\"1\",\"quantity\":\"1\",\"unit_code\":\"MON\",\"net_amount\":\"1450.00\",\"net_price\":\"1450.00\",\"vat_rate\":\"19\",\"item_name\":\"Unterhaltsreinigung Büroflächen November 2026\"}],\"checks\":[{\"type\":\"vat_math\",\"status\":\"failed\",\"message\":\"The amounts do not add up: net total + tax total = gross total (BT-112).\",\"evidence\":{\"checked\":[\"sum of line amounts = line total (BT-106)\",\"line total - allowances + charges = net total (BT-109)\",\"net total + tax total = gross total (BT-112)\",\"tax for rate 19% = taxable amount x rate\",\"sum of tax per rate = tax total\",\"sum of taxable amounts = net total\",\"line amounts at rate 19% = taxable amount at that rate\"],\"tolerance\":\"0.01\",\"differences\":[{\"rule\":\"net total + tax total = gross total (BT-112)\",\"actual\":\"1825.50\",\"expected\":\"1725.50\",\"difference\":\"100.00\"}]}},{\"type\":\"kosit\",\"status\":\"skipped\",\"message\":\"No e-invoice XML to validate: the fields were extracted from the PDF by an LLM.\"}]}\n<<<END_UNTRUSTED_INVOICE>>>"
+   },
+   {
+    "text": "<<<UNTRUSTED_TOOL_RESULT>>>\n{\"step\":1,\"tool\":\"get_purchase_order\",\"argument\":\"PO-2026-0008\",\"result\":{\"found\":true,\"order\":{\"number\":\"PO-2026-0008\",\"supplier_vat_id\":\"DE999000041\",\"supplier_name\":\"Fiktiv Gebäudereinigung GmbH\",\"order_date\":\"2026-10-27\",\"currency\":\"EUR\",\"net_amount\":\"1450.00\",\"lines\":[{\"line_no\":1,\"description\":\"Unterhaltsreinigung Büroflächen November 2026\",\"quantity\":\"1.000\",\"unit_code\":\"MON\",\"unit_price\":\"1450.0000\",\"vat_rate\":\"19.00\",\"net_amount\":\"1450.00\",\"received_quantity\":\"0\"}]}},\"error\":null}\n<<<END_UNTRUSTED_TOOL_RESULT>>>"
+   },
+   {
+    "text": "<<<UNTRUSTED_TOOL_RESULT>>>\n{\"step\":1,\"tool\":\"check_iban\",\"argument\":\"DE33123456780000000004\",\"result\":{\"iban\":\"DE33123456780000000004\",\"checksum_valid\":true,\"registered_to\":[{\"supplier_name\":\"Fiktiv Gebäudereinigung GmbH\",\"supplier_vat_id\":\"DE999000041\",\"verified\":true,\"since\":\"2024-07-22\",\"verified_by\":\"Stammdatenpflege (Demo)\"}]},\"error\":null}\n<<<END_UNTRUSTED_TOOL_RESULT>>>"
+   },
+   {
+    "text": "Model steps left, this one included: 7. Tool calls left: 10."
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\n  \"action\": \"call_tools\",\n  \"tool_calls\": [\n    {\n      \"tool\": \"get_goods_receipts\",\n      \"argument\": \"PO-2026-0008\"\n    },\n    {\n      \"tool\": \"get_supplier\",\n      \"argument\": \"DE999000041\"\n    }\n  ],\n  \"finding\": null,\n  \"email_subject\": null,\n  \"email_body\": null\n}",
+  "input_tokens": 1581,
+  "output_tokens": 217,
+  "cost_usd": "0.002000",
+  "latency_ms": 4319
+ }
+}

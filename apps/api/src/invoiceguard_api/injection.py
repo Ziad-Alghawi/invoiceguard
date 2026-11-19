@@ -14,8 +14,9 @@ the PDF's text layer:
   controls and Unicode tag characters (used to hide text from a human reader).
 
 The rules are specific on purpose: business text such as "ignorieren Sie diese Mahnung" or
-"please disregard this reminder" does not match. It cannot see text drawn white or tiny, or text
-in an image (a scanned PDF without a text layer is reported as not scanned).
+"please disregard this reminder" does not match. Text drawn white or tiny is in the text layer and
+scanned like any other, but hiding it is not itself a signal; text in an image is not seen (a
+scanned PDF without a text layer is reported as not scanned).
 """
 
 import io

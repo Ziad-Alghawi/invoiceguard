@@ -26,7 +26,7 @@ SEED_VARS = INVOICEGUARD_SEED_USER_EMAIL INVOICEGUARD_SEED_USER_PASSWORD INVOICE
 export $(SEED_VARS)
 SEED_USER = exec $(foreach var,$(SEED_VARS),-e $(var)) api invoiceguard-seed-user
 
-.PHONY: dev down seed seed-user check test e2e eval prod-up prod-down demo-reset deploy
+.PHONY: dev down seed seed-user check test e2e eval eval-gate prod-up prod-down demo-reset deploy
 
 dev: ## Build and start api + web + db + validator + MCP servers, wait until all are healthy
 ifeq ($(wildcard .env),)
@@ -86,3 +86,8 @@ e2e: ## Playwright browser test against the running stack (make dev, make seed, 
 eval: ## Eval harness from the recorded replies (ADR-019), free and offline after the first fetch; needs make dev
 	$(EVALS) uv run invoiceguard-eval fetch
 	$(EVALS) uv run invoiceguard-eval run --set full
+
+eval-gate: ## The CI eval gate locally: replay the small set, compare with baselines/small.json
+	$(EVALS) uv run invoiceguard-eval fetch
+	$(EVALS) uv run invoiceguard-eval run --set small
+	$(EVALS) uv run invoiceguard-eval gate reports/latest-small.json

@@ -127,7 +127,7 @@ def app_client(
             yield client
 
 
-def _process(client: TestClient, name: str, content: bytes) -> dict[str, Any]:
+def process(client: TestClient, name: str, content: bytes) -> dict[str, Any]:
     response = client.post("/invoices", files={"file": (name, content, "application/octet-stream")})
     response.raise_for_status()
     location = response.headers["location"]
@@ -156,7 +156,7 @@ def evaluate_decisions(
     for spec in specs:
         if spec.expected is None:
             continue
-        detail = _process(
+        detail = process(
             client, spec.case_id + suffix, (directory / (spec.case_id + suffix)).read_bytes()
         )
         expected = spec.expected.flags

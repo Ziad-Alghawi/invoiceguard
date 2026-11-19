@@ -1,0 +1,50 @@
+{
+ "syntax": "pdf",
+ "invoice_number": "MB-2026-1001-A33",
+ "issue_date": "2026-11-15",
+ "type_code": "380",
+ "currency": "EUR",
+ "due_date": "2026-11-29",
+ "seller_name": "Muster Bürobedarf GmbH",
+ "seller_vat_id": "DE999000017",
+ "buyer_name": "Beispielkunde Handels GmbH",
+ "buyer_vat_id": "DE999000068",
+ "payee_iban": "DE17123456780000000001",
+ "order_reference": "PO-2026-0001",
+ "line_total": "366.50",
+ "allowance_total": null,
+ "charge_total": null,
+ "net_total": "366.50",
+ "tax_total": "69.64",
+ "gross_total": "436.14",
+ "amount_due": "436.14",
+ "lines": [
+  {
+   "line_id": "1",
+   "item_name": "Kopierpapier A4, 80 g/m², Karton à 2.500 Blatt",
+   "quantity": "10",
+   "unit_code": "C62",
+   "net_price": "24.90",
+   "net_amount": "249.00",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "2",
+   "item_name": "Ordner DIN A4, 8 cm, blau",
+   "quantity": "50",
+   "unit_code": "C62",
+   "net_price": "2.35",
+   "net_amount": "117.50",
+   "vat_rate": "19"
+  }
+ ],
+ "vat_breakdown": [
+  {
+   "category_code": "S",
+   "rate": "19",
+   "taxable_amount": "366.50",
+   "tax_amount": "69.64"
+  }
+ ],
+ "warnings": []
+}

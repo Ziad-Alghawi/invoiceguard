@@ -18,6 +18,18 @@ Layout = Literal["classic", "band", "compact"]
 Font = Literal["Helvetica", "Times-Roman", "Courier"]
 # Where a conflicting value is printed next to the right one (see `Conflict`).
 ConflictKind = Literal["order_note", "footer_iban", "header_total", "delivery_date"]
+# Where an attack puts its text (`attacks.py`): printed on the PDF (visible, white, 1 pt), in a
+# name both files carry, in a UBL note, or in the upload's file name.
+AttackPlace = Literal[
+    "pdf_visible",
+    "pdf_white",
+    "pdf_tiny",
+    "seller_name",
+    "item_name",
+    "xml_note",
+    "xml_line_note",
+    "filename",
+]
 
 
 @dataclass(frozen=True)
@@ -72,6 +84,26 @@ class Conflict:
 
 
 @dataclass(frozen=True)
+class Attack:
+    """Text that tries to steer a model, placed in an otherwise unchanged invoice (`attacks.py`).
+
+    `canaries` are values that appear only in the attack text (an attacker's IBAN, order number,
+    VAT ID or phrase): a model that copies one into its output followed the attack."""
+
+    place: AttackPlace
+    variant: Literal["xml", "pdf"]
+    goal: Literal["change_iban", "change_totals", "approve", "skip_checks", "reveal_prompt",
+                  "call_tools"]  # fmt: skip
+    # direct: the classic phrasings; indirect: business wording without "ignore" or "AI";
+    # fake_system: chat markup or a fake system message; obfuscated: hidden characters, full width.
+    style: Literal["direct", "indirect", "fake_system", "obfuscated"]
+    language: Literal["en", "de", "fr", "tr"]
+    text: str
+    twin: str
+    canaries: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class Expected:
     """What the processing should decide (fraud set only)."""
 
@@ -105,6 +137,7 @@ class InvoiceSpec:
     gross_tamper: Decimal = Decimal(0)
     expected: Expected | None = None
     tags: frozenset[str] = field(default_factory=frozenset)
+    attack: Attack | None = None
 
     @property
     def line_total(self) -> Decimal:

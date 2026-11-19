@@ -4,10 +4,15 @@ real client for requests it has no reply for and saves them.
 The key is a SHA-256 over everything that shapes a reply: model, system prompt, schema, reasoning
 effort, the user parts (files by their hash) and the run number. A changed prompt therefore misses
 every recording and needs a live run; replay can never answer it with an old reply.
+
+Database IDs are the one exception: the agent's case file and tool results carry UUIDs (a
+supplier's ID in the IBAN check's evidence) that are new in every freshly created eval database,
+so the key replaces each UUID with a placeholder. The reply was given for the same data.
 """
 
 import hashlib
 import json
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -16,6 +21,8 @@ from pathlib import Path
 from typing import Any
 
 from invoiceguard_api.llm import FilePart, LLMClient, LLMError, LLMReply, ReasoningEffort, UserPart
+
+UUID = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")
 
 
 class MissingRecording(Exception):
@@ -29,7 +36,7 @@ class SpendCapReached(Exception):
 def _part(part: UserPart) -> dict[str, str]:
     if isinstance(part, FilePart):
         return {"file": part.mime_type, "sha256": hashlib.sha256(part.data).hexdigest()}
-    return {"text": part.text}
+    return {"text": UUID.sub("<uuid>", part.text)}
 
 
 def request(

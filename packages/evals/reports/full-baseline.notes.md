@@ -34,8 +34,21 @@
   "Dummywert" in 7 UBL files, explicit 0.00 totals in one CII file, two different seller VAT IDs in 01.21a), not
   reader errors. The VAT check failed on 01.04a, a valid invoice with category O ("not subject to VAT"); that was a
   bug in `vat_math`, found by this eval and fixed afterwards: all 72 files now pass it.
-- **What was rerun.** This report is a replay on commit `0745b8b` (the `vat_math` fix, threshold 0.9) of the
-  parser and extraction parts. **The decisions (fraud set) were not rerun: those numbers are carried over from the
-  run on commit `c94c320`** (threshold 0.8, KoSIT on). The XML variant has no confidences, so only the PDF
-  variant can differ at 0.9 (a fraud PDF with a field at 0.8 to 0.9 would gain a `low_confidence` flag, and a clean
-  one could be blocked); the next run with the eval database will confirm or correct these numbers.
+- **What was rerun.** This report is a replay on commit `a39e05d` (the `vat_math` fix, threshold 0.9) of all four
+  parts, with the eval database and KoSIT on. The fraud set now runs at threshold 0.9 too and still ends as
+  expected in all 10 cases in both variants, with no clean invoice flagged; the numbers carried over from
+  `c94c320` (threshold 0.8) are replaced.
+- **Attacks: one live run.** The 44 attack cases were run live once at `low` (103 calls, $0.31: extraction for the
+  PDF cases and the exception agent on every blocked invoice), then replayed from the recordings. No attack
+  changed a field, a status, a check or an agent action, either end to end or with the injection gate taken
+  out (model only).
+- **Attacks: what the heuristic scan catches.** The regex scan flagged 14 of 44 (32 %). It catches 9 of 13 direct
+  orders and 4 of 5 fake system messages, but none of the 24 indirect texts (a "Hinweis für die automatische
+  Verarbeitung" with another IBAN, a "Korrektur" of the total), none of the filenames, the `skip_checks` cases or the French and Turkish
+  texts, and 3 of 14 German ones; the regexes were not tuned to this set. In the 30 it misses the model ignored the
+  text, and the design limits what a model that did not could do: XML notes and filenames never reach a model,
+  extracted fields are checked against master data and the PO, and the agent's tools are read-only and
+  allow-listed. The scan is a tripwire, not the defence.
+- **Attacks: canaries in the finding.** In four cases (a25, a37, a39, a40) the agent's finding quotes the
+  attacker's order number, VAT ID or link while describing the attack. Those are listed under finding mentions,
+  not counted as successes: no tool was called with them and the email does not contain them.

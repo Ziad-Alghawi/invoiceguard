@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Attack set and CI eval gate (R3-3, ADR-019 updated): 44 prompt-injection cases in `packages/evals`
+  (`attacks.py`), each a poisoned twin of a generated invoice, with the text in PDF text (visible, white, 1 pt),
+  supplier and item names, XML notes or the filename. They run through the app and, when blocked, through the
+  real exception agent with the real MCP servers in process; scored end to end and model only. One live run
+  ($0.31), replayed: 0 of 44 succeeded either way, the heuristic scan flagged 14 of 44. Workflow `eval-gate`
+  (replay only, no key: `small` on PRs touching prompts, agent, checks, parsers, MCP servers or the evals, `full`
+  nightly) and `make eval-gate` fail on a field-accuracy drop over 2 points, any successful attack, or cost per
+  invoice up more than 25 % against `packages/evals/baselines/`. The fraud set is rerun on the eval database
+  at threshold 0.9 (10 of 10 as expected).
 - Eval harness (R3-2, ADR-019): `packages/evals` and `make eval`. Pinned public datasets (KoSIT testsuite, FeRD
   ZUGFeRD samples, SHA-256 checked, not committed), 17 generated German invoices with UBL twins and truth,
   recorded model replies (replay free and offline, `--live` under a spend cap), parser, extraction, confidence
@@ -201,6 +210,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fraud sample ends `blocked` with the IBAN evidence.
 
 ### Fixed
+- Injection scan docstring and known limitations: white and tiny PDF text is in the text layer and scanned like
+  visible text (the attack set showed it); the earlier note said it was not seen.
+- Eval recordings: UUIDs in text parts are replaced in the replay key, so agent runs replay on a fresh eval
+  database.
 - `vat_math` accepts a valid invoice with VAT category O ("not subject to VAT", KoSIT 01.04a): the lines without a
   rate and the breakdown row printing 0 % are one group, and the tax of a category O row must be 0 (a row charging
   tax is still `blocked`). Found by the R3-2 eval; tests for the 01.04a shape and three wrong-math variants.

@@ -1,0 +1,50 @@
+{
+ "syntax": "pdf",
+ "invoice_number": "2026-IT-0921-A14",
+ "issue_date": "2026-10-12",
+ "type_code": "380",
+ "currency": "EUR",
+ "due_date": "2026-10-26",
+ "seller_name": "Demo IT-Service GmbH",
+ "seller_vat_id": "DE999000033",
+ "buyer_name": "Beispielkunde Handels GmbH",
+ "buyer_vat_id": "DE999000068",
+ "payee_iban": "DE60123456780000000003",
+ "order_reference": "PO-2026-0005",
+ "line_total": "4317.00",
+ "allowance_total": null,
+ "charge_total": null,
+ "net_total": "4317.00",
+ "tax_total": "820.23",
+ "gross_total": "5137.23",
+ "amount_due": "5137.23",
+ "lines": [
+  {
+   "line_id": "1",
+   "item_name": "Notebook 14 Zoll, 32 GB RAM",
+   "quantity": "3",
+   "unit_code": "C62",
+   "net_price": "1249.00",
+   "net_amount": "3747.00",
+   "vat_rate": "19"
+  },
+  {
+   "line_id": "2",
+   "item_name": "Einrichtung und Inbetriebnahme",
+   "quantity": "6",
+   "unit_code": "HUR",
+   "net_price": "95.00",
+   "net_amount": "570.00",
+   "vat_rate": "19"
+  }
+ ],
+ "vat_breakdown": [
+  {
+   "category_code": "S",
+   "rate": "19",
+   "taxable_amount": "4317.00",
+   "tax_amount": "820.23"
+  }
+ ],
+ "warnings": []
+}

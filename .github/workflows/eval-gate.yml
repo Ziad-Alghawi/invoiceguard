@@ -1,0 +1,102 @@
+# The eval gate (PLAN section 6, ADR-019): replays the recorded model replies, so it needs no key
+# and costs nothing. A small set on PRs that touch what the evals measure, the full set nightly.
+# It fails when field accuracy drops more than 2 points, any attack succeeds, or cost per invoice
+# rises more than 25 % against packages/evals/baselines/<set>.json; a changed prompt or schema
+# fails replay until its live run is recorded and committed.
+name: Eval gate
+
+on:
+  pull_request:
+    paths:
+      # Prompts, schemas and the model client
+      - apps/api/src/invoiceguard_api/extraction/**
+      - apps/api/src/invoiceguard_api/agent/**
+      - apps/api/src/invoiceguard_api/llm/**
+      # The graph and the checks it runs
+      - apps/api/src/invoiceguard_api/processing.py
+      - apps/api/src/invoiceguard_api/checks/**
+      - apps/api/src/invoiceguard_api/injection.py
+      - apps/api/src/invoiceguard_api/seed.py
+      - services/validator/**
+      # Parsers
+      - apps/api/src/invoiceguard_api/parsing/**
+      # The agent's tools and the harness itself
+      - apps/mcp-erp/src/**
+      - apps/mcp-registry/src/**
+      - packages/evals/**
+      - .github/workflows/eval-gate.yml
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+    inputs:
+      set:
+        description: Eval set
+        type: choice
+        options: [small, full]
+        default: small
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eval-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: eval gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: invoiceguard
+          POSTGRES_PASSWORD: invoiceguard-ci  # pragma: allowlist secret
+          POSTGRES_DB: invoiceguard
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U invoiceguard"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      # Dropped and recreated by the run.
+      INVOICEGUARD_EVAL_DATABASE_URL: postgresql+psycopg://invoiceguard:invoiceguard-ci@localhost:5432/invoiceguard_eval  # pragma: allowlist secret
+      # The KoSIT result is part of the agent's case file, so the replay needs the validator the
+      # replies were recorded with.
+      INVOICEGUARD_EVAL_VALIDATOR_URL: http://localhost:8081/
+      EVAL_SET: ${{ github.event_name == 'schedule' && 'full' || inputs.set || 'small' }}
+    defaults:
+      run:
+        working-directory: packages/evals
+    steps:
+      - uses: actions/checkout@v7
+      - name: Start the KoSIT validator (waits for healthy)
+        working-directory: services/validator
+        run: |
+          docker build --tag invoiceguard-validator .
+          docker run --detach --name validator --publish 8081:8080 invoiceguard-validator
+          for _ in $(seq 60); do
+            [ "$(docker inspect --format '{{.State.Health.Status}}' validator)" = healthy ] && exit 0
+            sleep 2
+          done
+          docker logs validator
+          exit 1
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.13.6"
+          enable-cache: true
+          cache-dependency-glob: packages/evals/uv.lock
+      - run: uv sync --locked
+      - run: uv run invoiceguard-eval fetch
+      - run: uv run invoiceguard-eval run --set "$EVAL_SET" --out "reports/latest-$EVAL_SET.json"
+      - run: uv run invoiceguard-eval gate "reports/latest-$EVAL_SET.json"
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: eval-report-${{ env.EVAL_SET }}
+          path: packages/evals/reports/latest-${{ env.EVAL_SET }}.json
+          if-no-files-found: ignore

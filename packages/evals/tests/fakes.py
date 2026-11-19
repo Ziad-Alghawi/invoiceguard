@@ -1,11 +1,12 @@
 """A fake model for the tests: replies built from the truth, so a test controls every value."""
 
+import hashlib
 import json
 from collections.abc import Sequence
 from decimal import Decimal
 from typing import Any
 
-from invoiceguard_api.llm import LLMReply, ReasoningEffort, UserPart
+from invoiceguard_api.llm import FilePart, LLMReply, ReasoningEffort, UserPart
 from invoiceguard_api.parsing import ParsedInvoice
 from invoiceguard_api.parsing.fields import DOCUMENT_TERMS
 
@@ -60,3 +61,31 @@ class ScriptedModel:
         if isinstance(reply, Exception):
             raise reply
         return LLMReply(reply, 1000, 500, Decimal("0.005"), 9000)
+
+
+class RoutingModel:
+    """Extraction calls get the truth of the attached PDF (by its hash); every other call (the
+    agent) gets `agent_reply`. For runs whose call order a test does not want to script."""
+
+    def __init__(self, truths: dict[str, ParsedInvoice], agent_reply: str) -> None:
+        self.truths = truths
+        self.agent_reply = agent_reply
+        self.calls = 0
+
+    def structured(
+        self,
+        *,
+        model: str,
+        system: str,
+        user: Sequence[UserPart],
+        schema_name: str,
+        schema: dict[str, Any],
+        reasoning_effort: ReasoningEffort | None = None,
+    ) -> LLMReply:
+        self.calls += 1
+        files = [part for part in user if isinstance(part, FilePart)]
+        if files:
+            text = reply_for(self.truths[hashlib.sha256(files[0].data).hexdigest()])
+        else:
+            text = self.agent_reply
+        return LLMReply(text, 1000, 500, Decimal("0.005"), 9000)

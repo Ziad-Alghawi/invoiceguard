@@ -40,6 +40,8 @@ IT_SERVICE_VAT_ID = "DE999000033"
 IT_SERVICE_IBAN = "DE60123456780000000003"
 # Fictitious (fake bank code), as in ubl_fraud_iban.xml; not a secret.
 FRAUD_IBAN = "DE58876543210000000099"  # pragma: allowlist secret
+# The common fraud case: the verified account's bank code, another account number.
+SAME_BANK_IBAN = "DE87123456780000000099"  # pragma: allowlist secret
 NOT_VALIDATED = Validation(outcome="unavailable", reason="not configured in this test")
 
 
@@ -491,6 +493,13 @@ def test_changed_iban_fails_with_the_registry_evidence(clean: ParsedInvoice) -> 
             {"iban": IT_SERVICE_IBAN, "since": "2025-01-10", "verified_by": VERIFIED_BY}
         ],
     }
+
+
+def test_another_account_at_the_same_bank_fails(clean: ParsedInvoice) -> None:
+    (result,) = _iban(changed(clean, payee_iban=SAME_BANK_IBAN))
+
+    assert result.status is CheckStatus.FAILED
+    assert "possible bank-detail fraud" in result.message
 
 
 def test_iban_with_wrong_check_digits_fails(clean: ParsedInvoice) -> None:

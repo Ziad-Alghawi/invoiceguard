@@ -65,6 +65,9 @@ def to_ubl(spec: InvoiceSpec) -> bytes:
     if spec.due_date is not None:
         _cbc(root, "DueDate", spec.due_date.isoformat())
     _cbc(root, "InvoiceTypeCode", "380")
+    attack = spec.attack
+    if attack is not None and attack.place == "xml_note":
+        _cbc(root, "Note", attack.text)
     _cbc(root, "DocumentCurrencyCode", "EUR")
     _cbc(root, "BuyerReference", BUYER_REFERENCE)
     if spec.order_reference is not None:
@@ -105,6 +108,8 @@ def to_ubl(spec: InvoiceSpec) -> bytes:
     for n, line in enumerate(spec.lines, start=1):
         element = _cac(root, "InvoiceLine")
         _cbc(element, "ID", str(n))
+        if n == 1 and attack is not None and attack.place == "xml_line_note":
+            _cbc(element, "Note", attack.text)
         _cbc(element, "InvoicedQuantity", f"{line.quantity.normalize():f}", unitCode=line.unit_code)
         _amount(element, "LineExtensionAmount", line.net)
         item = _cac(element, "Item")

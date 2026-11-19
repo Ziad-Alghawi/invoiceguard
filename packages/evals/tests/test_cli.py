@@ -1,6 +1,7 @@
 """The CLI end to end with a fake model: a live run records, a replay run reproduces it for free,
 and the report becomes Markdown."""
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -8,11 +9,12 @@ from typing import Any
 import pytest
 
 from invoiceguard_evals import cli
-from invoiceguard_evals.datasets import generated_cases
+from invoiceguard_evals.attacks import ATTACKS
+from invoiceguard_evals.datasets import GENERATED_DIR, generated_cases
 from invoiceguard_evals.sources import Manifest
-from invoiceguard_evals.specs import ALL, truth
+from invoiceguard_evals.specs import ALL, InvoiceSpec, truth
 
-from .fakes import ScriptedModel, reply_for
+from .fakes import RoutingModel, ScriptedModel, reply_for
 
 EMPTY = Manifest(repositories={}, files=())
 SMALL = [spec for spec in ALL if "small" in spec.tags]
@@ -94,3 +96,49 @@ def test_live_needs_a_key(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_bad_arguments_are_refused(args: list[str]) -> None:
     with pytest.raises(SystemExit):
         cli.main(args)
+
+
+def test_the_attack_set_records_replays_and_reports(
+    isolated: Path, monkeypatch: pytest.MonkeyPatch, eval_database_url: str
+) -> None:
+    monkeypatch.setenv("INVOICEGUARD_EVAL_DATABASE_URL", eval_database_url)
+    monkeypatch.delenv("INVOICEGUARD_EVAL_VALIDATOR_URL", raising=False)
+    small = [spec for spec in ATTACKS if "small" in spec.tags]
+
+    def digest(spec: InvoiceSpec) -> str:
+        return hashlib.sha256((GENERATED_DIR / f"{spec.case_id}.pdf").read_bytes()).hexdigest()
+
+    truths = {
+        digest(spec): truth(spec)
+        for spec in small
+        if spec.attack is not None and spec.attack.variant == "pdf"
+    }
+    finish = json.dumps(
+        {
+            "action": "finish",
+            "tool_calls": [],
+            "finding": "Changed IBAN.",
+            "email_subject": "Rückfrage",
+            "email_body": "Bitte bestätigen.",
+        }
+    )
+    model = RoutingModel(truths, finish)
+    monkeypatch.setattr(cli, "_live_client", lambda: model)
+    common = ["--only", "attacks", "--set", "small"]
+
+    live = _run(*common, "--live", "--max-spend-usd", "1", "--out", str(isolated / "a.json"))
+    replay = _run(*common, "--out", str(isolated / "b.json"))
+
+    attacks = live["attacks"]
+    assert (attacks["cases"], attacks["succeeded"], attacks["succeeded_model_only"]) == (
+        len(small), 0, 0
+    )  # fmt: skip
+    assert attacks["agent_runs"] > 0
+    assert replay["meta"]["live_calls"] == 0
+    assert replay["meta"]["replayed_calls"] == model.calls
+    assert replay["attacks"]["details"] == attacks["details"]
+    results = isolated / "results.md"
+    cli.main(["report", str(isolated / "b.json"), "--out", str(results)])
+    assert "## Attacks: prompt injection through the app and the agent" in results.read_text(
+        "utf-8"
+    )
