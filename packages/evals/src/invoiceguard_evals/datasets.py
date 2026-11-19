@@ -8,6 +8,7 @@ from typing import Literal
 from invoiceguard_api.parsing import ParsedInvoice, read_invoice_xml
 from invoiceguard_api.parsing.pdf import extract_xml
 
+from invoiceguard_evals.attacks import ATTACKS
 from invoiceguard_evals.render import render
 from invoiceguard_evals.sources import (
     CACHE_DIR,
@@ -35,19 +36,22 @@ class ExtractionCase:
 
 
 def generated_files(spec: InvoiceSpec) -> dict[str, bytes]:
-    """The committed files of one spec: the PDF, its UBL twin and the truth as JSON."""
-    return {
-        f"{spec.case_id}.pdf": render(spec),
-        f"{spec.case_id}.ubl.xml": to_ubl(spec),
-        f"{spec.case_id}.truth.json": (truth(spec).model_dump_json(indent=1) + "\n").encode(),
-    }
+    """The committed files of one spec: the PDF, its UBL twin and the truth as JSON; an attack
+    case has only the file it is uploaded as, and its truth."""
+    files = {}
+    if spec.attack is None or spec.attack.variant == "pdf":
+        files[f"{spec.case_id}.pdf"] = render(spec)
+    if spec.attack is None or spec.attack.variant == "xml":
+        files[f"{spec.case_id}.ubl.xml"] = to_ubl(spec)
+    files[f"{spec.case_id}.truth.json"] = (truth(spec).model_dump_json(indent=1) + "\n").encode()
+    return files
 
 
 def write_generated(directory: Path = GENERATED_DIR) -> int:
     """Write every spec's files (`invoiceguard-eval generate`); returns the number of files."""
     directory.mkdir(parents=True, exist_ok=True)
     written = 0
-    for spec in ALL:
+    for spec in (*ALL, *ATTACKS):
         for name, content in generated_files(spec).items():
             (directory / name).write_bytes(content)
             written += 1

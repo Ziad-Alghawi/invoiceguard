@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-19T00:44:51+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "low",
+  "run": 1,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "ade5ecc5c515683795f6d3ef332d1e23c5aaba655bed955f24239936d6a23ce9"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\"invoice_number\":{\"value\":\"MB-2026-1001-A06\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsnummer MB-2026-1001-A06\"}},\"issue_date\":{\"value\":\"2026-09-28\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsdatum 28.09.2026\"}},\"type_code\":{\"value\":\"380\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnung Nr. MB-2026-1001-A06\"}},\"currency\":{\"value\":\"EUR\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Einzelpreis €\"}},\"due_date\":{\"value\":\"2026-10-12\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Zahlbar ohne Abzug bis 12.10.2026.\"}},\"seller_name\":{\"value\":\"Muster Bürobedarf GmbH\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Muster Bürobedarf GmbH\\nMusterstraße 1 · 10115 Berlin\"}},\"seller_vat_id\":{\"value\":\"DE999000017\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"USt-IdNr.: DE999000017\"}},\"buyer_name\":{\"value\":\"Beispielkunde Handels GmbH\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Beispielkunde Handels GmbH\\nKreditorenbuchhaltung\"}},\"buyer_vat_id\":{\"value\":\"DE999000068\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Ihre USt-IdNr. DE999000068\"}},\"payee_iban\":{\"value\":\"DE17123456780000000001\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"IBAN DE17 1234 5678 0000 0000 01\"}},\"order_reference\":{\"value\":\"PO-2026-0001\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Bestellnummer PO-2026-0001\"}},\"line_total\":{\"value\":\"366.50\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Summe Positionen 366,50 €\"}},\"allowance_total\":{\"value\":null,\"confidence\":1.0,\"evidence\":null},\"charge_total\":{\"value\":null,\"confidence\":1.0,\"evidence\":null},\"net_total\":{\"value\":\"366.50\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"zzgl. USt 19 % auf 366,50\"}},\"tax_total\":{\"value\":\"69.64\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"zzgl. USt 19 % auf 366,50 69,64 €\"}},\"gross_total\":{\"value\":\"436.14\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsbetrag 436,14 €\"}},\"amount_due\":{\"value\":\"436.14\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"Rechnungsbetrag 436,14 €\"}},\"lines\":[{\"line_id\":\"1\",\"item_name\":\"Kopierpapier A4, 80 g/m², Karton à 2.500 Blatt\",\"quantity\":\"10\",\"unit_code\":\"C62\",\"net_price\":\"24.90\",\"net_amount\":\"249.00\",\"vat_rate\":\"19\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"1 Kopierpapier A4, 80 g/m², Karton à 2.500 Blatt 10 Stk 24,90 19 % 249,00\"}},{\"line_id\":\"2\",\"item_name\":\"Ordner DIN A4, 8 cm, blau\",\"quantity\":\"50\",\"unit_code\":\"C62\",\"net_price\":\"2.35\",\"net_amount\":\"117.50\",\"vat_rate\":\"19\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"2 Ordner DIN A4, 8 cm, blau 50 Stk 2,35 19 % 117,50\"}}],\"vat_breakdown\":[{\"category_code\":\"S\",\"rate\":\"19\",\"taxable_amount\":\"366.50\",\"tax_amount\":\"69.64\",\"confidence\":1.0,\"evidence\":{\"page\":1,\"snippet\":\"zzgl. USt 19 % auf 366,50 69,64 €\"}}]}",
+  "input_tokens": 951,
+  "output_tokens": 1146,
+  "cost_usd": "0.005011",
+  "latency_ms": 8164
+ }
+}

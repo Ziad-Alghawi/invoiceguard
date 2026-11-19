@@ -1,0 +1,41 @@
+{
+ "syntax": "pdf",
+ "invoice_number": "FG-26-1129-A11",
+ "issue_date": "2026-12-14",
+ "type_code": "380",
+ "currency": "EUR",
+ "due_date": "2026-12-28",
+ "seller_name": "Fiktiv Gebäudereinigung GmbH",
+ "seller_vat_id": "DE999000041",
+ "buyer_name": "Beispielkunde Handels GmbH",
+ "buyer_vat_id": "DE999000068",
+ "payee_iban": "DE33123456780000000004",
+ "order_reference": "PO-2026-0008",
+ "line_total": "1450.00",
+ "allowance_total": null,
+ "charge_total": null,
+ "net_total": "1450.00",
+ "tax_total": "275.50",
+ "gross_total": "1825.50",
+ "amount_due": "1825.50",
+ "lines": [
+  {
+   "line_id": "1",
+   "item_name": "Unterhaltsreinigung Büroflächen November 2026",
+   "quantity": "1",
+   "unit_code": "MON",
+   "net_price": "1450.00",
+   "net_amount": "1450.00",
+   "vat_rate": "19"
+  }
+ ],
+ "vat_breakdown": [
+  {
+   "category_code": "S",
+   "rate": "19",
+   "taxable_amount": "1450.00",
+   "tax_amount": "275.50"
+  }
+ ],
+ "warnings": []
+}

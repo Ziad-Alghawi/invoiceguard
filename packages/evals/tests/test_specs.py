@@ -10,6 +10,7 @@ from invoiceguard_api.checks.iban import iban_checksum_ok
 from invoiceguard_api.parsing import read_invoice_xml
 
 from invoiceguard_evals import specs
+from invoiceguard_evals.attacks import ATTACKS
 from invoiceguard_evals.datasets import GENERATED_DIR, generated_files, write_generated
 from invoiceguard_evals.render import grouped_iban, money, number
 from invoiceguard_evals.specs import ALL, InvoiceSpec, iban, truth
@@ -25,7 +26,7 @@ def test_ubl_twin_reads_back_to_the_truth(spec: InvoiceSpec) -> None:
     assert parsed.model_copy(update={"syntax": "pdf"}) == truth(spec)
 
 
-@pytest.mark.parametrize("spec", ALL, ids=IDS)
+@pytest.mark.parametrize("spec", (*ALL, *ATTACKS), ids=[*IDS, *(s.case_id for s in ATTACKS)])
 def test_committed_files_are_current(spec: InvoiceSpec) -> None:
     """Run `invoiceguard-eval generate` after changing a spec or the renderer."""
     for name, content in generated_files(spec).items():
@@ -33,12 +34,12 @@ def test_committed_files_are_current(spec: InvoiceSpec) -> None:
 
 
 def test_write_generated_writes_three_files_per_spec(tmp_path: Path) -> None:
-    assert write_generated(tmp_path) == 3 * len(ALL)
-    assert sorted(p.name for p in tmp_path.iterdir())[:3] == [
-        "c01_order_note.pdf",
-        "c01_order_note.truth.json",
-        "c01_order_note.ubl.xml",
-    ]
+    """An attack case has only the file it is uploaded as, plus its truth."""
+    assert write_generated(tmp_path) == 3 * len(ALL) + 2 * len(ATTACKS)
+    names = {p.name for p in tmp_path.iterdir()}
+    assert {"c01_order_note.pdf", "c01_order_note.truth.json", "c01_order_note.ubl.xml"} <= names
+    assert {"a01_pdf_visible_change_iban.pdf", "a27_xml_note_change_iban.ubl.xml"} <= names
+    assert "a01_pdf_visible_change_iban.ubl.xml" not in names
 
 
 def test_every_iban_has_valid_check_digits() -> None:

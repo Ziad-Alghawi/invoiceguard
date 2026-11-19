@@ -16,11 +16,13 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast, get_args
 
+from invoiceguard_api.agent.loop import ExceptionAgent, Limits
 from invoiceguard_api.extraction import PdfExtractor
 from invoiceguard_api.llm import LLMClient, ReasoningEffort
 from invoiceguard_api.settings import Settings
 
-from invoiceguard_evals import datasets, decisions, evaluate, report
+from invoiceguard_evals import attack_eval, datasets, decisions, evaluate, report
+from invoiceguard_evals.attacks import ATTACKS
 from invoiceguard_evals.metrics import as_expected, decision_summary
 from invoiceguard_evals.recording import RecordingClient
 from invoiceguard_evals.sources import PACKAGE_DIR, fetch, load_manifest
@@ -29,10 +31,14 @@ from invoiceguard_evals.specs import ALL
 RECORDINGS_DIR = PACKAGE_DIR / "recordings"
 REPORTS_DIR = PACKAGE_DIR / "reports"
 RESULTS = PACKAGE_DIR.parents[1] / "docs" / "results.md"
-PARTS = ("parser", "extraction", "decisions")
+PARTS = ("parser", "extraction", "decisions", "attacks")
 DEFAULT_MODEL = cast(str, Settings.model_fields["extraction_model"].default)
 DEFAULT_EFFORT = cast(ReasoningEffort, Settings.model_fields["extraction_reasoning_effort"].default)
 THRESHOLD = cast(Decimal, Settings.model_fields["extraction_confidence_threshold"].default)
+
+
+def _default(name: str) -> Any:
+    return Settings.model_fields[name].default
 
 
 def _efforts(value: str) -> list[ReasoningEffort]:
@@ -115,11 +121,16 @@ def _extraction(args: argparse.Namespace, client: RecordingClient) -> dict[str, 
     return results
 
 
-def _decisions(args: argparse.Namespace, client: RecordingClient) -> dict[str, Any]:
+def _database_url() -> str:
     database_url = os.environ.get("INVOICEGUARD_EVAL_DATABASE_URL")
     if not database_url:
-        sys.exit("The decisions need INVOICEGUARD_EVAL_DATABASE_URL (a database ending in _eval), "
-                 "or run with --only parser,extraction.")  # fmt: skip
+        sys.exit("The decisions and attacks need INVOICEGUARD_EVAL_DATABASE_URL (a database ending "
+                 "in _eval), or run with --only parser,extraction.")  # fmt: skip
+    return database_url
+
+
+def _decisions(args: argparse.Namespace, client: RecordingClient) -> dict[str, Any]:
+    database_url = _database_url()
     specs = [spec for spec in ALL if datasets.selected(spec.tags, args.set)]
     validator_url = os.environ.get("INVOICEGUARD_EVAL_VALIDATOR_URL")
     client.run = 1
@@ -151,6 +162,37 @@ def _decisions(args: argparse.Namespace, client: RecordingClient) -> dict[str, A
     return results
 
 
+def _attacks(args: argparse.Namespace, client: RecordingClient) -> dict[str, Any]:
+    """The attack set in one fresh database, with the agent at the app's default settings."""
+    database_url = _database_url()
+    specs = [spec for spec in ATTACKS if datasets.selected(spec.tags, args.set)]
+    validator_url = os.environ.get("INVOICEGUARD_EVAL_VALIDATOR_URL")
+    client.run = 1
+    with decisions.app_client(
+        database_url, client, args.decision_effort, validator_url, THRESHOLD
+    ) as app:
+        agent = ExceptionAgent(
+            client,
+            attack_eval.InProcessTools(database_url),
+            args.model,
+            _default("agent_reasoning_effort"),
+            Limits(
+                _default("agent_max_steps"),
+                _default("agent_max_tool_calls"),
+                _default("agent_cost_cap_usd"),
+                _default("agent_timeout_seconds"),
+            ),
+        )
+        outcomes = attack_eval.evaluate_attacks(
+            app, database_url, specs, agent, validator_url is not None
+        )
+    summary = attack_eval.attack_summary(specs, outcomes)
+    print(f"attacks: {summary['cases']} cases, {summary['succeeded']} succeeded "
+          f"({summary['succeeded_model_only']} model only), {summary['scan_flagged']} flagged, "
+          f"${client.spent_usd} spent so far")  # fmt: skip
+    return summary
+
+
 def run(args: argparse.Namespace) -> Path:
     client = RecordingClient(
         RECORDINGS_DIR,
@@ -165,6 +207,7 @@ def run(args: argparse.Namespace) -> Path:
         else None,
         "extraction": _extraction(args, client) if "extraction" in args.only else None,
         "decisions": _decisions(args, client) if "decisions" in args.only else None,
+        "attacks": _attacks(args, client) if "attacks" in args.only else None,
     }
     created = datetime.now(UTC)
     result = {

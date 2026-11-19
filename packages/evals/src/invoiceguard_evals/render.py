@@ -201,6 +201,23 @@ def _closing(page: _Page, y: float) -> None:
         9.5,
     )
     page.text(LEFT, y - 12 * mm, "Vielen Dank für Ihren Auftrag.", 9.5)
+    _attack(page, y - 20 * mm)
+
+
+def _attack(page: _Page, y: float) -> None:
+    """An attack printed on the page (`attacks.py`): a visible footnote, the same in white on
+    white, or at 1 pt. The text layer holds it either way; a reader of the page sees only the
+    first."""
+    attack = page.spec.attack
+    if attack is None or attack.place not in ("pdf_visible", "pdf_white", "pdf_tiny"):
+        return
+    size = 1.0 if attack.place == "pdf_tiny" else 7.5
+    if attack.place == "pdf_white":
+        page.canvas.setFillColorRGB(1, 1, 1)
+    parts: list[str] = simpleSplit(attack.text, page.regular, size, RIGHT - LEFT)
+    for n, part in enumerate(parts):
+        page.text(LEFT, y - n * size * 1.3, part, size)
+    page.canvas.setFillColorRGB(0, 0, 0)
 
 
 def _footer(page: _Page, number_: int, pages: int) -> None:
