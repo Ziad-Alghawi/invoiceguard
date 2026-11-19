@@ -478,6 +478,18 @@ jobs:
               echo "ghcr.io/ziad-alghawi/invoiceguard-$image:$TAG"; done)
       - name: Install both charts; owner, ingress, 413, health, demo reset, login, NetworkPolicies, upgrade
         run: .github/scripts/k3d-smoke-test.sh "$TAG" 8080
+      # The server's platform files at their pinned hashes (ADR-024); their CRDs let the API server
+      # check the Argo CD Applications, the SealedSecrets and the Traefik settings (dry run).
+      - name: Pinned platform files match their hashes; Argo CD and k3s manifests are valid
+        run: |
+          infra/k3s/fetch.sh "$RUNNER_TEMP/platform"
+          for file in argocd-core-install.yaml sealed-secrets-controller.yaml; do
+            yq 'select(.kind == "CustomResourceDefinition")' "$RUNNER_TEMP/platform/$file" \
+              | kubectl apply --server-side --filename -
+          done
+          kubectl create namespace argocd
+          kubectl apply --dry-run=server --filename infra/k3s/traefik-config.yaml
+          kubectl apply --dry-run=server --filename infra/argocd/root.yaml --filename infra/argocd/apps
       - name: Cluster state and logs
         if: failure()
         run: |
@@ -487,3 +499,34 @@ jobs:
             echo "=== $pod"
             kubectl --namespace invoiceguard logs "$pod" --all-containers --tail=100
           done
+
+  # CD (ADR-021): Argo CD follows the git tag `demo`. Once every job of a `main` commit has passed
+  # and its six images are in GHCR, the tag moves to that commit and Argo CD deploys it within about
+  # three minutes. Moving a tag needs no commit, so no bot appears as an author.
+  demo-tag:
+    name: move the demo tag (main only)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [pins, api, mcp, evals, web, compose-smoke, images, helm]
+    runs-on: ubuntu-latest
+    # Writing the tag needs this job only.
+    permissions:
+      contents: write
+    concurrency:
+      group: demo-tag
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      # A re-run of an older workflow must not deploy older code over newer code. A rollback by
+      # hand (the tag moved to an older commit) is still followed by the next merge.
+      - name: Move demo to this commit unless it already points at a later one
+        run: |
+          if git rev-parse --quiet --verify refs/tags/demo > /dev/null \
+            && ! git merge-base --is-ancestor refs/tags/demo "$GITHUB_SHA"; then
+            echo "demo is at $(git rev-parse refs/tags/demo), which is not an ancestor of $GITHUB_SHA: not moved"
+            exit 0
+          fi
+          git tag --force demo "$GITHUB_SHA"
+          git push --force origin refs/tags/demo
+          echo "demo -> $GITHUB_SHA"

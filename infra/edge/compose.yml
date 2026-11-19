@@ -11,6 +11,10 @@ services:
   caddy:
     image: caddy:2.10.2-alpine
     restart: unless-stopped
+    # The server itself (Docker's bridge address 172.17.0.1), for sites served from k3s: Traefik's
+    # hostPort listens there (infra/k3s/traefik-config.yaml, ADR-024).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "80:80"
       - "443:443"

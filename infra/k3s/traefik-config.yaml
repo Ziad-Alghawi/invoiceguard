@@ -1,0 +1,39 @@
+# Settings for k3s's bundled Traefik (chart 40.1.0, Traefik 3.7 in k3s v1.36.6; ADR-024). Copied to
+# /var/lib/rancher/k3s/server/manifests/traefik-config.yaml; k3s applies changes by itself.
+#
+# The shared Caddy (/opt/edge, in Docker) keeps ports 80/443 and TLS. It forwards the demo's host
+# to Traefik on 172.17.0.1:8880: Docker's bridge address, reachable from the server and its
+# containers only (and port 8880 is closed in the Hetzner firewall). Caddy reaches it as
+# host.docker.internal (extra_hosts in infra/edge/compose.yml).
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    service:
+      spec:
+        # No LoadBalancer: ServiceLB is off (config.yaml), and the hostPort below is the way in.
+        type: ClusterIP
+    ports:
+      web:
+        hostPort: 8880
+        hostIP: 172.17.0.1
+        forwardedHeaders:
+          # Caddy's requests arrive from the address Docker gives them on the way into the pod
+          # network. Traefik keeps their X-Forwarded-For only from these addresses; from any other
+          # it would replace the header, and the per-IP login limit would see one visitor.
+          trustedIPs:
+            - 10.42.0.1/32
+            - 172.18.0.0/16
+      websecure:
+        # TLS ends at Caddy.
+        expose:
+          default: false
+    # One node and a hostPort: a second Traefik pod could never bind the port, so the old pod
+    # stops before the new one starts (a few seconds without ingress on a Traefik upgrade).
+    updateStrategy:
+      rollingUpdate:
+        maxUnavailable: 1
+        maxSurge: 0

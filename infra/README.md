@@ -54,6 +54,19 @@ Secrets are referenced by name only. The install steps, the secret keys and the 
 [`docs/deploy.md`](../docs/deploy.md#kubernetes-helm-r4-3). CI lints, renders and installs both charts on
 k3d (job `helm`).
 
+## k3s and Argo CD (R4-4)
+The demo server runs one k3s node ([ADR-021](../docs/decisions/ADR-021-platform-k3s-argocd.md)):
+
+- [`k3s/`](k3s): the server's k3s settings (no ServiceLB, encrypted Secrets), Traefik's settings (a
+  hostPort on Docker's bridge address for the shared Caddy, trusted forwarded headers), a systemd drop-in
+  that starts k3s after Docker, `fetch.sh` (Argo CD core, the sealed-secrets controller and kubeseal at
+  pinned versions, checked by SHA-256) and `seal-secrets.sh`.
+- [`argocd/`](argocd): the root Application (app-of-apps) and, in [`argocd/apps/`](argocd/apps), the
+  namespace, the SealedSecrets and the two chart Applications in sync waves (PostgreSQL first). Argo CD
+  follows the git tag `demo`, which CI moves after a `main` commit's images are in GHCR.
+
+CI checks the pinned hashes and dry-runs these manifests against k3d (job `helm`).
+
 ## Public demo (prod override)
 [`docker-compose.prod.yml`](docker-compose.prod.yml) is layered on top of the dev file for the demo server
 ([ADR-014](../docs/decisions/ADR-014-demo-hosting-single-vps.md)): it removes every host port, attaches the web

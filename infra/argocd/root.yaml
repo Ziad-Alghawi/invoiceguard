@@ -1,0 +1,26 @@
+# The root Application (app-of-apps, ADR-024), applied once by hand:
+#   kubectl apply -f infra/argocd/root.yaml
+# It syncs infra/argocd/apps/ at the git tag `demo`, which CI moves to a commit on `main` once its
+# images are in GHCR (ADR-021). In sync-wave order:
+#   -1  the namespace
+#    0  the two SealedSecrets (Healthy once the controller has unsealed them)
+#    1  the invoiceguard-postgres Application (Healthy once PostgreSQL is ready)
+#    2  the invoiceguard Application (its migration hook runs as PreSync)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Ziad-Alghawi/invoiceguard.git
+    targetRevision: demo
+    path: infra/argocd/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

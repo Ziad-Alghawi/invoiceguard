@@ -1,0 +1,13 @@
+# k3s server settings for the demo VPS (ADR-021, ADR-024). Copied to /etc/rancher/k3s/config.yaml
+# before k3s is installed (docs/deploy.md); k3s reads it at every start.
+
+# ServiceLB would bind ports 80 and 443 on the host, which belong to the shared Caddy (/opt/edge).
+# Traefik gets a hostPort on Docker's bridge address instead (traefik-config.yaml).
+disable:
+  - servicelb
+
+# Encrypts Secrets in the k3s datastore on disk.
+secrets-encryption: true
+
+# Only root reads the admin kubeconfig; deploy gets its own copy (docs/deploy.md).
+write-kubeconfig-mode: "0600"
