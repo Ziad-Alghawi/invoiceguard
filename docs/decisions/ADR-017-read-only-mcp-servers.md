@@ -48,7 +48,7 @@ cannot see orders or contact data. As a second guard, every transaction the serv
 - **Roles are server-wide in PostgreSQL**, so the migration creates them only if they are missing (the dev and test
   databases share one server), and its downgrade revokes the grants but keeps the roles.
 - **No secret in a migration.** The roles are created `NOLOGIN`. `invoiceguard-db-roles` runs after
-  `alembic upgrade head` when the api starts and sets `LOGIN PASSWORD` from `INVOICEGUARD_MCP_ERP_DB_PASSWORD` and
+  `alembic upgrade head` (since R4-2 in the one-shot `migrate` step, ADR-022) and sets `LOGIN PASSWORD` from `INVOICEGUARD_MCP_ERP_DB_PASSWORD` and
   `INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD`; an empty variable makes the role `NOLOGIN` again. This also works on the
   existing dev and demo volumes, where an init script in `docker-entrypoint-initdb.d` would never run. Compose
   refuses to start without both passwords. The schema (and the grants) stay owned by the api's migrations.

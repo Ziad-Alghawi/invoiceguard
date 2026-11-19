@@ -1,6 +1,7 @@
 """Review queue and decisions (ADR-012): list, detail, file, approve, reject, override, audit."""
 
 import hashlib
+import time
 import uuid
 from collections.abc import Iterator
 from decimal import Decimal
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Session
 from conftest import REVIEWER_EMAIL, FinishedInvoice
 from invoiceguard_api import invoices, main
 from invoiceguard_api.auth import SESSION_COOKIE
+from invoiceguard_api.checkpoints import lock_invoice
 from invoiceguard_api.models import (
     AuditEvent,
     FieldSource,
@@ -129,6 +131,27 @@ def test_approving_a_blocked_invoice_needs_the_four_eyes_override(
     assert "request an override" in response.json()["detail"]
     assert status_of(client, blocked_id) == "blocked"
     assert review_events(db_session, blocked_id) == []
+
+
+def test_a_decision_on_a_busy_invoice_gets_409_within_the_lock_timeout(
+    client: TestClient, ready_id: str, engine: Engine, db_session: Session
+) -> None:
+    """A run or a decision in another pod holds the invoice (R4-2): the request gives up after
+    the default 2 s instead of waiting for it."""
+    with Session(engine) as other_pod:
+        lock_invoice(other_pod, uuid.UUID(ready_id))
+        started = time.monotonic()
+        response = client.post(f"/invoices/{ready_id}/approve", json={})
+        elapsed = time.monotonic() - started
+        other_pod.commit()
+
+    assert response.status_code == 409
+    assert "try again" in response.json()["detail"]
+    assert 1.5 <= elapsed < 3.5
+    assert status_of(client, ready_id) == "ready"
+    assert review_events(db_session, ready_id) == []
+    # Released: the same decision goes through.
+    assert client.post(f"/invoices/{ready_id}/approve", json={}).status_code == 200
 
 
 def test_the_old_single_person_override_field_is_refused(

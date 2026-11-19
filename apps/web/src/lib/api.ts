@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers as nextHeaders } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getApiUrl } from "@/lib/health";
@@ -93,9 +93,16 @@ export async function apiPostAnonymous(
   path: string,
   body: unknown,
 ): Promise<Response> {
+  const headers = new Headers({ "Content-Type": "application/json" });
+  // The browser's address as the edge proxy (Caddy) reported it, for the API's per-IP login
+  // limit. The API believes it only from trusted proxies (INVOICEGUARD_TRUSTED_PROXIES).
+  const forwardedFor = (await nextHeaders()).get("x-forwarded-for");
+  if (forwardedFor) {
+    headers.set("X-Forwarded-For", forwardedFor);
+  }
   return fetch(`${baseUrl()}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
     cache: "no-store",
     signal: AbortSignal.timeout(TIMEOUT_MS),

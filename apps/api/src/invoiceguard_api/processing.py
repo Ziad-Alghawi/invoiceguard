@@ -46,7 +46,12 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from invoiceguard_api.booking.record import BookingChoice, record_bookings
-from invoiceguard_api.checkpoints import engine_of, invoice_lock, open_checkpointer
+from invoiceguard_api.checkpoints import (
+    engine_of,
+    invoice_lock,
+    open_checkpointer,
+    try_lock_invoice,
+)
 from invoiceguard_api.checks import (
     KositValidator,
     final_status,
@@ -685,13 +690,19 @@ def process_invoice(
     validator: KositValidator,
     extractor: PdfExtractor | None,
     invoice_id: uuid.UUID,
+    *,
+    wait: bool = True,
 ) -> None:
     """Parse and check one `received` invoice; any error in the work ends in status `failed`.
 
     A plain PDF goes on to `extract_invoice` when an extractor is configured. If the database
-    itself fails, the invoice stays `processing` and startup recovery resumes it.
+    itself fails, the invoice stays `processing` and startup recovery resumes it. With
+    `wait=False` (recovery) an invoice whose lock another session holds is skipped.
     """
-    with invoice_lock(session_factory, invoice_id):
+    with invoice_lock(session_factory, invoice_id, wait=wait) as locked:
+        if not locked:
+            logger.info("Invoice %s is locked by another run; skipped", invoice_id)
+            return
         with session_factory() as session:
             if not _claim(session, invoice_id, InvoiceStatus.RECEIVED):
                 logger.info("Invoice %s is not waiting for processing; skipped", invoice_id)
@@ -699,7 +710,7 @@ def process_invoice(
         _run(Services(session_factory, storage, validator, extractor), invoice_id, "read")
     awaiting = _status(session_factory, invoice_id) is InvoiceStatus.AWAITING_EXTRACTION
     if awaiting and extractor is not None:
-        extract_invoice(session_factory, storage, extractor, invoice_id)
+        extract_invoice(session_factory, storage, extractor, invoice_id, wait=wait)
 
 
 def spent_today_usd(session: Session) -> Decimal:
@@ -741,13 +752,19 @@ def extract_invoice(
     storage: FileStorage,
     extractor: PdfExtractor,
     invoice_id: uuid.UUID,
+    *,
+    wait: bool = True,
 ) -> None:
     """Extract and check an invoice in `awaiting_extraction`; any error ends in `failed`.
 
     With a daily budget, the invoice keeps waiting once today's logged cost has reached it. The
     check runs before the call, so parallel extractions can overshoot it by one invoice each.
+    With `wait=False` (recovery) an invoice whose lock another session holds is skipped.
     """
-    with invoice_lock(session_factory, invoice_id):
+    with invoice_lock(session_factory, invoice_id, wait=wait) as locked:
+        if not locked:
+            logger.info("Invoice %s is locked by another run; skipped", invoice_id)
+            return
         with session_factory() as session:
             budget = extractor.daily_budget_usd
             if budget is not None and (spent := spent_today_usd(session)) >= budget:
@@ -770,15 +787,54 @@ def _waiting(session: Session, statuses: Iterable[InvoiceStatus]) -> list[uuid.U
 
 
 def _pause_all_for_review(services: Services, invoice_ids: list[uuid.UUID]) -> int:
-    """Make sure every given invoice still in review has a thread paused at review."""
+    """Make sure every given invoice still in review has a thread paused at review. An
+    invoice another session holds is skipped: a decision pauses its thread itself."""
     paused = 0
     with _open_graph(services.session_factory) as graph:
         for invoice_id in invoice_ids:
-            with invoice_lock(services.session_factory, invoice_id):
+            with invoice_lock(services.session_factory, invoice_id, wait=False) as locked:
                 # A decision may have come in since the list was read.
-                if _status(services.session_factory, invoice_id) in IN_REVIEW:
+                if locked and _status(services.session_factory, invoice_id) in IN_REVIEW:
                     paused += _pause_for_review(graph, services, invoice_id)
     return paused
+
+
+def _reset_interrupted(session_factory: sessionmaker[Session]) -> int:
+    """Reset `processing` invoices nobody works on to `received`; returns how many.
+
+    A run holds the invoice's lock from its claim to its end, so a `processing` invoice whose
+    lock is free was left behind by a stopped process. One whose lock is held is being worked
+    on, maybe by another api pod, and is left alone.
+    """
+    with session_factory() as session:
+        stuck = session.scalars(
+            select(Invoice.id).where(Invoice.status == InvoiceStatus.PROCESSING)
+        ).all()
+    reset = 0
+    for invoice_id in stuck:
+        with session_factory() as session:
+            if not try_lock_invoice(session, invoice_id):
+                logger.info("Invoice %s is being processed elsewhere; not reset", invoice_id)
+                continue
+            changed = session.execute(
+                update(Invoice)
+                .where(Invoice.id == invoice_id, Invoice.status == InvoiceStatus.PROCESSING)
+                .values(status=InvoiceStatus.RECEIVED, status_reason=RESTART_REASON)
+                .returning(Invoice.id)
+            ).scalar_one_or_none()
+            if changed is not None:
+                session.add(
+                    _status_event(
+                        invoice_id,
+                        InvoiceStatus.PROCESSING,
+                        InvoiceStatus.RECEIVED,
+                        RESTART_REASON,
+                    )
+                )
+                reset += 1
+            # Also releases the lock.
+            session.commit()
+    return reset
 
 
 def recover_unfinished(
@@ -787,25 +843,16 @@ def recover_unfinished(
     validator: KositValidator,
     extractor: PdfExtractor | None,
 ) -> None:
-    """On startup: reset invoices a restart left in `processing`, pause every invoice in review
-    whose thread is not paused at review, then process all `received` and, when an extractor
-    is configured, extract all `awaiting_extraction`.
+    """On startup: reset invoices a stopped process left in `processing`, pause every invoice
+    in review whose thread is not paused at review, then process all `received` and, when an
+    extractor is configured, extract all `awaiting_extraction`.
 
-    Assumes one API process (ADR-007); with several, this would take over another's work.
+    Safe with several api pods starting at once (R4-2): every step only tries each invoice's
+    lock and skips the invoices another pod holds, and the claim lets one run take an invoice.
     """
+    if reset := _reset_interrupted(session_factory):
+        logger.info("Reset %d invoice(s) interrupted by a stopped process", reset)
     with session_factory() as session:
-        stuck = session.scalars(
-            select(Invoice).where(Invoice.status == InvoiceStatus.PROCESSING)
-        ).all()
-        for invoice in stuck:
-            session.add(
-                _status_event(
-                    invoice.id, InvoiceStatus.PROCESSING, InvoiceStatus.RECEIVED, RESTART_REASON
-                )
-            )
-            invoice.status = InvoiceStatus.RECEIVED
-            invoice.status_reason = RESTART_REASON
-        session.commit()
         in_review = _waiting(session, IN_REVIEW)
         pending = _waiting(session, [InvoiceStatus.RECEIVED])
         # Read before processing `received`: those go on to extraction by themselves.
@@ -822,7 +869,7 @@ def recover_unfinished(
             len(awaiting),
         )
     for invoice_id in pending:
-        process_invoice(session_factory, storage, validator, extractor, invoice_id)
+        process_invoice(session_factory, storage, validator, extractor, invoice_id, wait=False)
     if extractor is not None:
         for invoice_id in awaiting:
-            extract_invoice(session_factory, storage, extractor, invoice_id)
+            extract_invoice(session_factory, storage, extractor, invoice_id, wait=False)

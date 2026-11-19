@@ -67,3 +67,13 @@ when one of these is measured:
 - Review outcomes are now statuses after all: `approved` and `rejected`, set only by a logged-in reviewer through the
   review endpoints (ADR-012). Processing never sets or leaves them; it only claims `received` and
   `awaiting_extraction` invoices. In R2 the approval moves into the graph (ADR-003) and the endpoints resume it.
+
+## Amendment (2026-11-19, R4-2)
+
+- The api may run in several pods (ADR-021). Each pod runs startup recovery, so recovery no longer assumes it is
+  the only process: it resets a `processing` invoice to `received` only when the invoice's advisory lock is free
+  (a run holds that lock from its claim to its end), and it only tries the lock for every invoice it processes,
+  extracts or pauses, skipping those another pod holds. The conditional claim still lets exactly one run take
+  an invoice. A test runs two recoveries at once.
+- A pod that dies loses its connection, and PostgreSQL then releases its locks, so the next pod to start
+  recovers the invoice.

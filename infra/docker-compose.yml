@@ -23,23 +23,45 @@ services:
       retries: 10
       start_period: 10s
 
-  api:
-    build:
+  # One-shot owner step (ADR-022): apply pending migrations and give the restricted roles their
+  # passwords, as the database owner, then exit. The api starts only after it succeeded. Owner
+  # tasks that the api's role may not do run here too: `make demo-reset`. In Kubernetes (R4-3)
+  # this becomes an Argo CD PreSync Job.
+  migrate:
+    build: &api-build
       context: ../apps/api
       # The rulebook's Markdown files (docs/rulebook), copied to /app/rulebook for `make index`.
       additional_contexts:
         rulebook: ../docs/rulebook
-    # Apply pending migrations, give the MCP roles their passwords (ADR-017), then serve. In
-    # Kubernetes (R4) migrations become a separate Job.
-    command:
-      - sh
-      - -c
-      - alembic upgrade head && invoiceguard-db-roles && exec uvicorn --factory invoiceguard_api.main:create_app --host 0.0.0.0 --port 8000
+    command: ["sh", "-c", "alembic upgrade head && invoiceguard-db-roles"]
     environment:
       INVOICEGUARD_ENV: ${INVOICEGUARD_ENV:-dev}
       INVOICEGUARD_LOG_LEVEL: ${INVOICEGUARD_LOG_LEVEL:-INFO}
-      # Address of the db service on the Compose network; credentials from the root .env.
+      # The owner: the only service with these credentials.
       INVOICEGUARD_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Passwords of the restricted roles (ADR-017, ADR-022), set by `invoiceguard-db-roles`;
+      # empty = the role cannot log in.
+      INVOICEGUARD_APP_DB_PASSWORD: ${INVOICEGUARD_APP_DB_PASSWORD:?set INVOICEGUARD_APP_DB_PASSWORD in .env}
+      INVOICEGUARD_MCP_ERP_DB_PASSWORD: ${INVOICEGUARD_MCP_ERP_DB_PASSWORD:-}
+      INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD: ${INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD:-}
+      INVOICEGUARD_MCP_HISTORY_DB_PASSWORD: ${INVOICEGUARD_MCP_HISTORY_DB_PASSWORD:-}
+      # For the demo reset, which loads and processes the samples like the api does.
+      INVOICEGUARD_VALIDATOR_URL: http://validator:8080/
+      INVOICEGUARD_EMBEDDING_MODEL: ${INVOICEGUARD_EMBEDDING_MODEL:-}
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build: *api-build
+    environment:
+      INVOICEGUARD_ENV: ${INVOICEGUARD_ENV:-dev}
+      INVOICEGUARD_LOG_LEVEL: ${INVOICEGUARD_LOG_LEVEL:-INFO}
+      # The restricted role (ADR-022): data rights only, no TRUNCATE, DDL or trigger changes.
+      # The password must be URL-safe (for example `openssl rand -hex 24`).
+      INVOICEGUARD_DATABASE_URL: postgresql+psycopg://invoiceguard_app:${INVOICEGUARD_APP_DB_PASSWORD:?set INVOICEGUARD_APP_DB_PASSWORD in .env}@db:5432/${POSTGRES_DB}
       INVOICEGUARD_MAX_UPLOAD_BYTES: ${INVOICEGUARD_MAX_UPLOAD_BYTES:-10485760}
       INVOICEGUARD_UPLOAD_MAX_PER_HOUR: ${INVOICEGUARD_UPLOAD_MAX_PER_HOUR:-}
       # Address of the validator service on the Compose network. The api does not wait for it:
@@ -59,6 +81,16 @@ services:
       INVOICEGUARD_SESSION_TTL_MINUTES: ${INVOICEGUARD_SESSION_TTL_MINUTES:-}
       INVOICEGUARD_LOGIN_MAX_FAILURES: ${INVOICEGUARD_LOGIN_MAX_FAILURES:-}
       INVOICEGUARD_LOGIN_LOCKOUT_MINUTES: ${INVOICEGUARD_LOGIN_LOCKOUT_MINUTES:-}
+      # Per-IP login limit (R4-2); empty keeps the defaults in settings.py.
+      INVOICEGUARD_LOGIN_IP_MAX_FAILURES: ${INVOICEGUARD_LOGIN_IP_MAX_FAILURES:-}
+      INVOICEGUARD_LOGIN_IP_WINDOW_MINUTES: ${INVOICEGUARD_LOGIN_IP_WINDOW_MINUTES:-}
+      # The api believes X-Forwarded-For from these only. The browser reaches it through the web
+      # container (backend for frontend), which passes on the address Caddy saw. Only containers
+      # on Docker's private networks can connect to the api (no public port in prod), so those
+      # ranges are trusted.
+      INVOICEGUARD_TRUSTED_PROXIES: ${INVOICEGUARD_TRUSTED_PROXIES:-["172.16.0.0/12","10.0.0.0/8","192.168.0.0/16"]}
+      # A review decision waits this long for a run on the same invoice, then answers 409.
+      INVOICEGUARD_DECISION_LOCK_TIMEOUT_MS: ${INVOICEGUARD_DECISION_LOCK_TIMEOUT_MS:-}
       # DATEV-style export (ADR-013); empty values keep the defaults in settings.py.
       INVOICEGUARD_DATEV_ADVISOR_NUMBER: ${INVOICEGUARD_DATEV_ADVISOR_NUMBER:-}
       INVOICEGUARD_DATEV_CLIENT_NUMBER: ${INVOICEGUARD_DATEV_CLIENT_NUMBER:-}
@@ -82,16 +114,11 @@ services:
       INVOICEGUARD_AGENT_TIMEOUT_SECONDS: ${INVOICEGUARD_AGENT_TIMEOUT_SECONDS:-}
       INVOICEGUARD_AGENT_COST_CAP_USD: ${INVOICEGUARD_AGENT_COST_CAP_USD:-}
       INVOICEGUARD_AGENT_AUTO_INVESTIGATE: ${INVOICEGUARD_AGENT_AUTO_INVESTIGATE:-}
-      # Passwords of the MCP servers' read-only database roles (ADR-017), set by
-      # `invoiceguard-db-roles` at start; empty = the role cannot log in.
-      INVOICEGUARD_MCP_ERP_DB_PASSWORD: ${INVOICEGUARD_MCP_ERP_DB_PASSWORD:-}
-      INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD: ${INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD:-}
-      INVOICEGUARD_MCP_HISTORY_DB_PASSWORD: ${INVOICEGUARD_MCP_HISTORY_DB_PASSWORD:-}
     volumes:
       - uploads:/data/uploads
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     healthcheck:
@@ -106,7 +133,7 @@ services:
       start_period: 5s
 
   # Read-only MCP servers for the exception agent (ADR-017). Each logs in as its own database
-  # role with SELECT on its own tables only; they start after the api, which sets the passwords.
+  # role with SELECT on its own tables only; they start after `migrate`, which sets the passwords.
   mcp-erp:
     build: ../apps/mcp-erp
     environment:
@@ -114,8 +141,8 @@ services:
     ports:
       - "127.0.0.1:${MCP_ERP_PORT:-8091}:8000"
     depends_on:
-      api:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   mcp-registry:
     build: ../apps/mcp-registry
@@ -124,8 +151,8 @@ services:
     ports:
       - "127.0.0.1:${MCP_REGISTRY_PORT:-8092}:8000"
     depends_on:
-      api:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   mcp-history:
     build: ../apps/mcp-history
@@ -136,8 +163,8 @@ services:
     ports:
       - "127.0.0.1:${MCP_HISTORY_PORT:-8093}:8000"
     depends_on:
-      api:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   validator:
     # Official KoSIT validator with the XRechnung configuration; healthcheck in the Dockerfile.

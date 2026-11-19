@@ -10,6 +10,7 @@ from sqlalchemy import Engine, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from invoiceguard_api import main, processing
+from invoiceguard_api.checkpoints import lock_invoice
 from invoiceguard_api.checks import KositValidator
 from invoiceguard_api.checks.model import Validation
 from invoiceguard_api.db import make_session_factory
@@ -267,6 +268,77 @@ def test_recovery_resumes_received_and_interrupted_invoices(
     assert load(db_session, waiting).status is InvoiceStatus.READY
     assert load(db_session, done).status is InvoiceStatus.FAILED
     assert status_changes(db_session, done) == []
+
+
+def test_two_recoveries_at_once_never_process_an_invoice_twice(
+    session_factory: sessionmaker[Session],
+    storage: FileStorage,
+    db_session: Session,
+    samples: dict[str, bytes],
+) -> None:
+    """Two api pods starting together (R4-2): each invoice is reset, claimed and read once."""
+    interrupted = add_invoice(
+        session_factory, storage, samples["zugferd2_pdf"], SourceType.PDF, InvoiceStatus.PROCESSING
+    )
+    waiting = [
+        add_invoice(session_factory, storage, samples[name], SourceType.XML)
+        for name in ("cii_xrechnung", "ubl_xrechnung")
+    ]
+    validator = SlowValidator()
+    start = threading.Barrier(2)
+    errors: list[BaseException] = []
+
+    def pod() -> None:
+        try:
+            start.wait()
+            recover_unfinished(session_factory, storage, validator, None)
+        except BaseException as error:
+            errors.append(error)
+
+    pods = [threading.Thread(target=pod) for _ in range(2)]
+    for thread in pods:
+        thread.start()
+    for thread in pods:
+        thread.join(timeout=60)
+
+    assert errors == []
+    # Three invoices, three readings: no invoice was read by both pods.
+    assert validator.calls == 3
+    assert status_changes(db_session, interrupted) == [
+        ("processing", "received"),
+        ("received", "processing"),
+        ("processing", "ready"),
+    ]
+    for invoice_id in waiting:
+        assert status_changes(db_session, invoice_id) == [
+            ("received", "processing"),
+            ("processing", "ready"),
+        ]
+
+
+def test_recovery_leaves_invoices_another_pod_holds(
+    session_factory: sessionmaker[Session],
+    storage: FileStorage,
+    db_session: Session,
+    samples: dict[str, bytes],
+) -> None:
+    """A `processing` invoice whose lock is held is being worked on: not reset, and recovery
+    does not wait for it; a held `received` invoice is left to its holder."""
+    running = add_invoice(
+        session_factory, storage, samples["cii_xrechnung"], SourceType.XML, InvoiceStatus.PROCESSING
+    )
+    queued = add_invoice(session_factory, storage, samples["ubl_xrechnung"], SourceType.XML)
+
+    with session_factory() as other_pod:
+        lock_invoice(other_pod, running)
+        lock_invoice(other_pod, queued)
+        recover_unfinished(session_factory, storage, NO_VALIDATOR, None)
+        other_pod.commit()
+
+    assert load(db_session, running).status is InvoiceStatus.PROCESSING
+    assert status_changes(db_session, running) == []
+    assert load(db_session, queued).status is InvoiceStatus.RECEIVED
+    assert status_changes(db_session, queued) == []
 
 
 def test_app_startup_resumes_unfinished_invoices(

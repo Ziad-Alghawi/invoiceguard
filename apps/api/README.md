@@ -72,7 +72,8 @@ are stored as Argon2id hashes.
 - Security events (`security_events`, append-only by a trigger, R2-4): `login_failed` (low; reason `unknown_email`,
   `wrong_password` or `locked`), `account_locked` (medium), `forbidden` (medium: a role check refused the request),
   `self_approval_attempt` (high: the requester tried to decide their own override), `injection_suspected` (high:
-  the prompt-injection scan found something in an invoice). Never a password.
+  the prompt-injection scan found something in an invoice), `login_rate_limited` (medium: too many failed logins
+  from one address, R4-2). Never a password or a client address.
 
 ## Processing
 After the upload, a background task ([processing.py](src/invoiceguard_api/processing.py), ADR-007) runs the
@@ -194,6 +195,7 @@ The schema is owned by Alembic migrations in [migrations/](migrations/); the mod
 | `checks` | Check results per invoice (type, status, message, evidence as JSON); replaced on every run |
 | `audit_events` | Append-only (a trigger rejects `UPDATE` and `DELETE`): who (actor and user), when, action, entity, status before and after, reason, details as JSON |
 | `users`, `sessions` | Seeded login users (Argon2id hash, failed-login count, lock time) and their sessions (token hash, expiry) |
+| `login_failures` | Failed logins per client address for the per-IP limit (R4-2); rows older than the window are deleted at every login |
 | `model_calls` | One row per LLM call: invoice, purpose, model, status, tokens, cost (USD), latency, error, time ([ADR-004](../../docs/decisions/ADR-004-model-router.md)) |
 
 Enums are stored as `VARCHAR` with a `CHECK` constraint, not as native PostgreSQL enums, so adding a value is a plain
@@ -247,5 +249,7 @@ Compose validator.
 ## Docker
 The [Dockerfile](Dockerfile) installs the locked runtime dependencies with uv in a build stage and copies only the
 virtual environment and the migrations into a `python:3.12-slim` image that runs as a non-root user on port 8000.
-In Compose the container runs `alembic upgrade head` before starting uvicorn. The whole stack (api + web + db +
+In Compose a one-shot `migrate` service from the same image runs `alembic upgrade head` and
+`invoiceguard-db-roles` as the database owner, and the api starts after it as the restricted `invoiceguard_app`
+role (ADR-022). The whole stack (api + web + db +
 validator) starts with `make dev` from the repo root; see [infra](../../infra/README.md).

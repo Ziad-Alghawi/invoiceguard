@@ -28,6 +28,7 @@ TABLES = {
     "embeddings",
     "bookings",
     "rulebook_chunks",
+    "login_failures",
 }
 
 

@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Several api pods safely (R4-2):
+  - Startup recovery only tries each invoice's advisory lock: it skips the invoices another pod holds and
+    resets a `processing` invoice only when nobody holds its lock.
+  - Review decisions wait at most `INVOICEGUARD_DECISION_LOCK_TIMEOUT_MS` (2 s), then answer `409`.
+  - ADR-007 and ADR-015 amended.
+- Restricted database role for the api (R4-2, ADR-022):
+  - Migration 0014 adds `invoiceguard_app`, with data rights only. It may only read and insert on
+    `audit_events`, `security_events` and `model_calls`. It has no TRUNCATE and no CREATE, and it owns nothing,
+    so it cannot drop or disable the append-only triggers.
+  - A one-shot `migrate` Compose service runs Alembic and `invoiceguard-db-roles` as the owner before the api and
+    the MCP servers start.
+  - `make demo-reset` runs as the owner in a one-off `migrate` container and refuses to run as the app role.
+  - Each `.env` now needs `INVOICEGUARD_APP_DB_PASSWORD` (Compose refuses to start without it).
+- Per-IP login limit (R4-2, ADR-011 amendment):
+  - 20 failed logins from one address in 15 minutes, then `429` with `Retry-After`, before any account lookup.
+  - Counted in a pruned `login_failures` table (migration 0015), so addresses are kept for the window only.
+  - A refused attempt is logged as the security event `login_rate_limited`, without the address.
+  - The client address comes from `X-Forwarded-For` only when the peer is in `INVOICEGUARD_TRUSTED_PROXIES`.
+    The web login action passes on the header Caddy set.
 - ADR-021: the R4 platform (k3s on the demo VPS rescaled to CX33, Caddy in front of Traefik, Argo CD following a
   `demo` tag, Alembic as a PreSync Job, sealed-secrets) and what R4 cuts; ADR-014's hosting is partly superseded.
 - Container images in CI (R4-1): all six images built, scanned by Trivy 0.76.2 (its image pinned by digest, not

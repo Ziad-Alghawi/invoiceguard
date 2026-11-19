@@ -3,9 +3,15 @@
 The cookie holds a random token; the database stores only its SHA-256, so a leaked database does
 not contain usable sessions, and logout ends the session on the server. Failed logins in a row
 lock the account for a while. Every login, logout and failed login is written to the audit log.
+
+On top of that, one client address may fail only so often within a window, whatever accounts it
+tries (R4-2): then it gets 429 before any account is looked up or any password hashed. The
+address comes from X-Forwarded-For only when a trusted proxy sent it (settings.trusted_proxies),
+and it is kept in `login_failures` for the window only.
 """
 
 import hashlib
+import math
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -22,13 +28,14 @@ from sqlalchemy.orm import Session
 from invoiceguard_api.db import DbSession
 from invoiceguard_api.models import (
     AuditEvent,
+    LoginFailure,
     SecurityEvent,
     SecuritySeverity,
     User,
     UserRole,
     UserSession,
 )
-from invoiceguard_api.security import ACCOUNT_LOCKED, security_event
+from invoiceguard_api.security import ACCOUNT_LOCKED, LOGIN_RATE_LIMITED, security_event
 from invoiceguard_api.security import LOGIN_FAILED as LOGIN_FAILED_EVENT
 from invoiceguard_api.settings import Settings
 
@@ -41,6 +48,7 @@ SYSTEM_ACTOR = "system"
 # One message for an unknown email and a wrong password, so the reply does not reveal which.
 LOGIN_FAILED = "Wrong email or password."
 NOT_LOGGED_IN = "Not logged in."
+IP_LIMITED = "Too many failed logins from your network; try again in a few minutes."
 
 # Argon2id with the library defaults (RFC 9106 low-memory profile).
 _hasher = PasswordHasher()
@@ -124,6 +132,39 @@ def _login_failed(reason: str, user: User | None = None, **details: Any) -> Secu
     )
 
 
+def _client_ip(request: Request) -> str | None:
+    """The client's address: from X-Forwarded-For when a trusted proxy sent it (the proxy
+    headers middleware has already applied it, main.py), else the connecting address."""
+    return request.client.host if request.client is not None else None
+
+
+def _ip_retry_after(
+    session: Session, client_ip: str | None, now: datetime, settings: Settings
+) -> int | None:
+    """Seconds until the address may try again, or None if it may now. Deletes the failures
+    that have left the window, for every address."""
+    limit = settings.login_ip_max_failures
+    window = timedelta(minutes=settings.login_ip_window_minutes)
+    session.execute(delete(LoginFailure).where(LoginFailure.at <= now - window))
+    if limit is None or client_ip is None:
+        return None
+    recent = session.scalars(
+        select(LoginFailure.at)
+        .where(LoginFailure.client_ip == client_ip, LoginFailure.at > now - window)
+        .order_by(LoginFailure.at.desc())
+        .limit(limit)
+    ).all()
+    if len(recent) < limit:
+        return None
+    # Below the limit again once the limit-th newest failure leaves the window.
+    return max(1, math.ceil((recent[-1] + window - now).total_seconds()))
+
+
+def _count_failure(session: Session, client_ip: str | None, now: datetime) -> None:
+    if client_ip is not None:
+        session.add(LoginFailure(client_ip=client_ip, at=now))
+
+
 def _failed(session: Session, user: User, now: datetime, settings: Settings) -> None:
     """Count a wrong password; the last allowed one starts a lockout."""
     user.failed_logins += 1
@@ -158,7 +199,10 @@ def _failed(session: Session, user: User, now: datetime, settings: Settings) -> 
     "/login",
     responses={
         status.HTTP_401_UNAUTHORIZED: {"model": ErrorOut, "description": "Wrong credentials"},
-        status.HTTP_429_TOO_MANY_REQUESTS: {"model": ErrorOut, "description": "Account locked"},
+        status.HTTP_429_TOO_MANY_REQUESTS: {
+            "model": ErrorOut,
+            "description": "Account locked, or too many failed logins from this address",
+        },
     },
 )
 def login(body: LoginIn, session: DbSession, request: Request, response: Response) -> UserOut:
@@ -167,6 +211,16 @@ def login(body: LoginIn, session: DbSession, request: Request, response: Respons
     email = normalise_email(body.email)
     password = body.password.get_secret_value()
     now = datetime.now(UTC)
+    client_ip = _client_ip(request)
+    # Before the account and the password: a refused address costs no hashing. Counted without
+    # a lock, so parallel attempts can pass the limit by a few.
+    if (retry_after := _ip_retry_after(session, client_ip, now, settings)) is not None:
+        # The security log never stores the address (personal data).
+        session.add(security_event(LOGIN_RATE_LIMITED, SecuritySeverity.MEDIUM, email=email))
+        session.commit()
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS, IP_LIMITED, headers={"Retry-After": str(retry_after)}
+        )
     # Locked, so parallel attempts cannot each read the same failure count.
     user = session.scalar(select(User).where(User.email == email).with_for_update())
 
@@ -175,6 +229,7 @@ def login(body: LoginIn, session: DbSession, request: Request, response: Respons
         _verify(_dummy_hash(), password)
         session.add(_event("auth.login_failed", "unknown", reason="unknown_email", email=email))
         session.add(_login_failed("unknown_email", email=email))
+        _count_failure(session, client_ip, now)
         session.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, LOGIN_FAILED)
 
@@ -182,6 +237,7 @@ def login(body: LoginIn, session: DbSession, request: Request, response: Respons
         # The password is not checked while locked, so guessing gains nothing.
         session.add(_event("auth.login_failed", str(user.id), reason="locked"))
         session.add(_login_failed("locked", user))
+        _count_failure(session, client_ip, now)
         session.commit()
         retry_after = max(1, int((user.locked_until - now).total_seconds()))
         raise HTTPException(
@@ -191,6 +247,7 @@ def login(body: LoginIn, session: DbSession, request: Request, response: Respons
         )
 
     if not _verify(user.password_hash, password):
+        _count_failure(session, client_ip, now)
         _failed(session, user, now, settings)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, LOGIN_FAILED)
 

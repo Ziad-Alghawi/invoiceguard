@@ -63,3 +63,31 @@ Use **opaque, server-side sessions** stored in PostgreSQL, not JWTs.
 - The `429` while locked tells a caller that the email exists. Also accepted for the demo, where the accounts
   are listed; the `401` for wrong credentials does not reveal it.
 - Moving to SSO (ADR-006) replaces the login endpoint; sessions, the cookie and the audit rows stay.
+
+## Amendment (2026-11-19, R4-2): per-IP login limit
+
+- **In the app, not at the ingress.** One client address may fail `INVOICEGUARD_LOGIN_IP_MAX_FAILURES` logins
+  (default 20) within `INVOICEGUARD_LOGIN_IP_WINDOW_MINUTES` (default 15), for any accounts; then it gets `429`
+  with `Retry-After` (until the oldest of those failures leaves the window) before any account is looked up or
+  any password hashed. Unknown emails, wrong passwords and attempts on a locked account all count; refused
+  attempts do not. The account lockout stays as it is.
+- **Counted in PostgreSQL**, in a `login_failures` table, so the limit holds across api pods (ADR-021) and
+  restarts without Redis or a new dependency. It is not a log: each login deletes the rows older than the
+  window, so client addresses (personal data) are kept for minutes. The security log records a refused attempt
+  as `login_rate_limited` without the address. The count is read without a lock, so parallel attempts can pass
+  the limit by a few.
+- **The client address comes from trusted proxies only.** The browser reaches the api through Caddy and the web
+  server (backend for frontend). Caddy trusts no proxy, so it replaces any `X-Forwarded-For` a browser sends with
+  the address it saw; the login action passes that header on; the api applies it with uvicorn's
+  `ProxyHeadersMiddleware` only when the connecting peer is in `INVOICEGUARD_TRUSTED_PROXIES`, and takes the
+  right-most address that is not a trusted proxy. Without trusted proxies the header is ignored. Compose trusts
+  Docker's private ranges (the api has no public port); uvicorn's own header handling is off
+  (`--no-proxy-headers`), so the app is the only place that reads it. In Kubernetes (R4-3, R4-4) the list
+  becomes the pod network.
+- **Alternatives:** a per-pod in-memory counter (wrong with several replicas and lost on restart), `slowapi` with
+  Redis (a dependency and a service for one endpoint), and a limit in Traefik or Caddy (Caddy sees only the web
+  server's requests as one client after the backend-for-frontend hop, and the limit would live outside the
+  tested code).
+- The consequence above about the lockout still holds: five failures lock an account, so one address can
+  still lock up to four accounts per window; password guessing across many accounts from one address stops
+  after 20 attempts.

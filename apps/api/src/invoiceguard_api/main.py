@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from pydantic import AnyHttpUrl
 from starlette.concurrency import run_in_threadpool
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from invoiceguard_api.agent.loop import ExceptionAgent, Limits
 from invoiceguard_api.agent.schema import Server
@@ -172,6 +173,11 @@ def create_app(
         ContentLengthLimitMiddleware,
         max_bytes=settings.max_upload_bytes + MULTIPART_OVERHEAD_BYTES,
     )
+    # Added last, so it runs first: the client address (per-IP login limit) comes from
+    # X-Forwarded-For only when a trusted proxy connected. uvicorn's own handling of the header
+    # is off (--no-proxy-headers in the Dockerfile), so this is the only place that reads it.
+    if settings.trusted_proxies:
+        app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.trusted_proxies)
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(invoices_router)

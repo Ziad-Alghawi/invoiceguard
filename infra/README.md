@@ -16,9 +16,11 @@ Deployment and operations config: Docker Compose (dev), Helm chart, Argo CD mani
 Configuration comes from the root `.env` (copy `.env.example`). Inside the Compose network the web container calls
 the API at `http://api:8000`, and the API reaches PostgreSQL at `db:5432` with a URL built from the `POSTGRES_*`
 values, and the KoSIT validator at `http://validator:8080/`. The api does not wait for the validator: while it is
-down, the KoSIT check is `skipped` and the other checks still run. The api container applies pending Alembic
-migrations and sets the passwords of the MCP servers' read-only database roles (`invoiceguard-db-roles`) before it
-starts serving; the MCP servers log in with those roles (`INVOICEGUARD_MCP_*_DB_PASSWORD`, required). Database data is kept in the `db-data` volume, uploaded invoice files in the
+down, the KoSIT check is `skipped` and the other checks still run. The one-shot `migrate` service applies pending
+Alembic migrations and sets the passwords of the restricted database roles (`invoiceguard-db-roles`) as the
+database owner, then exits; the api (as `invoiceguard_app`, ADR-022) and the MCP servers (ADR-017) start after it
+and log in with those roles (`INVOICEGUARD_APP_DB_PASSWORD` and `INVOICEGUARD_MCP_*_DB_PASSWORD`, required).
+`make demo-reset` runs in a one-off `migrate` container too: owner tasks never run as the api's role. Database data is kept in the `db-data` volume, uploaded invoice files in the
 `uploads` volume (mounted at `/data/uploads`).
 
 `make seed` loads the demo master data into the running stack (`docker compose exec api invoiceguard-seed`).

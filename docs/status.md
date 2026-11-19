@@ -1,6 +1,6 @@
 # Status
 
-**Current milestone:** R4 — Platform (in progress: R4-1)
+**Current milestone:** R4 — Platform (R4-1 and R4-2 done; next: R4-3)
 **Last updated:** 2026-11-19
 
 ## Done
@@ -243,16 +243,42 @@
     stays the edge and forwards to Traefik, Argo CD core, sealed-secrets, CD through a `demo` git tag).
     Done when: every `uses:` is a SHA; a fixable HIGH/CRITICAL finding fails the
     scan; images are in GHCR; ADR-021 merged and ADR-014 marked as partly superseded
-  - R4-2: safety for several pods, one commit each: (a) startup recovery takes a per-invoice session advisory
-    lock and skips invoices another pod holds; decision endpoints use a short `lock_timeout` and answer `409`;
-    (b) restricted database roles: an owner role for migrations, an app role with DML only (no TRUNCATE, DROP or
-    trigger changes), Alembic as an Argo CD PreSync Job that also creates the MCP roles; (c) per-IP login rate
-    limit in the app, client IP from trusted proxy headers only. Done when: tests prove recovery never runs one
-    invoice twice, a decision during a run gets `409` quickly, the app role cannot TRUNCATE / DROP TRIGGER / run
-    DDL, and one IP gets `429` while others do not (spoofed `X-Forwarded-For` ignored)
+  - R4-2: safety for several pods (done, three commits plus docs):
+    - (a) Startup recovery only tries each invoice's advisory lock (`pg_try_advisory_xact_lock`, the key that
+      every run and decision holds): a `processing` invoice is reset only when its lock is free, and the
+      invoices another pod holds are skipped instead of waited for. Decisions wait at most
+      `INVOICEGUARD_DECISION_LOCK_TIMEOUT_MS` (2 s) and answer `409`. ADR-007 and ADR-015 amended.
+    - (b) ADR-022: migration 0014 adds `invoiceguard_app`, which has data rights only. It may only read and
+      insert on the three logs, it cannot TRUNCATE, it has no CREATE, and it owns nothing. The api logs in as
+      that role. A one-shot `migrate` Compose service runs Alembic and `invoiceguard-db-roles` as the owner
+      before the api and the MCP servers start. `make demo-reset` runs in a one-off `migrate` container and
+      refuses to run as the app role. The test suite runs the app as the app role. The Argo CD PreSync Job
+      follows in R4-3.
+    - (c) Per-IP login limit (ADR-011 amendment): 20 failed logins per address in 15 minutes, then `429` with
+      `Retry-After`, before any account lookup or hashing. The failures are counted in a pruned
+      `login_failures` table (migration 0015), so addresses are kept for the window only. The client address
+      is taken from `X-Forwarded-For` only when a trusted proxy sent it (`INVOICEGUARD_TRUSTED_PROXIES`), and
+      the web login action passes on Caddy's header.
+    - Done-when check, each covered by a test:
+      - two recoveries at once read each invoice once, and a held invoice is neither reset nor waited for;
+      - a decision on a held invoice gets `409` after about 2 s;
+      - the app role is refused TRUNCATE, DROP or DISABLE TRIGGER, DDL and UPDATE/DELETE on the logs (an
+        `InsufficientPrivilege` error each time);
+      - one address gets `429` while another logs in;
+      - a spoofed `X-Forwarded-For` from an untrusted peer, or left of the proxy's entry, is ignored.
+    - The stack was checked by hand, `make dev`: `migrate` exits 0; the api's connections are
+      `invoiceguard_app`; seed works; demo-reset is refused in the api and works in `migrate`; 20 failures
+      through the web container give `429` with `Retry-After: 899`, while another address still gets `401`.
+    - Before the next demo deploy: add `INVOICEGUARD_APP_DB_PASSWORD` to the server's `.env`
+      (`docs/deploy.md`).
   - R4-3: Helm chart (api, web, three MCP servers, validator with a memory limit, Postgres StatefulSet with a
     PVC, probes, resources, NetworkPolicy for the MCP servers, ingress body-size limit, demo reset as a
-    CronJob). Done when: `helm lint` and `helm template` run in CI and the chart installs on k3d
+    CronJob). It also covers these items:
+    - the `migrate` step as the Argo CD PreSync Job;
+    - a non-superuser owner role for migrations (today the migrator is the superuser from the PostgreSQL
+      image, see Known limitations);
+    - `INVOICEGUARD_TRUSTED_PROXIES` set to the pod network;
+    - the demo reset CronJob running as the owner. Done when: `helm lint` and `helm template` run in CI and the chart installs on k3d
   - R4-4: cluster, Argo CD and CD: rescale the VPS to CX33 (ask first; about €9/month with IPv4, net, vs about
     €6 for CX23), k3s, Argo CD core, sealed-secrets; CI moves the `demo` tag after pushing images, Helm takes
     `$ARGOCD_APP_REVISION` as the image tag (no bot commits); Compose switched off afterwards; `docs/deploy.md`
@@ -288,17 +314,24 @@
   both the reviewer and the approver account, so four eyes there shows the mechanism, not real separation of duties.
   Roles are set by `make seed-user`; there is no user administration.
 - Graph (ADR-015): startup reads the thread of every invoice waiting for review (one query each); each graph run
-  opens its own database connection for the checkpointer; a decision waits while a run (an LLM extraction) holds
-  the invoice's lock.
+  opens its own database connection for the checkpointer; a decision made while a run (an LLM extraction) holds
+  the invoice's lock gets `409` after 2 s (R4-2), and the user has to click again.
 - Injection scan (R2-4): heuristics only, so new wordings or other languages get through: R3-3 measured 14 of 44
   attack texts flagged, none of the indirect ones. No attack succeeded, so no LLM classifier (ADR-002). White and
   tiny text is in the text layer and scanned like any other, but hiding it is not itself a signal; text in images
   (scans without a text layer are `skipped`) and invisible PDF text (render mode 3, skipped on purpose: OCR'd scans
   use it) are not seen. The security log has no alerting or retention yet.
 - Login lockout is per account: anyone who knows a demo email can lock it for 15 minutes, and the `429` reveals that
-  the account exists. No per-IP rate limit (ingress in R4).
-- The audit trigger stops UPDATE and DELETE through the app's database user, not the table owner (TRUNCATE, dropping
-  the trigger); production needs a separate, restricted database role.
+  the account exists.
+- The per-IP login limit (R4-2) has these gaps:
+  - Failures are counted without a lock, so parallel attempts can pass it by a few.
+  - Users behind one shared address (an office NAT) share the limit.
+  - Compose trusts `X-Forwarded-For` from Docker's private ranges. In dev the api's published port is reached
+    through the Docker gateway, so a local caller can set any address. In prod the api has no public port.
+- Database roles (ADR-022): the api runs as the restricted `invoiceguard_app`, but the migrator is still
+  `POSTGRES_USER`, a superuser in the official PostgreSQL image. A non-superuser owner comes with the Helm chart
+  (R4-3), where the database is created fresh; `CREATE EXTENSION vector` may still need a superuser once. A new
+  append-only table gets UPDATE and DELETE from the default privileges and must revoke them in its migration.
 - Upload limit (R2-7): counted from the audit log without a lock, so parallel uploads can pass it by a few files; the
   demo accounts are shared, so on the demo it caps all visitors together. One file per upload (no bulk upload);
   there is no sample picker: visitors bring their own XRechnung or ZUGFeRD file.

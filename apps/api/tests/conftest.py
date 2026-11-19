@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from invoiceguard_api.auth import SESSION_COOKIE, hash_password, token_hash
 from invoiceguard_api.db import make_engine, make_session_factory
+from invoiceguard_api.db_roles import APP_ROLE
 from invoiceguard_api.main import create_app
 from invoiceguard_api.models import Base, User, UserRole, UserSession
 from invoiceguard_api.seed import seed_demo_data
@@ -72,6 +73,16 @@ def database_url() -> Iterator[str]:
     admin.dispose()
 
 
+@pytest.fixture(scope="session")
+def app_database_url(database_url: str) -> str:
+    """The api's connection in the tests: the owner's login, switched to the restricted app role
+    (migration 0014, ADR-022) at connection start, so every request and graph run has only the
+    api's real rights. No password is set: roles belong to the whole server, and the dev
+    stack's api logs in with the same role."""
+    url = make_url(database_url).update_query_dict({"options": f"-c role={APP_ROLE}"})
+    return url.render_as_string(hide_password=False)
+
+
 @pytest.fixture
 def alembic_cfg(database_url: str) -> Config:
     return alembic_config(database_url)
@@ -107,11 +118,11 @@ def seeded(db_session: Session) -> None:
 
 
 @pytest.fixture
-def settings(database_url: str, tmp_path: Path) -> Settings:
+def settings(app_database_url: str, tmp_path: Path) -> Settings:
     return Settings(
         env="test",
         log_level="DEBUG",
-        database_url=PostgresDsn(database_url),
+        database_url=PostgresDsn(app_database_url),
         storage_dir=tmp_path / "uploads",
         max_upload_bytes=TEST_MAX_UPLOAD_BYTES,
         # Never a real key from the environment: tests use the fake client (tests/fakes.py).

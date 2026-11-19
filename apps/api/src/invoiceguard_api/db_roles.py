@@ -1,12 +1,14 @@
-"""Give the MCP servers' database roles (migrations 0010 and 0013, ADR-017) their login passwords.
+"""Give the restricted database roles their login passwords: the api's `invoiceguard_app`
+(migration 0014, ADR-022) and the MCP servers' roles (migrations 0010 and 0013, ADR-017).
 
-Migration 0010 creates the roles without LOGIN and grants them SELECT on their own tables; the
-passwords are secrets, so they come from the environment here, never from a migration. A role
-with a password can log in; a role whose password variable is empty or unset cannot (NOLOGIN),
-so removing a password from the .env locks the role out at the next start.
+The migrations create the roles without LOGIN and grant their rights; the passwords are
+secrets, so they come from the environment here, never from a migration. A role with a password
+can log in; a role whose password variable is empty or unset cannot (NOLOGIN), so removing a
+password from the .env locks the role out at the next start.
 
-Runs after `alembic upgrade head` when the api container starts; safe to run again. Run by hand
-with `uv run invoiceguard-db-roles`.
+Runs as the database owner after `alembic upgrade head` in the one-shot `migrate` step, never
+in the api (whose role may not change roles); safe to run again. Run by hand with
+`uv run invoiceguard-db-roles`.
 """
 
 import logging
@@ -23,6 +25,7 @@ from invoiceguard_api.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
+APP_ROLE = "invoiceguard_app"
 ERP_ROLE = "invoiceguard_mcp_erp"
 REGISTRY_ROLE = "invoiceguard_mcp_registry"
 HISTORY_ROLE = "invoiceguard_mcp_history"
@@ -35,12 +38,14 @@ class RolePasswords(BaseSettings):
         env_prefix="INVOICEGUARD_", extra="ignore", env_ignore_empty=True
     )
 
+    app_db_password: SecretStr | None = None
     mcp_erp_db_password: SecretStr | None = None
     mcp_registry_db_password: SecretStr | None = None
     mcp_history_db_password: SecretStr | None = None
 
     def by_role(self) -> dict[str, SecretStr | None]:
         return {
+            APP_ROLE: self.app_db_password,
             ERP_ROLE: self.mcp_erp_db_password,
             REGISTRY_ROLE: self.mcp_registry_db_password,
             HISTORY_ROLE: self.mcp_history_db_password,
@@ -75,4 +80,4 @@ def main() -> None:
         can_login = apply_passwords(engine, RolePasswords().by_role())
     finally:
         engine.dispose()
-    logger.info("MCP database roles that can log in: %s", ", ".join(can_login) or "none")
+    logger.info("Database roles that can log in: %s", ", ".join(can_login) or "none")

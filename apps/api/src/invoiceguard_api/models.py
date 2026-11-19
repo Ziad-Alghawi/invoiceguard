@@ -456,6 +456,24 @@ class SecurityEvent(Base):
     )
 
 
+class LoginFailure(Base):
+    """A failed login from one client address, for the per-IP login limit (R4-2, ADR-011).
+
+    Not a log: every login deletes the rows older than the limit's window, so client addresses
+    (personal data) are kept for minutes only. The security log records failed logins without
+    the address.
+    """
+
+    __tablename__ = "login_failures"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    # The client's IP address, from trusted proxy headers only (settings.trusted_proxies).
+    client_ip: Mapped[str] = mapped_column(String(64))
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (Index("ix_login_failures_client_ip_at", "client_ip", "at"),)
+
+
 class ModelCall(Base):
     """One LLM call with its tokens, cost and latency (ADR-004), also when it failed.
 

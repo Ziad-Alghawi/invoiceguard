@@ -143,6 +143,20 @@ def test_main_refuses_without_demo_mode(database_url: str, monkeypatch: pytest.M
         get_settings.cache_clear()
 
 
+def test_main_refuses_to_run_as_the_app_role(
+    app_database_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Owner tasks run as the owner (ADR-022), never through the api's role."""
+    monkeypatch.setenv("INVOICEGUARD_DATABASE_URL", app_database_url)
+    monkeypatch.setenv("INVOICEGUARD_DEMO_MODE", "true")
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(SystemExit, match="Refusing to reset as invoiceguard_app"):
+            demo.main()
+    finally:
+        get_settings.cache_clear()
+
+
 def test_main_resets_the_configured_database(
     engine: Engine, database_url: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

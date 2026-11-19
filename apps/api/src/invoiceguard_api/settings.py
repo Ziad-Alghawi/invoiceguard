@@ -73,11 +73,22 @@ class Settings(BaseSettings):
     agent_cost_cap_usd: Decimal = Field(default=Decimal("0.05"), gt=0)
     # Investigate every invoice that processing leaves `blocked` (when the agent can run).
     agent_auto_investigate: bool = True
+    # How long a decision waits for a run or another decision on the same invoice before it
+    # answers 409 (R4-2); an LLM extraction can hold the invoice for minutes.
+    decision_lock_timeout_ms: int = Field(default=2000, gt=0)
     # Login sessions (ADR-011): fixed lifetime, then log in again.
     session_ttl_minutes: int = Field(default=8 * 60, gt=0)
     # This many failed logins in a row lock the account for `login_lockout_minutes`.
     login_max_failures: int = Field(default=5, gt=0)
     login_lockout_minutes: int = Field(default=15, gt=0)
+    # Per client address (R4-2): this many failed logins within the window, for any accounts,
+    # and the address gets 429 until the oldest of them leaves the window. Unset: no limit.
+    login_ip_max_failures: int | None = Field(default=20, gt=0)
+    login_ip_window_minutes: int = Field(default=15, gt=0)
+    # Proxies whose X-Forwarded-For the api believes (addresses or networks, as JSON, for
+    # example ["172.16.0.0/12"]); the client is the right-most address that is not one of them.
+    # Empty: the header is ignored and the client is the connecting address.
+    trusted_proxies: list[str] = []
     # DATEV-style booking export (ADR-013). The defaults are placeholders for a demo client on
     # SKR03; a real export needs the numbers and accounts the tax advisor uses for the client.
     datev_advisor_number: int = Field(default=1001, ge=1001, le=9_999_999)
