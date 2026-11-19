@@ -99,6 +99,7 @@ class KeywordEmbedder:
         self.fail = fail
         self.dimensions = dimensions
         self.calls: list[list[str]] = []
+        self.tasks: list[EmbeddingTask] = []
 
     def vector(self, text: str) -> tuple[float, ...]:
         values = [0.0] * self.dimensions
@@ -112,6 +113,7 @@ class KeywordEmbedder:
         self, *, model: str, texts: Sequence[str], dimensions: int, task: EmbeddingTask
     ) -> EmbeddingReply:
         self.calls.append(list(texts))
+        self.tasks.append(task)
         if self.fail:
             raise LLMError("The LLM provider's rate limit or quota is used up.", 40)
         return EmbeddingReply(

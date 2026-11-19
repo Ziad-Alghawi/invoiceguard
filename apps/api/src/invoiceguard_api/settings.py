@@ -52,11 +52,15 @@ class Settings(BaseSettings):
     # Booking suggestions (ADR-020): a LiteLLM embedding model whose vectors have the size of the
     # `embeddings.vector` column (768). Changing it means running `invoiceguard-index` again.
     embedding_model: str = "gemini/gemini-embedding-001"
+    # The rulebook's Markdown files (docs/rulebook), indexed by `invoiceguard-index`; the api
+    # image has them at /app/rulebook. Unset: the index leaves the rulebook as it is.
+    rulebook_dir: Path | None = None
     # Exception agent (ADR-018): investigates blocked invoices with the read-only MCP servers
-    # (ADR-017). It runs only with a model key and both MCP URLs; otherwise the "Investigate"
-    # button shows a recorded run where one exists.
+    # (ADR-017). It runs only with a model key and the three MCP URLs; otherwise the
+    # "Investigate" button shows a recorded run where one exists.
     mcp_erp_url: AnyHttpUrl | None = None
     mcp_registry_url: AnyHttpUrl | None = None
+    mcp_history_url: AnyHttpUrl | None = None
     mcp_timeout_seconds: float = Field(default=10.0, gt=0)
     # A LiteLLM model string; unset: the extraction model.
     agent_model: str | None = None

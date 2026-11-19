@@ -6,7 +6,9 @@ never changes the invoice: when it cannot run (no key, the daily budget, a faile
 suggestions for that invoice use the text match instead.
 """
 
+import base64
 import logging
+import struct
 import uuid
 from collections.abc import Iterable, Sequence
 from decimal import Decimal
@@ -17,7 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from invoiceguard_api.booking.lines import invoice_lines
 from invoiceguard_api.booking.text import normalise, text_sha256
-from invoiceguard_api.llm import Embedder, LLMError
+from invoiceguard_api.llm import Embedder, EmbeddingTask, LLMError
 from invoiceguard_api.models import EMBEDDING_DIMENSIONS, Embedding, ModelCall, ModelCallStatus
 from invoiceguard_api.processing import spent_today_usd
 
@@ -26,6 +28,18 @@ logger = logging.getLogger(__name__)
 EMBEDDING_PURPOSE = "embedding"
 # Texts per call; Gemini's batch endpoint takes up to 100.
 BATCH_SIZE = 100
+
+
+# Little-endian float32: 3 KB per 768-dimension vector in base64.
+_FORMAT = f"<{EMBEDDING_DIMENSIONS}f"
+
+
+def encode_vector(vector: tuple[float, ...] | list[float]) -> str:
+    return base64.b64encode(struct.pack(_FORMAT, *vector)).decode("ascii")
+
+
+def decode_vector(encoded: str) -> list[float]:
+    return list(struct.unpack(_FORMAT, base64.b64decode(encoded)))
 
 
 class EmbeddingFailed(Exception):
@@ -74,17 +88,18 @@ def _log(
     session.commit()
 
 
-def _embed_batch(
+def embed_logged(
     session: Session,
     embedder: Embedder,
     model: str,
-    batch: Sequence[str],
-    invoice_id: uuid.UUID | None,
-) -> None:
+    texts: Sequence[str],
+    task: EmbeddingTask,
+    invoice_id: uuid.UUID | None = None,
+) -> tuple[tuple[float, ...], ...]:
+    """One embedding call, logged in `model_calls` (committed); the vectors in the order of the
+    texts. Raises EmbeddingFailed for a failed call, an unknown price or unusable vectors."""
     try:
-        reply = embedder.embed(
-            model=model, texts=batch, dimensions=EMBEDDING_DIMENSIONS, task="similarity"
-        )
+        reply = embedder.embed(model=model, texts=texts, dimensions=EMBEDDING_DIMENSIONS, task=task)
     except LLMError as error:
         _log(session, invoice_id, model, ModelCallStatus.ERROR, error.latency_ms, error=str(error))
         raise EmbeddingFailed(str(error)) from error
@@ -94,9 +109,9 @@ def _embed_batch(
         # An unknown price is an error, never zero cost (ADR-004).
         status = ModelCallStatus.PRICE_UNKNOWN
         problem = f"No price for {model} in the price table."
-    elif len(reply.vectors) != len(batch) or sizes != {EMBEDDING_DIMENSIONS}:
+    elif len(reply.vectors) != len(texts) or sizes != {EMBEDDING_DIMENSIONS}:
         status = ModelCallStatus.INVALID_OUTPUT
-        problem = f"Expected {len(batch)} vectors of {EMBEDDING_DIMENSIONS} numbers."
+        problem = f"Expected {len(texts)} vectors of {EMBEDDING_DIMENSIONS} numbers."
     _log(
         session,
         invoice_id,
@@ -109,6 +124,17 @@ def _embed_batch(
     )
     if problem is not None:
         raise EmbeddingFailed(problem)
+    return reply.vectors
+
+
+def _embed_batch(
+    session: Session,
+    embedder: Embedder,
+    model: str,
+    batch: Sequence[str],
+    invoice_id: uuid.UUID | None,
+) -> None:
+    vectors = embed_logged(session, embedder, model, batch, "similarity", invoice_id)
     # A parallel run may have stored the same text meanwhile; its vector is just as good.
     session.execute(
         insert(Embedding)
@@ -120,7 +146,7 @@ def _embed_batch(
                     "text": text,
                     "vector": list(vector),
                 }
-                for text, vector in zip(batch, reply.vectors, strict=True)
+                for text, vector in zip(batch, vectors, strict=True)
             ]
         )
         .on_conflict_do_nothing(index_elements=[Embedding.model, Embedding.text_sha256])

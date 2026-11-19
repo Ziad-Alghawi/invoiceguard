@@ -44,7 +44,11 @@ _PROVIDER_ERRORS: tuple[type[Exception], ...] = tuple(LITELLM_EXCEPTION_TYPES)
 # Six decimal places: a Flash call costs fractions of a cent.
 COST_SCALE = Decimal("0.000001")
 # Gemini's task types (ADR-020); LiteLLM passes `task_type` on as `taskType`.
-TASK_TYPES: dict[EmbeddingTask, str] = {"similarity": "SEMANTIC_SIMILARITY"}
+TASK_TYPES: dict[EmbeddingTask, str] = {
+    "similarity": "SEMANTIC_SIMILARITY",
+    "document": "RETRIEVAL_DOCUMENT",
+    "query": "RETRIEVAL_QUERY",
+}
 
 
 def _content(part: UserPart) -> dict[str, Any]:

@@ -49,8 +49,9 @@ class LLMError(Exception):
 
 
 # What vectors are for, mapped to the provider's task type (ADR-020). `similarity`: short texts
-# compared with each other, such as invoice line descriptions with booked ones.
-EmbeddingTask = Literal["similarity"]
+# compared with each other, such as invoice line descriptions with booked ones; `document` and
+# `query`: rulebook sections and the questions that search them (R3-4b).
+EmbeddingTask = Literal["similarity", "document", "query"]
 
 
 @dataclass(frozen=True)
