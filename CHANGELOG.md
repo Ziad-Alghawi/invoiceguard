@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- CI hardening (R4-1): every GitHub Action pinned to a full commit SHA with its version in a comment, a CI job
+  that fails on an unpinned action, Dependabot updates for the pins.
 - R3 closed (R4-1): the eval gate is shown to fail on a deliberate regression (draft PR #23, never merged);
   the R4 plan in `docs/status.md`.
 - History and rulebook for the exception agent (R3-4b; ADR-017, ADR-018, ADR-019, ADR-020 updated): a third

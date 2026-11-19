@@ -1,0 +1,13 @@
+# Keeps the commit-SHA pins of the GitHub Actions current (R4-1): Dependabot updates the SHA and
+# the version comment together.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
