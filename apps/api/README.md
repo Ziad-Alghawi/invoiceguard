@@ -72,7 +72,8 @@ are stored as Argon2id hashes.
 - Security events (`security_events`, append-only by a trigger, R2-4): `login_failed` (low; reason `unknown_email`,
   `wrong_password` or `locked`), `account_locked` (medium), `forbidden` (medium: a role check refused the request),
   `self_approval_attempt` (high: the requester tried to decide their own override), `injection_suspected` (high:
-  the prompt-injection scan found something in an invoice). Never a password.
+  the prompt-injection scan found something in an invoice), `login_rate_limited` (medium: too many failed logins
+  from one address, R4-2). Never a password or a client address.
 
 ## Processing
 After the upload, a background task ([processing.py](src/invoiceguard_api/processing.py), ADR-007) runs the
@@ -194,6 +195,7 @@ The schema is owned by Alembic migrations in [migrations/](migrations/); the mod
 | `checks` | Check results per invoice (type, status, message, evidence as JSON); replaced on every run |
 | `audit_events` | Append-only (a trigger rejects `UPDATE` and `DELETE`): who (actor and user), when, action, entity, status before and after, reason, details as JSON |
 | `users`, `sessions` | Seeded login users (Argon2id hash, failed-login count, lock time) and their sessions (token hash, expiry) |
+| `login_failures` | Failed logins per client address for the per-IP limit (R4-2); rows older than the window are deleted at every login |
 | `model_calls` | One row per LLM call: invoice, purpose, model, status, tokens, cost (USD), latency, error, time ([ADR-004](../../docs/decisions/ADR-004-model-router.md)) |
 
 Enums are stored as `VARCHAR` with a `CHECK` constraint, not as native PostgreSQL enums, so adding a value is a plain
