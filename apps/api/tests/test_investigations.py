@@ -20,7 +20,7 @@ from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
 from conftest import FIXTURES, PROCESSING_TIMEOUT_SECONDS, poll_until_done
-from fakes import COST_USD, FakeLLMClient
+from fakes import COST_USD, FakeLLMClient, KeywordEmbedder
 from invoiceguard_api import processing
 from invoiceguard_api.agent import service
 from invoiceguard_api.agent.schema import TOOLS
@@ -55,9 +55,15 @@ def start_app(
         def start(
             llm: FakeLLMClient | None = None,
             tools: FakeTools | None = None,
+            embedder: KeywordEmbedder | None = None,
             **changes: Any,
         ) -> TestClient:
-            app = create_app(settings.model_copy(update=changes), llm_client=llm, agent_tools=tools)
+            app = create_app(
+                settings.model_copy(update=changes),
+                llm_client=llm,
+                agent_tools=tools,
+                embedder=embedder,
+            )
             client = stack.enter_context(TestClient(app))
             client.cookies.set(SESSION_COOKIE, session_token)
             return client
@@ -135,6 +141,47 @@ def test_a_blocked_invoice_is_investigated_after_processing(
     assert {str(c.invoice_id) for c in calls} == {invoice_id}
     detail = client.get(f"/invoices/{invoice_id}").json()
     assert detail["llm_calls"] == 2
+
+
+def test_a_rulebook_question_is_an_agent_cost(start_app: StartApp, engine: Engine) -> None:
+    llm = FakeLLMClient(call_tools(("search_rulebook", "How to resolve a changed IBAN?")), finish())
+    tools = FakeTools({"search_rulebook": {"method": "vector", "sections": []}})
+    embedding_cost = Decimal("0.000004")
+    client = start_app(llm, tools, KeywordEmbedder({"iban": 0}, cost_usd=embedding_cost))
+
+    invoice_id = upload_fraud(client)["id"]
+    run = investigation(client, invoice_id)["run"]
+
+    assert run["status"] == "completed"
+    tool_step = run["steps"][1]
+    assert (tool_step["tool"], tool_step["cost_usd"]) == ("search_rulebook", str(embedding_cost))
+    assert Decimal(run["cost_usd"]) == 2 * COST_USD + embedding_cost
+    assert tools.vectors[0] is not None
+    with Session(engine) as session:
+        calls = session.scalars(
+            select(ModelCall).where(ModelCall.purpose == "agent").order_by(ModelCall.at)
+        ).all()
+    assert {c.status for c in calls} == {ModelCallStatus.OK}
+    assert sorted(str(c.cost_usd) for c in calls) == sorted(
+        [str(COST_USD), str(COST_USD), str(embedding_cost)]
+    )
+    assert "gemini/gemini-embedding-001" in {c.model for c in calls}
+
+
+def test_similar_invoices_are_searched_for_the_investigated_invoice(
+    start_app: StartApp,
+) -> None:
+    llm = FakeLLMClient(call_tools(("search_similar_invoices", "current")), finish())
+    tools = FakeTools({"search_similar_invoices": {"methods": [], "invoices": []}})
+    client = start_app(llm, tools)
+
+    invoice_id = upload_fraud(client)["id"]
+    run = investigation(client, invoice_id)["run"]
+
+    assert tools.calls == [("search_similar_invoices", invoice_id)]
+    # The model wrote "current" and never saw the id.
+    assert run["steps"][1]["argument"] == "current"
+    assert all(invoice_id not in r.system + str(r.user) for r in llm.requests)
 
 
 def test_the_agent_cannot_change_the_invoice(start_app: StartApp, engine: Engine) -> None:
@@ -363,17 +410,22 @@ def test_without_a_model_or_recording_investigating_is_unavailable(
     assert response.status_code == 409
 
 
-def test_the_agent_needs_both_mcp_servers(settings: Settings) -> None:
+def test_the_agent_needs_all_three_mcp_servers(settings: Settings) -> None:
     from invoiceguard_api.main import make_agent
 
+    urls = {
+        "mcp_erp_url": "http://mcp-erp:8000/mcp",
+        "mcp_registry_url": "http://r:8000/mcp",
+        "mcp_history_url": "http://h:8000/mcp",
+    }
     assert make_agent(settings, FakeLLMClient(), None) is None
     assert make_agent(settings, None, FakeTools()) is None
-    with_urls = settings.model_copy(
-        update={"mcp_erp_url": "http://mcp-erp:8000/mcp", "mcp_registry_url": "http://r:8000/mcp"}
-    )
-    agent = make_agent(with_urls, FakeLLMClient(), None)
+    without_history = settings.model_copy(update={**urls, "mcp_history_url": None})
+    assert make_agent(without_history, FakeLLMClient(), None) is None
+    agent = make_agent(settings.model_copy(update=urls), FakeLLMClient(), None)
     assert agent is not None
     assert agent.model == settings.extraction_model
+    assert agent.embedding_model == settings.embedding_model
     assert agent.limits == replace(agent.limits, max_steps=8, max_tool_calls=12)
 
 

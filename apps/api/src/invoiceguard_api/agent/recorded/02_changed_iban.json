@@ -5,15 +5,15 @@
       "iban"
     ]
   },
-  "recorded_at": "2026-11-18T00:29:59.857123+00:00",
+  "recorded_at": "2026-11-19T17:03:15.271303+00:00",
   "model": "gemini/gemini-3.8-flash",
-  "finding": "The invoice 2026-IT-0816 contains an unverified payee IBAN (DE58876543210000000099), which is not registered to Demo IT-Service GmbH in our master data or bank registry. The verified bank account on file for Demo IT-Service GmbH (DE999000033) is DE60123456780000000003. A reviewer must not process payment to the new IBAN without verbal confirmation using the supplier's established contact information from the master data.",
-  "email_subject": "Rückfrage zu Rechnung 2026-IT-0816 vom 05.11.2026",
-  "email_body": "Guten Tag,\n\nbei der Prüfung Ihrer Rechnung 2026-IT-0816 vom 05.11.2026 haben wir festgestellt, dass die angegebene Bankverbindung von den bei uns hinterlegten Stammdaten abweicht.\n\nBitte prüfen Sie die Bankverbindung und senden Sie uns eine schriftliche Bestätigung bzw. eine korrigierte Rechnung zu.\n\nMit freundlichen Grüßen\nIhre Kreditorenbuchhaltung",
-  "input_tokens": 5216,
-  "output_tokens": 559,
-  "cost_usd": "0.006008",
-  "duration_ms": 12091,
+  "finding": "Invoice 2026-IT-0816 from Demo IT-Service GmbH lists payee IBAN DE58876543210000000099, which is not registered to the supplier or known in master data. Master data only contains the verified IBAN DE60123456780000000003. Although the order items match purchase order PO-2026-0005, payment must not be released until a reviewer verifies the bank details by phone using contact information from the supplier master data, never from the invoice.",
+  "email_subject": "Rückfrage zu Rechnung 2026-IT-0816 vom 05.11.2026 - Bankverbindung",
+  "email_body": "Sehr geehrte Damen und Herren,\n\nbei der Prüfung Ihrer Rechnung 2026-IT-0816 vom 05.11.2026 ist uns eine Abweichung bei der angegebenen Bankverbindung aufgefallen. Die auf der Rechnung ausgewiesene IBAN weicht von der bei uns hinterlegten Bankverbindung ab.\n\nBitte teilen Sie uns schriftlich mit, ob es sich um eine reguläre Änderung Ihrer Bankverbindung handelt, oder senden Sie uns gegebenenfalls eine korrigierte Rechnung zu.\n\nMit freundlichen Grüßen\nIhre Kreditorenbuchhaltung",
+  "input_tokens": 8760,
+  "output_tokens": 812,
+  "cost_usd": "0.009616",
+  "duration_ms": 13479,
   "steps": [
     {
       "step_no": 1,
@@ -34,16 +34,16 @@
             "argument": "DE999000033"
           },
           {
-            "tool": "get_purchase_order",
-            "argument": "PO-2026-0005"
+            "tool": "get_invoice_history",
+            "argument": "DE999000033"
           }
         ],
         "email_subject": null
       },
-      "input_tokens": 1342,
-      "output_tokens": 163,
-      "cost_usd": "0.001618",
-      "latency_ms": 4014,
+      "input_tokens": 1490,
+      "output_tokens": 162,
+      "cost_usd": "0.001725",
+      "latency_ms": 2833,
       "error": null
     },
     {
@@ -59,7 +59,7 @@
       "input_tokens": null,
       "output_tokens": null,
       "cost_usd": null,
-      "latency_ms": 59,
+      "latency_ms": 37,
       "error": null
     },
     {
@@ -83,11 +83,298 @@
       "input_tokens": null,
       "output_tokens": null,
       "cost_usd": null,
-      "latency_ms": 67,
+      "latency_ms": 46,
       "error": null
     },
     {
       "step_no": 1,
+      "kind": "tool",
+      "tool": "get_invoice_history",
+      "argument": "DE999000033",
+      "result": {
+        "vat_id": "DE999000033",
+        "invoices": [
+          {
+            "lines": [
+              {
+                "text": "Notebook 14 Zoll, 32 GB RAM",
+                "account": "0410",
+                "line_no": 1
+              },
+              {
+                "text": "IT-Support-Pauschale Oktober 2026",
+                "account": "4806",
+                "line_no": 2
+              }
+            ],
+            "source": "import",
+            "currency": null,
+            "net_total": null,
+            "issue_date": "2026-08-26",
+            "payee_iban": null,
+            "gross_total": null,
+            "supplier_name": "Demo IT-Service GmbH",
+            "invoice_number": "IT-2026-0006"
+          },
+          {
+            "lines": [
+              {
+                "text": "Fernwartung Arbeitsplatzrechner",
+                "account": "4806",
+                "line_no": 1
+              },
+              {
+                "text": "Notebook 14 Zoll, 32 GB RAM",
+                "account": "0410",
+                "line_no": 2
+              },
+              {
+                "text": "Office-Paket Cloud-Abo, 12 Monate pro Nutzer",
+                "account": "4964",
+                "line_no": 3
+              }
+            ],
+            "source": "import",
+            "currency": null,
+            "net_total": null,
+            "issue_date": "2026-06-06",
+            "payee_iban": null,
+            "gross_total": null,
+            "supplier_name": "Demo IT-Service GmbH",
+            "invoice_number": "IT-2026-0011"
+          },
+          {
+            "lines": [
+              {
+                "text": "Laptop 15,6 Zoll, 16 GB RAM",
+                "account": "0410",
+                "line_no": 1
+              },
+              {
+                "text": "Webhosting Business-Tarif, monatlich",
+                "account": "4925",
+                "line_no": 2
+              },
+              {
+                "text": "Webhosting Business-Tarif, monatlich",
+                "account": "4925",
+                "line_no": 3
+              }
+            ],
+            "source": "import",
+            "currency": null,
+            "net_total": null,
+            "issue_date": "2026-05-24",
+            "payee_iban": null,
+            "gross_total": null,
+            "supplier_name": "Demo IT-Service GmbH",
+            "invoice_number": "IT-2026-0007"
+          },
+          {
+            "lines": [
+              {
+                "text": "Monitor 27 Zoll, USB-C",
+                "account": "4855",
+                "line_no": 1
+              }
+            ],
+            "source": "import",
+            "currency": null,
+            "net_total": null,
+            "issue_date": "2026-03-03",
+            "payee_iban": null,
+            "gross_total": null,
+            "supplier_name": "Demo IT-Service GmbH",
+            "invoice_number": "IT-2026-0015"
+          },
+          {
+            "lines": [
+              {
+                "text": "Notebook 14 Zoll, 32 GB RAM",
+                "account": "0410",
+                "line_no": 1
+              },
+              {
+                "text": "Office-Paket Cloud-Abo, 12 Monate pro Nutzer",
+                "account": "4964",
+                "line_no": 2
+              },
+              {
+                "text": "Fernwartung Arbeitsplatzrechner",
+                "account": "4806",
+                "line_no": 3
+              }
+            ],
+            "source": "import",
+            "currency": null,
+            "net_total": null,
+            "issue_date": "2026-01-06",
+            "payee_iban": null,
+            "gross_total": null,
+            "supplier_name": "Demo IT-Service GmbH",
+            "invoice_number": "IT-2026-0004"
+          },
+          {
+            "lines": [
+              {
+                "text": "Office-Paket Cloud-Abo, 12 Monate pro Nutzer",
+                "account": "4964",
+                "line_no": 1
+              }
+            ],
+            "source": "import",
+            "currency": null,
+            "net_total": null,
+            "issue_date": "2025-11-15",
+            "payee_iban": null,
+            "gross_total": null,
+            "supplier_name": "Demo IT-Service GmbH",
+            "invoice_number": "IT-2025-0014"
+          },
+          {
+            "lines": [
+              {
+                "text": "Laptop 15,6 Zoll, 16 GB RAM",
+                "account": "0410",
+                "line_no": 1
+              },
+              {
+                "text": "Virenschutz-Lizenz, Jahresabo 10 Plätze",
+                "account": "4964",
+                "line_no": 2
+              },
+              {
+                "text": "Laptop 15,6 Zoll, 16 GB RAM",
+                "account": "0410",
+                "line_no": 3
+              }
+            ],
+            "source": "import",
+            "currency": null,
+            "net_total": null,
+            "issue_date": "2025-10-07",
+            "payee_iban": null,
+            "gross_total": null,
+            "supplier_name": "Demo IT-Service GmbH",
+            "invoice_number": "IT-2025-0003"
+          },
+          {
+            "lines": [
+              {
+                "text": "Monitor 27 Zoll, USB-C",
+                "account": "4855",
+                "line_no": 1
+              },
+              {
+                "text": "IT-Support-Pauschale Oktober 2026",
+                "account": "4806",
+                "line_no": 2
+              },
+              {
+                "text": "Einrichtung und Inbetriebnahme",
+                "account": "4806",
+                "line_no": 3
+              }
+            ],
+            "source": "import",
+            "currency": null,
+            "net_total": null,
+            "issue_date": "2025-08-22",
+            "payee_iban": null,
+            "gross_total": null,
+            "supplier_name": "Demo IT-Service GmbH",
+            "invoice_number": "IT-2025-0009"
+          },
+          {
+            "lines": [
+              {
+                "text": "Bildschirm 24 Zoll Full HD",
+                "account": "4855",
+                "line_no": 1
+              },
+              {
+                "text": "Domainregistrierung .de, jährlich",
+                "account": "4925",
+                "line_no": 2
+              }
+            ],
+            "source": "import",
+            "currency": null,
+            "net_total": null,
+            "issue_date": "2025-06-18",
+            "payee_iban": null,
+            "gross_total": null,
+            "supplier_name": "Demo IT-Service GmbH",
+            "invoice_number": "IT-2025-0013"
+          },
+          {
+            "lines": [
+              {
+                "text": "Monitor 27 Zoll, USB-C",
+                "account": "4855",
+                "line_no": 1
+              },
+              {
+                "text": "Domainregistrierung .de, jährlich",
+                "account": "4925",
+                "line_no": 2
+              },
+              {
+                "text": "Einrichtung und Inbetriebnahme",
+                "account": "4806",
+                "line_no": 3
+              }
+            ],
+            "source": "import",
+            "currency": null,
+            "net_total": null,
+            "issue_date": "2025-05-24",
+            "payee_iban": null,
+            "gross_total": null,
+            "supplier_name": "Demo IT-Service GmbH",
+            "invoice_number": "IT-2025-0008"
+          }
+        ]
+      },
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "latency_ms": 51,
+      "error": null
+    },
+    {
+      "step_no": 2,
+      "kind": "model",
+      "tool": null,
+      "argument": null,
+      "result": {
+        "action": "call_tools",
+        "finding": null,
+        "email_body": null,
+        "tool_calls": [
+          {
+            "tool": "get_purchase_order",
+            "argument": "PO-2026-0005"
+          },
+          {
+            "tool": "search_similar_invoices",
+            "argument": "current"
+          },
+          {
+            "tool": "get_supplier",
+            "argument": "DE999000033"
+          }
+        ],
+        "email_subject": null
+      },
+      "input_tokens": 3156,
+      "output_tokens": 306,
+      "cost_usd": "0.003515",
+      "latency_ms": 6002,
+      "error": null
+    },
+    {
+      "step_no": 2,
       "kind": "tool",
       "tool": "get_purchase_order",
       "argument": "PO-2026-0005",
@@ -127,30 +414,102 @@
       "input_tokens": null,
       "output_tokens": null,
       "cost_usd": null,
-      "latency_ms": 70,
+      "latency_ms": 53,
       "error": null
     },
     {
       "step_no": 2,
-      "kind": "model",
-      "tool": null,
-      "argument": null,
+      "kind": "tool",
+      "tool": "search_similar_invoices",
+      "argument": "current",
       "result": {
-        "action": "call_tools",
-        "finding": null,
-        "email_body": null,
-        "tool_calls": [
+        "methods": [
           {
-            "tool": "get_supplier",
-            "argument": "DE999000033"
+            "method": "vector",
+            "line_no": 1
+          },
+          {
+            "method": "vector",
+            "line_no": 2
           }
         ],
-        "email_subject": null
+        "invoices": [
+          {
+            "lines": [
+              {
+                "text": "Notebook 14 Zoll, 32 GB RAM",
+                "score": 1.0,
+                "account": "0410",
+                "for_line_no": 1
+              }
+            ],
+            "issue_date": "2026-01-06",
+            "supplier_name": "Demo IT-Service GmbH",
+            "invoice_number": "IT-2026-0004",
+            "supplier_vat_id": "DE999000033"
+          },
+          {
+            "lines": [
+              {
+                "text": "Notebook 14 Zoll, 32 GB RAM",
+                "score": 1.0,
+                "account": "0410",
+                "for_line_no": 1
+              }
+            ],
+            "issue_date": "2026-08-26",
+            "supplier_name": "Demo IT-Service GmbH",
+            "invoice_number": "IT-2026-0006",
+            "supplier_vat_id": "DE999000033"
+          },
+          {
+            "lines": [
+              {
+                "text": "Notebook 14 Zoll, 32 GB RAM",
+                "score": 1.0,
+                "account": "0410",
+                "for_line_no": 1
+              }
+            ],
+            "issue_date": "2026-06-06",
+            "supplier_name": "Demo IT-Service GmbH",
+            "invoice_number": "IT-2026-0011",
+            "supplier_vat_id": "DE999000033"
+          },
+          {
+            "lines": [
+              {
+                "text": "Einrichtung und Inbetriebnahme",
+                "score": 1.0,
+                "account": "4806",
+                "for_line_no": 2
+              }
+            ],
+            "issue_date": "2025-02-20",
+            "supplier_name": "Demo IT-Service GmbH",
+            "invoice_number": "IT-2025-0002",
+            "supplier_vat_id": "DE999000033"
+          },
+          {
+            "lines": [
+              {
+                "text": "Einrichtung und Inbetriebnahme",
+                "score": 1.0,
+                "account": "4806",
+                "for_line_no": 2
+              }
+            ],
+            "issue_date": "2025-05-24",
+            "supplier_name": "Demo IT-Service GmbH",
+            "invoice_number": "IT-2025-0008",
+            "supplier_vat_id": "DE999000033"
+          }
+        ]
       },
-      "input_tokens": 1873,
-      "output_tokens": 81,
-      "cost_usd": "0.001708",
-      "latency_ms": 3302,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "latency_ms": 85,
       "error": null
     },
     {
@@ -173,7 +532,7 @@
       "input_tokens": null,
       "output_tokens": null,
       "cost_usd": null,
-      "latency_ms": 48,
+      "latency_ms": 34,
       "error": null
     },
     {
@@ -183,15 +542,15 @@
       "argument": null,
       "result": {
         "action": "finish",
-        "finding": "The invoice 2026-IT-0816 contains an unverified payee IBAN (DE58876543210000000099), which is not registered to Demo IT-Service GmbH in our master data or bank registry. The verified bank account on file for Demo IT-Service GmbH (DE999000033) is DE60123456780000000003. A reviewer must not process payment to the new IBAN without verbal confirmation using the supplier's established contact information from the master data.",
-        "email_body": "Guten Tag,\n\nbei der Prüfung Ihrer Rechnung 2026-IT-0816 vom 05.11.2026 haben wir festgestellt, dass die angegebene Bankverbindung von den bei uns hinterlegten Stammdaten abweicht.\n\nBitte prüfen Sie die Bankverbindung und senden Sie uns eine schriftliche Bestätigung bzw. eine korrigierte Rechnung zu.\n\nMit freundlichen Grüßen\nIhre Kreditorenbuchhaltung",
+        "finding": "Invoice 2026-IT-0816 from Demo IT-Service GmbH lists payee IBAN DE58876543210000000099, which is not registered to the supplier or known in master data. Master data only contains the verified IBAN DE60123456780000000003. Although the order items match purchase order PO-2026-0005, payment must not be released until a reviewer verifies the bank details by phone using contact information from the supplier master data, never from the invoice.",
+        "email_body": "Sehr geehrte Damen und Herren,\n\nbei der Prüfung Ihrer Rechnung 2026-IT-0816 vom 05.11.2026 ist uns eine Abweichung bei der angegebenen Bankverbindung aufgefallen. Die auf der Rechnung ausgewiesene IBAN weicht von der bei uns hinterlegten Bankverbindung ab.\n\nBitte teilen Sie uns schriftlich mit, ob es sich um eine reguläre Änderung Ihrer Bankverbindung handelt, oder senden Sie uns gegebenenfalls eine korrigierte Rechnung zu.\n\nMit freundlichen Grüßen\nIhre Kreditorenbuchhaltung",
         "tool_calls": [],
-        "email_subject": "Rückfrage zu Rechnung 2026-IT-0816 vom 05.11.2026"
+        "email_subject": "Rückfrage zu Rechnung 2026-IT-0816 vom 05.11.2026 - Bankverbindung"
       },
-      "input_tokens": 2001,
-      "output_tokens": 315,
-      "cost_usd": "0.002682",
-      "latency_ms": 4463,
+      "input_tokens": 4114,
+      "output_tokens": 344,
+      "cost_usd": "0.004376",
+      "latency_ms": 4277,
       "error": null
     }
   ]

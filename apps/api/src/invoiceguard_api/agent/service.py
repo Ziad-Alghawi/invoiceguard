@@ -24,7 +24,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from invoiceguard_api.agent.loop import ExceptionAgent, Outcome, StepRecord
+from invoiceguard_api.agent.loop import EmbeddingUse, ExceptionAgent, Outcome, StepRecord
 from invoiceguard_api.checks.injection import CHECK_TYPE as INJECTION_CHECK
 from invoiceguard_api.checks.supplier import normalise_vat_id
 from invoiceguard_api.models import (
@@ -203,6 +203,16 @@ def _call_status(record: StepRecord) -> ModelCallStatus:
     return ModelCallStatus.OK
 
 
+def _embedding_status(embedding: EmbeddingUse) -> ModelCallStatus:
+    if embedding.input_tokens is None:
+        return ModelCallStatus.ERROR
+    if embedding.cost_usd is None:
+        return ModelCallStatus.PRICE_UNKNOWN
+    if embedding.error is not None:
+        return ModelCallStatus.INVALID_OUTPUT
+    return ModelCallStatus.OK
+
+
 def _save_step(
     session_factory: sessionmaker[Session], run_id: uuid.UUID, invoice_id: uuid.UUID, model: str
 ) -> Callable[[StepRecord], None]:
@@ -239,6 +249,23 @@ def _save_step(
                         at=record.at,
                     )
                 )
+            elif (embedding := record.embedding) is not None:
+                # The question of a search_rulebook call, embedded by the api: an agent cost.
+                session.add(
+                    ModelCall(
+                        invoice_id=invoice_id,
+                        purpose=AGENT_PURPOSE,
+                        model=embedding.model,
+                        status=_embedding_status(embedding),
+                        input_tokens=embedding.input_tokens,
+                        output_tokens=None if embedding.input_tokens is None else 0,
+                        cost_usd=embedding.cost_usd,
+                        latency_ms=embedding.latency_ms,
+                        error=embedding.error,
+                        at=record.at,
+                    )
+                )
+            if record.input_tokens is not None or record.cost_usd is not None:
                 session.execute(
                     update(AgentRun)
                     .where(AgentRun.id == run_id)
@@ -288,7 +315,10 @@ def run_investigation(
             outcome = Outcome(AgentRunStatus.STOPPED, "daily_budget", DAILY_BUDGET)
         else:
             outcome = agent.investigate(
-                case, spent, _save_step(session_factory, run_id, invoice_id, agent.model)
+                case,
+                spent,
+                _save_step(session_factory, run_id, invoice_id, agent.model),
+                str(invoice_id),
             )
     except Exception:
         logger.exception("Agent run %s for invoice %s failed", run_id, invoice_id)
