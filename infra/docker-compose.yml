@@ -81,6 +81,14 @@ services:
       INVOICEGUARD_SESSION_TTL_MINUTES: ${INVOICEGUARD_SESSION_TTL_MINUTES:-}
       INVOICEGUARD_LOGIN_MAX_FAILURES: ${INVOICEGUARD_LOGIN_MAX_FAILURES:-}
       INVOICEGUARD_LOGIN_LOCKOUT_MINUTES: ${INVOICEGUARD_LOGIN_LOCKOUT_MINUTES:-}
+      # Per-IP login limit (R4-2); empty keeps the defaults in settings.py.
+      INVOICEGUARD_LOGIN_IP_MAX_FAILURES: ${INVOICEGUARD_LOGIN_IP_MAX_FAILURES:-}
+      INVOICEGUARD_LOGIN_IP_WINDOW_MINUTES: ${INVOICEGUARD_LOGIN_IP_WINDOW_MINUTES:-}
+      # The api believes X-Forwarded-For from these only. The browser reaches it through the web
+      # container (backend for frontend), which passes on the address Caddy saw. Only containers
+      # on Docker's private networks can connect to the api (no public port in prod), so those
+      # ranges are trusted.
+      INVOICEGUARD_TRUSTED_PROXIES: ${INVOICEGUARD_TRUSTED_PROXIES:-["172.16.0.0/12","10.0.0.0/8","192.168.0.0/16"]}
       # A review decision waits this long for a run on the same invoice, then answers 409.
       INVOICEGUARD_DECISION_LOCK_TIMEOUT_MS: ${INVOICEGUARD_DECISION_LOCK_TIMEOUT_MS:-}
       # DATEV-style export (ADR-013); empty values keep the defaults in settings.py.

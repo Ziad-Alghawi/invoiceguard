@@ -1,4 +1,5 @@
-"""Login, logout, sessions and lockout (ADR-011), and that every invoice endpoint needs a login."""
+"""Login, logout, sessions, lockout and the per-IP limit (ADR-011), and that every invoice endpoint
+needs a login."""
 
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -12,9 +13,17 @@ from sqlalchemy.orm import Session
 
 from conftest import REVIEWER_EMAIL, REVIEWER_PASSWORD
 from invoiceguard_api import seed_user
-from invoiceguard_api.auth import SESSION_COOKIE, token_hash
+from invoiceguard_api.auth import IP_LIMITED, SESSION_COOKIE, token_hash
 from invoiceguard_api.main import create_app
-from invoiceguard_api.models import AuditEvent, User, UserRole, UserSession
+from invoiceguard_api.models import (
+    AuditEvent,
+    LoginFailure,
+    SecurityEvent,
+    User,
+    UserRole,
+    UserSession,
+)
+from invoiceguard_api.security import LOGIN_RATE_LIMITED
 from invoiceguard_api.settings import Settings, get_settings
 
 SOME_ID = uuid.uuid4()
@@ -426,3 +435,122 @@ def test_seed_user_needs_email_and_password(
         get_settings.cache_clear()
 
     assert "INVOICEGUARD_SEED_USER_EMAIL, INVOICEGUARD_SEED_USER_PASSWORD" in str(exit_info.value)
+
+
+# --- Per-IP login limit (R4-2) -----------------------------------------------------------------
+
+IP_LIMIT = 3
+CLIENT = "203.0.113.5"
+OTHER_CLIENT = "198.51.100.7"
+
+
+def limited_client(settings: Settings, *, behind_proxy: bool = True) -> TestClient:
+    """An app with a small per-IP limit. TestClient connects from the host "testclient";
+    behind_proxy trusts it as the proxy, so X-Forwarded-For names the client."""
+    update: dict[str, object] = {"login_ip_max_failures": IP_LIMIT}
+    if behind_proxy:
+        update["trusted_proxies"] = ["testclient"]
+    return TestClient(create_app(settings.model_copy(update=update)))
+
+
+def login_from(
+    client: TestClient, forwarded_for: str, email: str, password: str
+) -> httpx2.Response:
+    return client.post(
+        "/auth/login",
+        json={"email": email, "password": password},
+        headers={"X-Forwarded-For": forwarded_for},
+    )
+
+
+def stored_failures(db_session: Session) -> list[str]:
+    db_session.expire_all()
+    return list(db_session.scalars(select(LoginFailure.client_ip).order_by(LoginFailure.id)))
+
+
+def test_one_address_gets_429_while_others_still_log_in(
+    settings: Settings, engine: Engine, reviewer: User, db_session: Session
+) -> None:
+    with limited_client(settings) as client:
+        # Different accounts, one address: the per-account lockout never triggers.
+        for attempt in range(IP_LIMIT):
+            response = login_from(client, CLIENT, f"guess{attempt}@example.com", "x")
+            assert response.status_code == 401
+
+        refused = login_from(client, CLIENT, REVIEWER_EMAIL, REVIEWER_PASSWORD)
+        other = login_from(client, OTHER_CLIENT, REVIEWER_EMAIL, REVIEWER_PASSWORD)
+
+    assert refused.status_code == 429
+    assert refused.json() == {"detail": IP_LIMITED}
+    assert 1 <= int(refused.headers["Retry-After"]) <= 15 * 60
+    # Refused before the account: no session, no counted failure, the account untouched.
+    assert other.status_code == 200
+    assert stored_failures(db_session) == [CLIENT] * IP_LIMIT
+    assert reload(db_session, reviewer).failed_logins == 0
+    db_session.expire_all()
+    [event] = db_session.scalars(
+        select(SecurityEvent).where(SecurityEvent.type == LOGIN_RATE_LIMITED)
+    ).all()
+    assert event.details == {"email": REVIEWER_EMAIL}
+    assert CLIENT not in str(event.details)
+
+
+def test_a_spoofed_forwarded_for_from_an_untrusted_peer_is_ignored(
+    settings: Settings, engine: Engine, reviewer: User, db_session: Session
+) -> None:
+    """Without trusted proxies the header is ignored: a new fake address per attempt does not
+    escape the limit."""
+    with limited_client(settings, behind_proxy=False) as client:
+        for attempt in range(IP_LIMIT):
+            login_from(client, f"192.0.2.{attempt}", REVIEWER_EMAIL, "wrong-password")
+        refused = login_from(client, "192.0.2.99", REVIEWER_EMAIL, REVIEWER_PASSWORD)
+
+    assert refused.status_code == 429
+    assert stored_failures(db_session) == ["testclient"] * IP_LIMIT
+
+
+def test_behind_a_proxy_a_spoofed_left_part_of_the_header_is_ignored(
+    settings: Settings, engine: Engine, db_session: Session
+) -> None:
+    """The proxy appends the address it saw; whatever the client put before it does not count."""
+    with limited_client(settings) as client:
+        for attempt in range(IP_LIMIT):
+            login_from(client, f"192.0.2.{attempt}, {CLIENT}", "nobody@example.com", "x")
+        refused = login_from(client, f"192.0.2.99, {CLIENT}", "nobody@example.com", "x")
+
+    assert refused.status_code == 429
+    assert stored_failures(db_session) == [CLIENT] * IP_LIMIT
+
+
+def add_failures(engine: Engine, client_ip: str, *ages: timedelta) -> None:
+    now = datetime.now(UTC)
+    with Session(engine) as session:
+        session.add_all(LoginFailure(client_ip=client_ip, at=now - age) for age in ages)
+        session.commit()
+
+
+def test_retry_after_is_when_the_address_drops_below_the_limit(
+    settings: Settings, engine: Engine, db_session: Session
+) -> None:
+    minutes = [timedelta(minutes=m) for m in (14, 5, 1)]
+    add_failures(engine, CLIENT, *minutes)
+    # Outside the 15-minute window: ignored, and deleted by the next login.
+    add_failures(engine, OTHER_CLIENT, timedelta(minutes=20))
+
+    with limited_client(settings) as client:
+        refused = login_from(client, CLIENT, "nobody@example.com", "x")
+
+    assert refused.status_code == 429
+    # The 14-minute-old failure leaves the window in about a minute.
+    assert 50 <= int(refused.headers["Retry-After"]) <= 61
+    assert stored_failures(db_session) == [CLIENT] * IP_LIMIT
+
+
+def test_without_a_limit_no_address_is_refused(
+    settings: Settings, engine: Engine, db_session: Session
+) -> None:
+    add_failures(engine, "testclient", *[timedelta(minutes=1)] * 50)
+    unlimited = settings.model_copy(update={"login_ip_max_failures": None})
+
+    with TestClient(create_app(unlimited)) as client:
+        assert login(client, "nobody@example.com", "x").status_code == 401

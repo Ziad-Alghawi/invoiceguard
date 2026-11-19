@@ -15,6 +15,7 @@ from invoiceguard_api.models import SecurityEvent, SecuritySeverity, User, UserR
 
 LOGIN_FAILED = "login_failed"
 ACCOUNT_LOCKED = "account_locked"
+LOGIN_RATE_LIMITED = "login_rate_limited"
 FORBIDDEN = "forbidden"
 SELF_APPROVAL = "self_approval_attempt"
 INJECTION = "injection_suspected"

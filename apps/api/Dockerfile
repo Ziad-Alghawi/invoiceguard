@@ -45,4 +45,5 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 USER app
 EXPOSE 8000
-CMD ["uvicorn", "--factory", "invoiceguard_api.main:create_app", "--host", "0.0.0.0", "--port", "8000"]
+# --no-proxy-headers: the app decides which proxies to believe (INVOICEGUARD_TRUSTED_PROXIES).
+CMD ["uvicorn", "--factory", "invoiceguard_api.main:create_app", "--host", "0.0.0.0", "--port", "8000", "--no-proxy-headers"]
