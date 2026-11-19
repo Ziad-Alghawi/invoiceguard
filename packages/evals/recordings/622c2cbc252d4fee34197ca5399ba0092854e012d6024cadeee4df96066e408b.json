@@ -1,0 +1,38 @@
+{
+ "recorded_at": "2026-11-19T13:34:36+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "low",
+  "run": 1,
+  "schema_name": "exception_agent_action",
+  "schema_sha256": "d3dc232150aee7b8f7f07c0919ab60d57e24d298d50e6c866af8ab522013352f",
+  "system_sha256": "7ed38df9f320260084d019490d6ab0f050d30959399c12670414f0cf2e2c5db1",
+  "user": [
+   {
+    "text": "Investigate this blocked invoice. Its data and failed checks:"
+   },
+   {
+    "text": "<<<UNTRUSTED_INVOICE>>>\n{\"invoice\":{\"invoice_number\":\"2026-IT-1031-A46\",\"line_total\":\"890.00\",\"net_total\":\"890.00\",\"tax_total\":\"169.10\",\"gross_total\":\"1059.10\",\"amount_due\":\"1059.10\",\"order_reference\":\"PO-2026-0006\",\"issue_date\":\"2027-02-28\",\"seller_name\":\"Demo IT-Service GmbH\",\"type_code\":\"380\",\"seller_vat_id\":\"DE999000033\",\"buyer_name\":\"Beispielkunde Handels GmbH\",\"buyer_vat_id\":\"DE999000068\",\"currency\":\"EUR\",\"payee_iban\":\"DE87123456780000000099\",\"due_date\":\"2027-03-14\"},\"lines\":[{\"line_no\":1,\"line_id\":\"1\",\"quantity\":\"1\",\"unit_code\":\"MON\",\"net_amount\":\"890.00\",\"net_price\":\"890.00\",\"vat_rate\":\"19\",\"item_name\":\"IT-Support-Pauschale Oktober 2026\"}],\"checks\":[{\"type\":\"iban\",\"status\":\"failed\",\"message\":\"Payee IBAN DE87123456780000000099 is not a verified account of Demo IT-Service GmbH: possible bank-detail fraud. Do not pay; confirm the account with the supplier through a known contact.\",\"evidence\":{\"supplier_id\":\"<uuid>\",\"invoice_iban\":\"DE87123456780000000099\",\"supplier_name\":\"Demo IT-Service GmbH\",\"verified_ibans\":[{\"iban\":\"DE60123456780000000003\",\"since\":\"2025-01-10\",\"verified_by\":\"Stammdatenpflege (Demo)\"}]}}]}\n<<<END_UNTRUSTED_INVOICE>>>"
+   },
+   {
+    "text": "<<<UNTRUSTED_TOOL_RESULT>>>\n{\"step\":1,\"tool\":\"check_iban\",\"argument\":\"DE87123456780000000099\",\"result\":{\"iban\":\"DE87123456780000000099\",\"checksum_valid\":true,\"registered_to\":[]},\"error\":null}\n<<<END_UNTRUSTED_TOOL_RESULT>>>"
+   },
+   {
+    "text": "<<<UNTRUSTED_TOOL_RESULT>>>\n{\"step\":1,\"tool\":\"get_bank_accounts\",\"argument\":\"DE999000033\",\"result\":{\"vat_id\":\"DE999000033\",\"supplier_found\":true,\"supplier_name\":\"Demo IT-Service GmbH\",\"accounts\":[{\"iban\":\"DE60123456780000000003\",\"verified\":true,\"since\":\"2025-01-10\",\"verified_by\":\"Stammdatenpflege (Demo)\"}]},\"error\":null}\n<<<END_UNTRUSTED_TOOL_RESULT>>>"
+   },
+   {
+    "text": "<<<UNTRUSTED_TOOL_RESULT>>>\n{\"step\":1,\"tool\":\"search_rulebook\",\"argument\":\"iban verification mismatch\",\"result\":{\"method\":\"vector\",\"sections\":[{\"key\":\"iban.md#what-the-check-does\",\"title\":\"IBAN check: bank details against the registry\",\"heading\":\"What the check does\",\"text\":\"The `iban` check compares the payee IBAN on the invoice (BT-84, Bankverbindung des Zahlungsempfängers)\\nwith the supplier's bank accounts in the registry (Kreditorenstammdaten). It first validates the IBAN's\\nformat and check digits (ISO 13616, mod 97). The supplier is found by the seller's VAT ID\\n(USt-IdNr., BT-31).\",\"score\":0.7044},{\"key\":\"iban.md#when-it-fails-or-warns\",\"title\":\"IBAN check: bank details against the registry\",\"heading\":\"When it fails or warns\",\"text\":\"- **Failed, possible bank-detail fraud:** the IBAN is valid but is not a verified account of this\\n  supplier. This is the most common pattern of invoice fraud (Rechnungsbetrug, CEO fraud with changed\\n  bank details, \\\"Kontoänderungsbetrug\\\"). The invoice is `blocked`.\\n- **Failed, invalid IBAN:** wrong format or check digits. Often a typing error, sometimes a forgery.\\n- **Warning `no_payee_iban`:** the invoice names no IBAN, for example because it is paid by direct\\n  debit (Lastschrift, SEPA-Mandat). Check how it will be paid.\\n- **Warning `multiple_payee_ibans`:** the invoice names more than one IBAN; only the first is checked.\\n- **Warning, no verified account:** the supplier exists but has no verified bank account yet.\",\"score\":0.7021},{\"key\":\"iban.md#foreign-ibans\",\"title\":\"IBAN check: bank details against the registry\",\"heading\":\"Foreign IBANs\",\"text\":\"A German supplier with a foreign IBAN (for example a Lithuanian or Cypriot account) is not wrong in\\nitself, but it is a classic fraud signal. Treat it like a changed IBAN: verify by phone first.\",\"score\":0.693}]},\"error\":null}\n<<<END_UNTRUSTED_TOOL_RESULT>>>"
+   },
+   {
+    "text": "Model steps left, this one included: 7. Tool calls left: 9."
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\n  \"action\": \"finish\",\n  \"tool_calls\": [],\n  \"finding\": \"The invoice 2026-IT-1031-A46 lists payee IBAN DE87123456780000000099, which is not registered to Demo IT-Service GmbH in our master data (only DE60123456780000000003 is verified). Registry lookup confirms that the IBAN checksum is valid, but it is not associated with this supplier, posing a risk of bank-detail fraud. A human reviewer must confirm this bank account change with Demo IT-Service GmbH by phone using known contact details from master data, not contact details printed on the invoice.\",\n  \"email_subject\": \"Rückfrage zu Rechnung 2026-IT-1031-A46 vom 28.02.2027 – Bankverbindung\",\n  \"email_body\": \"Sehr geehrte Damen und Herren,\\n\\nbei der Prüfung Ihrer Rechnung 2026-IT-1031-A46 vom 28.02.2027 haben wir festgestellt, dass die angegebene Bankverbindung von den in unseren Stammdaten hinterlegten Daten abweicht.\\n\\nBitte teilen Sie uns mit, ob eine Änderung Ihrer Bankverbindung vorliegt, und senden Sie uns hierzu eine schriftliche Bestätigung zu.\\n\\nMit freundlichen Grüßen\\nIhre Kreditorenbuchhaltung\"\n}",
+  "input_tokens": 2133,
+  "output_tokens": 346,
+  "cost_usd": "0.002897",
+  "latency_ms": 6342
+ }
+}

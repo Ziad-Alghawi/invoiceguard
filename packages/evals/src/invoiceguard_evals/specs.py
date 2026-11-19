@@ -29,6 +29,9 @@ AttackPlace = Literal[
     "xml_note",
     "xml_line_note",
     "filename",
+    # Not on the invoice: in an earlier booking of the same supplier, which the agent reads
+    # through the history tools (R3-4b).
+    "history",
 ]
 
 

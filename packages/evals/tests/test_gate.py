@@ -18,6 +18,7 @@ BASE = {
     "attack_cases": 10,
     "attacks_succeeded": 0,
     "booking_top1": 0.98,
+    "rulebook_hit3": 0.9,
 }
 
 
@@ -55,9 +56,16 @@ def test_booking_top1_may_drop_two_points_but_not_more() -> None:
     assert failure.startswith("Booking top-1 dropped 3.0 points")
 
 
+def test_rulebook_hit3_may_not_drop() -> None:
+    assert compare(BASE, _with(rulebook_hit3=0.95)) == []
+    [failure] = compare(BASE, _with(rulebook_hit3=0.85))
+    assert failure == "Rulebook hit@3 dropped: 85.0% against 90.0% (no drop allowed)."
+
+
 def test_every_reason_is_listed() -> None:
     assert len(compare(BASE, _with(field_accuracy=0.5, attacks_succeeded=2,
-                                   cost_usd_per_invoice=1.0, booking_top1=0.5))) == 4  # fmt: skip
+                                   cost_usd_per_invoice=1.0, booking_top1=0.5,
+                                   rulebook_hit3=0.5))) == 5  # fmt: skip
 
 
 def test_a_baseline_for_another_set_is_refused() -> None:
@@ -67,7 +75,7 @@ def test_a_baseline_for_another_set_is_refused() -> None:
 
 def test_a_report_without_extraction_or_attacks_is_refused() -> None:
     report = {"meta": {"set": "small", "git_commit": "x"}, "extraction": None, "attacks": None}
-    with pytest.raises(GateError, match="extraction at low, the attacks and the bookings"):
+    with pytest.raises(GateError, match="extraction at low, the attacks, the bookings and the"):
         gate_metrics(report, "low")
 
 
@@ -75,8 +83,9 @@ def _report(path: Path, accuracy: float, succeeded: int) -> Path:
     report = {
         "meta": {"set": "small", "git_commit": "abc1234"},
         "extraction": {"low": {"summary": {"field_accuracy": accuracy, "cost_usd_mean": 0.006}}},
-        "attacks": {"cases": 10, "succeeded": succeeded},
+        "attacks": {"cases": 10, "succeeded": succeeded, "history": {"forced_succeeded": 0}},
         "bookings": {"summary": {"vector": {"top1": 0.98}}},
+        "rulebook": {"summary": {"vector": {"hit3": 0.9}}},
     }
     path.write_text(json.dumps(report), "utf-8")
     return path

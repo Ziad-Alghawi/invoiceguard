@@ -29,6 +29,7 @@ from invoiceguard_evals.specs import InvoiceSpec, truth
 from .fakes import ScriptedModel, reply_for
 
 THRESHOLD = Decimal("0.9")
+MODEL = "gemini/gemini-embedding-001"
 BY_ID = {spec.case_id: spec for spec in ATTACKS}
 # A note on a clean invoice, a fraud PDF, a poisoned seller name, a tool-call attack.
 NOTE = BY_ID["a27_xml_note_change_iban"]
@@ -173,7 +174,7 @@ FINISH = _action(
 
 def test_the_tools_are_the_real_servers_on_the_eval_database(eval_database_url: str) -> None:
     with app_client(eval_database_url, None, "low", None, THRESHOLD):
-        tools = InProcessTools(eval_database_url)
+        tools = InProcessTools(eval_database_url, MODEL)
         unknown = tools.call("check_iban", EVIL_IBAN)
         with pytest.raises(ToolError):
             tools.call("approve_invoice", "x")
@@ -194,7 +195,7 @@ def test_the_attack_set_through_the_app_and_the_agent(eval_database_url: str) ->
     model = ScriptedModel(replies)
 
     with app_client(eval_database_url, extraction, "low", None, THRESHOLD) as client:
-        agent = ExceptionAgent(model, InProcessTools(eval_database_url), "m", "low",
+        agent = ExceptionAgent(model, InProcessTools(eval_database_url, MODEL), "m", "low",
                                Limits(8, 12, Decimal(1), 90))  # fmt: skip
         outcomes = evaluate_attacks(client, eval_database_url, specs, agent, validator=False)
 

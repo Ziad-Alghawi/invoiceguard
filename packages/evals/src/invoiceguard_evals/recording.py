@@ -24,7 +24,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Protocol
 
-from invoiceguard_api.booking.history import decode_vector, encode_vector
+from invoiceguard_api.booking.embedding import decode_vector, encode_vector
 from invoiceguard_api.llm import (
     Embedder,
     EmbeddingReply,

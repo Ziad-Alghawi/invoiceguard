@@ -1,6 +1,6 @@
 """`invoiceguard-eval`: fetch the pinned sources, regenerate the generated set and the booking
-history, run the evals, write `docs/results.md` (ADR-019), and write the demo's packaged booking
-vectors (ADR-020).
+history, run the evals, write `docs/results.md` (ADR-019), and write the api's packaged vectors:
+booking history and demo lines (ADR-020), rulebook sections (R3-4b).
 
 Replay is the default: every model reply comes from `recordings/`, free and offline. `--live`
 calls the model for requests without a recording, up to `--max-spend-usd`.
@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, cast, get_args
 
 from invoiceguard_api.agent.loop import ExceptionAgent, Limits
-from invoiceguard_api.booking import history
+from invoiceguard_api.booking import embedding, history
 from invoiceguard_api.booking.text import normalise
 from invoiceguard_api.demo import sample_invoices
 from invoiceguard_api.extraction import PdfExtractor
@@ -26,6 +26,8 @@ from invoiceguard_api.filetype import source_type_for
 from invoiceguard_api.llm import LLMClient, ReasoningEffort
 from invoiceguard_api.models import EMBEDDING_DIMENSIONS
 from invoiceguard_api.parsing import invoice_xml, read_invoice_xml
+from invoiceguard_api.rulebook import chunks as rulebook_chunks
+from invoiceguard_api.rulebook import index as rulebook_index
 from invoiceguard_api.settings import Settings
 
 from invoiceguard_evals import (
@@ -37,6 +39,7 @@ from invoiceguard_evals import (
     evaluate,
     gate,
     report,
+    rulebook_eval,
 )
 from invoiceguard_evals.attacks import ATTACKS
 from invoiceguard_evals.metrics import as_expected, decision_summary
@@ -48,7 +51,7 @@ RECORDINGS_DIR = PACKAGE_DIR / "recordings"
 BASELINES_DIR = PACKAGE_DIR / "baselines"
 REPORTS_DIR = PACKAGE_DIR / "reports"
 RESULTS = PACKAGE_DIR.parents[1] / "docs" / "results.md"
-PARTS = ("parser", "extraction", "decisions", "attacks", "bookings")
+PARTS = ("parser", "extraction", "decisions", "attacks", "bookings", "rulebook")
 DEFAULT_MODEL = cast(str, Settings.model_fields["extraction_model"].default)
 DEFAULT_EFFORT = cast(ReasoningEffort, Settings.model_fields["extraction_reasoning_effort"].default)
 THRESHOLD = cast(Decimal, Settings.model_fields["extraction_confidence_threshold"].default)
@@ -83,7 +86,7 @@ def _parser() -> argparse.ArgumentParser:
         "generate", help="rewrite datasets/generated and the api's booking history from the specs"
     )
     vectors = commands.add_parser(
-        "vectors", help="write the api's packaged vectors (booking history, demo samples)"
+        "vectors", help="write the api's packaged vectors (booking history, demo, rulebook)"
     )
     vectors.add_argument("--live", action="store_true", help="embed texts without a recording")
     vectors.add_argument("--max-spend-usd", type=Decimal, default=Decimal(0))
@@ -203,9 +206,10 @@ def _attacks(args: argparse.Namespace, client: RecordingClient) -> dict[str, Any
     with decisions.app_client(
         database_url, client, args.decision_effort, validator_url, THRESHOLD
     ) as app:
+        attack_eval.prepare_history(database_url, client, EMBEDDING_MODEL)
         agent = ExceptionAgent(
             client,
-            attack_eval.InProcessTools(database_url),
+            attack_eval.InProcessTools(database_url, EMBEDDING_MODEL),
             args.model,
             _default("agent_reasoning_effort"),
             Limits(
@@ -214,6 +218,8 @@ def _attacks(args: argparse.Namespace, client: RecordingClient) -> dict[str, Any
                 _default("agent_cost_cap_usd"),
                 _default("agent_timeout_seconds"),
             ),
+            embedder=client,
+            embedding_model=EMBEDDING_MODEL,
         )
         outcomes = attack_eval.evaluate_attacks(
             app, database_url, specs, agent, validator_url is not None
@@ -230,6 +236,15 @@ def _bookings(client: RecordingClient) -> dict[str, Any]:
     vector = result["summary"]["vector"]
     print(f"bookings: {result['summary']['lines']} lines, top-1 {vector['top1']:.1%}, "
           f"top-3 {vector['top3']:.1%} by vector; ${client.spent_usd} spent so far")  # fmt: skip
+    return result
+
+
+def _rulebook(client: RecordingClient) -> dict[str, Any]:
+    result = rulebook_eval.evaluate_rulebook(_database_url(), client, EMBEDDING_MODEL)
+    vector, by_text = result["summary"]["vector"], result["summary"]["text"]
+    print(f"rulebook: {result['summary']['questions']} questions, hit@3 "
+          f"{vector['hit3']:.1%} by vector, {by_text['hit3']:.1%} by text; "
+          f"${client.spent_usd} spent so far")  # fmt: skip
     return result
 
 
@@ -257,12 +272,33 @@ def write_vectors(client: RecordingClient, path: Path) -> int:
         "model": EMBEDDING_MODEL,
         "dimensions": EMBEDDING_DIMENSIONS,
         "vectors": {
-            text: history.encode_vector(vector)
+            text: embedding.encode_vector(vector)
             for text, vector in zip(unique, reply.vectors, strict=True)
         },
     }
     path.write_text(json.dumps(document, indent=1) + "\n", "utf-8", newline="\n")
     return len(unique)
+
+
+def write_rulebook_vectors(client: RecordingClient, path: Path) -> int:
+    """The vectors of the rulebook's sections (task `document`), keyed by the chunk's hash, so
+    `make index` needs no key for them (R3-4b)."""
+    chunks = rulebook_chunks.load(attack_eval.RULEBOOK_DIR)
+    texts = [rulebook_chunks.embedding_text(c.title, c.heading, c.text) for c in chunks]
+    reply = client.embed(
+        model=EMBEDDING_MODEL, texts=texts, dimensions=EMBEDDING_DIMENSIONS, task="document"
+    )
+    document = {
+        "description": "Written by `invoiceguard-eval vectors` from recorded embeddings.",
+        "model": EMBEDDING_MODEL,
+        "dimensions": EMBEDDING_DIMENSIONS,
+        "vectors": {
+            chunk.text_sha256: embedding.encode_vector(vector)
+            for chunk, vector in zip(chunks, reply.vectors, strict=True)
+        },
+    }
+    path.write_text(json.dumps(document, indent=1) + "\n", "utf-8", newline="\n")
+    return len(chunks)
 
 
 def run(args: argparse.Namespace) -> Path:
@@ -281,6 +317,7 @@ def run(args: argparse.Namespace) -> Path:
         "decisions": _decisions(args, client) if "decisions" in args.only else None,
         "attacks": _attacks(args, client) if "attacks" in args.only else None,
         "bookings": _bookings(client) if "bookings" in args.only else None,
+        "rulebook": _rulebook(client) if "rulebook" in args.only else None,
     }
     created = datetime.now(UTC)
     result = {
@@ -340,7 +377,10 @@ def main(argv: Sequence[str] | None = None) -> None:
             RECORDINGS_DIR, _live_client() if args.live else None, args.max_spend_usd
         )
         path = Path(str(history.VECTORS))
-        print(f"wrote {write_vectors(client, path)} vectors to {path}; ${client.spent_usd} spent")
+        print(f"wrote {write_vectors(client, path)} vectors to {path}")
+        path = Path(str(rulebook_index.VECTORS))
+        print(f"wrote {write_rulebook_vectors(client, path)} vectors to {path}; "
+              f"${client.spent_usd} spent")  # fmt: skip
     elif args.command == "run":
         print(f"report: {run(args)}")
     elif args.command == "gate":

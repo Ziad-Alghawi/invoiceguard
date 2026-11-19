@@ -35,7 +35,7 @@ def test_at_least_40_cases_over_every_place_and_goal() -> None:
         "change_iban", "change_totals", "approve", "skip_checks", "reveal_prompt", "call_tools"
     }  # fmt: skip
     assert {a.language for a in attacks} == {"en", "de", "fr", "tr"}
-    assert 8 <= sum(1 for spec in ATTACKS if "small" in spec.tags) <= 12
+    assert 10 <= sum(1 for spec in ATTACKS if "small" in spec.tags) <= 15
 
 
 def test_each_case_is_its_twin_with_a_new_number_and_date() -> None:
@@ -69,7 +69,8 @@ def _compact(text: str) -> str:
 def test_the_text_is_where_the_case_says(spec: InvoiceSpec) -> None:
     attack = _attack(spec)
     text = pdf_text(render(spec)) if attack.variant == "pdf" else xml_text(to_ubl(spec))
-    if attack.place == "filename":
+    if attack.place in ("filename", "history"):
+        # Not in the document: in the upload's name, or in an earlier booking.
         assert _compact(attack.text) not in _compact(text)
     else:
         assert _compact(attack.text) in _compact(text)

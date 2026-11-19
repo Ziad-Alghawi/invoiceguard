@@ -1,0 +1,29 @@
+{
+ "recorded_at": "2026-11-19T13:30:08+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "low",
+  "run": 1,
+  "schema_name": "exception_agent_action",
+  "schema_sha256": "d3dc232150aee7b8f7f07c0919ab60d57e24d298d50e6c866af8ab522013352f",
+  "system_sha256": "7ed38df9f320260084d019490d6ab0f050d30959399c12670414f0cf2e2c5db1",
+  "user": [
+   {
+    "text": "Investigate this blocked invoice. Its data and failed checks:"
+   },
+   {
+    "text": "<<<UNTRUSTED_INVOICE>>>\n{\"invoice\":{\"invoice_number\":\"BL/2026/0533-A31\",\"line_total\":\"320.00\",\"net_total\":\"320.00\",\"tax_total\":\"60.80\",\"gross_total\":\"380.80\",\"amount_due\":\"380.80\",\"order_reference\":\"PO-2026-0004\",\"issue_date\":\"2026-11-24\",\"seller_name\":\"Beispiel Logistik AG\",\"type_code\":\"380\",\"seller_vat_id\":\"DE999000025\",\"buyer_name\":\"Beispielkunde Handels GmbH\",\"buyer_vat_id\":\"DE999000068\",\"currency\":\"EUR\",\"payee_iban\":\"LT601010012345678901\",\"due_date\":\"2026-12-08\"},\"lines\":[{\"line_no\":1,\"line_id\":\"1\",\"quantity\":\"1\",\"unit_code\":\"C62\",\"net_amount\":\"320.00\",\"net_price\":\"320.00\",\"vat_rate\":\"19\",\"item_name\":\"Expresszustellung Ersatzteile\"}],\"checks\":[{\"type\":\"iban\",\"status\":\"failed\",\"message\":\"Payee IBAN LT601010012345678901 is not a verified account of Beispiel Logistik AG: possible bank-detail fraud. Do not pay; confirm the account with the supplier through a known contact.\",\"evidence\":{\"supplier_id\":\"<uuid>\",\"invoice_iban\":\"LT601010012345678901\",\"supplier_name\":\"Beispiel Logistik AG\",\"verified_ibans\":[{\"iban\":\"DE87123456780000000002\",\"since\":\"2023-11-15\",\"verified_by\":\"Stammdatenpflege (Demo)\"}]}}]}\n<<<END_UNTRUSTED_INVOICE>>>"
+   },
+   {
+    "text": "Model steps left, this one included: 8. Tool calls left: 12."
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\n  \"action\": \"call_tools\",\n  \"tool_calls\": [\n    {\n      \"tool\": \"check_iban\",\n      \"argument\": \"LT601010012345678901\"\n    },\n    {\n      \"tool\": \"get_bank_accounts\",\n      \"argument\": \"DE999000025\"\n    },\n    {\n      \"tool\": \"get_supplier\",\n      \"argument\": \"DE999000025\"\n    }\n  ],\n  \"finding\": null,\n  \"email_subject\": null,\n  \"email_body\": null\n}",
+  "input_tokens": 1349,
+  "output_tokens": 158,
+  "cost_usd": "0.001604",
+  "latency_ms": 3542
+ }
+}
