@@ -101,3 +101,42 @@ a read model of approved invoices only.
 - One database connection per tool call: fine for a handful of calls per invoice, a pool would be needed for load.
 - New dependency `mcp` 2.3.0 (named in the stack, ADR-001), released on 2026-10-02. The api adds it in R2-6 for the
   client side.
+
+## Update 2026-11-19: `mcp-history` (R3-4b)
+
+The postponed `get_invoice_history` arrives with the RAG tools, as a third server, `apps/mcp-history`, built like
+the other two (own uv project and container, streamable HTTP, typed Pydantic outputs, fixed SQL, `READ ONLY`
+transactions, `readOnlyHint`).
+
+- `get_invoice_history(vat_id)`: up to 10 past invoices of the supplier, newest first, with lines and accounts
+  booked, and totals and payee IBAN for invoices approved in the app.
+- `search_similar_invoices(invoice_id)`: up to 5 past invoices whose lines are nearest to the investigated invoice's
+  lines, by vector or, for a line without one, by trigram text match. The agent cannot choose the id (ADR-018).
+- `search_rulebook(query, query_vector)`: the 3 rulebook sections that best answer a question, by vector when the
+  api sends one, otherwise by full text.
+
+**A read model of views, not table grants.** Migration 0013 creates `invoiceguard_mcp_history` and grants `SELECT`
+on three views, `rulebook_chunks`, and the columns `model`, `text_sha256` and `vector` of `embeddings`, nothing else:
+
+| View | Holds |
+| --- | --- |
+| `history_lines` | searchable bookings of imported history and of approved invoices that did not fail the prompt-injection check |
+| `history_invoices` | currency, net, gross and payee IBAN of those approved invoices |
+| `invoice_item_names` | invoice id, line number and item name of any invoice, so the server can hash a line and find its vector; the server never returns these names |
+
+A view runs with its owner's privileges, so the role has no grant on `invoices`, `invoice_fields`, `bookings` or
+`checks`, and the filter (approved, not flagged, searchable) is in the database, not in the server's code. The views
+are `security_barrier`. `embeddings.text` stays hidden: it holds the line texts of every invoice, also rejected or
+flagged ones. Tests prove the role reads the views and nothing else, and that each view leaves out what it should.
+
+**No model key in the server.** The api embeds the rulebook question and passes the vector (ADR-018); the server only
+compares vectors that are already stored. The server has a copy of the api's three-line text normalisation so a
+line's hash matches the stored vector; a test in `packages/evals` checks that both agree.
+
+**Alternatives.** Granting the role `SELECT` on `invoices` and filtering in the server's SQL puts the safety rule in
+application code a bug could skip. A materialised history table written on approval duplicates data and needs a
+refresh path. One more tool on `mcp-erp` would give the ERP role access to invoice data, which ADR-017 rejected.
+
+**Consequences.** A third container (about 60 MB) and a third secret, `INVOICEGUARD_MCP_HISTORY_DB_PASSWORD`, which
+the demo server's `.env` needs before `make prod-up` (`docs/deploy.md`). The views are part of the schema: a change to
+what counts as history is a migration and is reviewed as one.

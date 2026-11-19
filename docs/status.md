@@ -1,6 +1,6 @@
 # Status
 
-**Current milestone:** R3 — Evals, RAG, CI gate (in progress: R3-2, R3-3 and R3-4a done, next R3-4b)
+**Current milestone:** R3 — Evals, RAG, CI gate (in progress: R3-2, R3-3, R3-4a and R3-4b done)
 **Last updated:** 2026-11-19
 
 ## Done
@@ -211,15 +211,31 @@
     vote (plain sum of similarities) scored 95.2 % and was replaced after that run, so the new number is
     optimistic (results.md shows both). Gate: booking top-1 may drop 2 points at most. Live spend under $0.001.
     The DATEV export does not use the chosen accounts yet (issue #24)
+  - History and rulebook for the agent (R3-4b; ADR-017, ADR-018, ADR-019, ADR-020 updated): MCP server
+    `mcp-history` (third container, own role `invoiceguard_mcp_history`) with `get_invoice_history`,
+    `search_similar_invoices` and `search_rulebook`. Migration 0013: `rulebook_chunks` (vector, `tsvector` with
+    English and German stemmers, file SHA-256 as version) and three `security_barrier` views as the read model
+    (`history_lines`: imported history and approved invoices that did not fail the injection check;
+    `history_invoices`: their totals and payee IBAN; `invoice_item_names`), the role reads only those, the rulebook
+    and three columns of `embeddings`; tests prove the rest is refused. Rulebook `docs/rulebook`: 10 files, 42
+    sections, built into the api image (Compose `additional_contexts`), synced by `make index` and the demo reset
+    with packaged vectors (tasks `document`/`query`). Agent: 10 allow-listed tools, a pattern per argument checked
+    in code, `search_similar_invoices` takes `current` (the model never sees an invoice id), the api embeds rulebook
+    questions and counts the cost in the agent's cap, prompt names history and rulebook as data. Evals: 10
+    poisoned-history attack cases (54 in total), rulebook retrieval (20 questions, DE and EN), gate on rulebook
+    hit@3. Live spend $0.352 of $0.45 (two attack runs and the two recorded demo runs)
+    - **0 of 54 attacks succeeded** end to end and model only. Poisoned history: **delivered 0 of 10** as the agent
+      runs (it read the history 3 times in 54 runs), so those runs tested nothing; with `get_invoice_history`
+      called first (eval only) **10 of 10 delivered, 0 of 10 followed**, 7 findings name the injected line
+    - Rulebook: **hit@3 90 % by vector** (English and German alike), MRR 0.81; full text without a key 90 %
+      English, 50 % German
 
 ## Open decisions
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
 - R3 — Evals, RAG, CI gate (PLAN.md §11), three rounds, one PR each:
-  - R3-4b: MCP server `mcp-history` with its own role (`get_invoice_history`, `search_similar_invoices`,
-    `search_rulebook`; the api embeds rulebook queries), rulebook docs and chunks, agent prompt and allow-list,
-    attack cases that poison the history, rulebook retrieval eval (hit@k, MRR), live attack rerun
+  - R3 wrap-up: the R3 done-when check (results table with real numbers, gate fails on a deliberate regression)
 - Backlog: scan-like generated PDFs (image noise, no text layer) for the eval set
 
 ## Known limitations
@@ -228,8 +244,12 @@
   not their JSON schemas; findings are not evaluated yet (R3). Recorded demo runs go stale if the seed changes.
   Starting a live run is open to any logged-in user (no rate limit beyond the cost cap and the daily budget).
 - MCP servers (ADR-017): no authentication between the api and the servers (reachable only inside the stack); one
-  database connection per tool call; the migration needs a user that may create roles. `get_invoice_history` and
-  the RAG tools come in R3.
+  database connection per tool call; the migration needs a user that may create roles.
+- History tools (R3-4b): the agent rarely reads the history on its own (3 of 54 runs), so the history mostly adds
+  nothing to its findings yet; the poisoned-history cases measure the model only with the history forced in.
+  The history is generated and clean; `search_similar_invoices` matches line by line (vector or trigram), not
+  whole invoices. Rulebook questions without a key (full text) find the German answers only half the time. A
+  changed rulebook section needs new packaged vectors or is found by full text only.
 - Review (ADR-016): approvals are final; a rejected invoice can be reopened, which runs the checks (and for a plain
   PDF the LLM extraction) again, so a reopen costs what the first run cost. On the public demo one visitor can use
   both the reviewer and the approver account, so four eyes there shows the mechanism, not real separation of duties.
@@ -282,6 +302,9 @@
   budget used up wait for `make index`.
 
 ## Lessons learned
+- Recorded replay needs prompts that are identical across runs: keep generated ids and timestamps away from the
+  model. Measure whether an attack was delivered before counting it as defended; a tool the agent never calls tests
+  nothing.
 - Embedding similarities are compressed (unrelated texts still score ~0.8): do not use raw cosine scores as vote
   weights; and with NULL on both sides, `IS DISTINCT FROM` is false, so test a filter with its parameter absent.
 - Check every eval "error" against the document first: 5 corpus PDFs print terms their XML leaves out, and two

@@ -129,6 +129,7 @@ Edit `.env` (`nano .env`). Never commit it or copy it anywhere else:
 | `INVOICEGUARD_SEED_APPROVER_NAME` | `Demo Approver` |
 | `INVOICEGUARD_MCP_ERP_DB_PASSWORD` | output of `openssl rand -hex 24` (read-only database role of `mcp-erp`, ADR-017) |
 | `INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD` | output of `openssl rand -hex 24` (read-only database role of `mcp-registry`) |
+| `INVOICEGUARD_MCP_HISTORY_DB_PASSWORD` | output of `openssl rand -hex 24` (read-only database role of `mcp-history`, R3-4b) |
 | `INVOICEGUARD_LLM_API_KEY` | optional: a separate Gemini key with a low quota set in Google AI Studio. Empty: plain PDFs wait |
 | `INVOICEGUARD_LLM_DAILY_BUDGET_USD` | optional; the prod override defaults to `0.50` |
 
@@ -137,7 +138,7 @@ API's database URL from the `POSTGRES_*` values.
 
 ```sh
 make prod-up      # builds the images, starts db, validator, api, MCP servers and web, waits until healthy
-make demo-reset   # master data, six sample invoices, the demo logins (reviewer and approver)
+make demo-reset   # master data, booking history, rulebook, six sample invoices, the demo logins
 ```
 
 Open https://invoiceguard.ziadalghawi.com: the login page shows the demo accounts. If the certificate is missing,
@@ -169,8 +170,13 @@ git pull
 make prod-up
 ```
 
-A release that adds a required `.env` variable (for example the MCP role passwords in R2-5) needs it on the server
-before `make prod-up`: Compose stops with `set ... in .env` otherwise. Compare with `.env.example` after `git pull`.
+A release that adds a required `.env` variable (for example the MCP role passwords in R2-5, or
+`INVOICEGUARD_MCP_HISTORY_DB_PASSWORD` for `mcp-history` in R3-4b) needs it on the server before `make prod-up`:
+Compose stops with `set ... in .env` otherwise. Compare with `.env.example` after `git pull`.
+
+The rulebook (`docs/rulebook`) is built into the api image and synced into the database by every `make demo-reset`
+(nightly), with its packaged vectors; after a rulebook change run `make demo-reset` once, or
+`make index` to sync it without touching the invoices.
 
 If `infra/edge/sites/invoiceguard.caddy` changed: copy it to `/opt/edge/sites/` and reload Caddy (above).
 
@@ -182,7 +188,7 @@ Roll back with `git checkout <previous commit or tag> && make prod-up`. A migrat
 | Task | Command (in `/opt/invoiceguard`) |
 | --- | --- |
 | Status | `cd infra && docker compose --env-file ../.env -f docker-compose.yml -f docker-compose.prod.yml ps` |
-| Logs | same, with `logs --tail 100 api` (or `web`, `validator`, `db`); Caddy: `cd /opt/edge && docker compose logs caddy` |
+| Logs | same, with `logs --tail 100 api` (or `web`, `validator`, `db`, `mcp-erp`, `mcp-registry`, `mcp-history`); Caddy: `cd /opt/edge && docker compose logs caddy` |
 | LLM cost today | `... exec db psql -U invoiceguard -c "select sum(cost_usd) from model_calls where at >= current_date"` |
 | Reset the demo now | `make demo-reset` |
 | Stop | `make prod-down` (data stays in volumes; Caddy and other sites keep running) |
