@@ -21,7 +21,7 @@ from invoiceguard_api.extraction import PdfExtractor
 from invoiceguard_api.llm import LLMClient, ReasoningEffort
 from invoiceguard_api.settings import Settings
 
-from invoiceguard_evals import attack_eval, datasets, decisions, evaluate, report
+from invoiceguard_evals import attack_eval, datasets, decisions, evaluate, gate, report
 from invoiceguard_evals.attacks import ATTACKS
 from invoiceguard_evals.metrics import as_expected, decision_summary
 from invoiceguard_evals.recording import RecordingClient
@@ -29,6 +29,7 @@ from invoiceguard_evals.sources import PACKAGE_DIR, fetch, load_manifest
 from invoiceguard_evals.specs import ALL
 
 RECORDINGS_DIR = PACKAGE_DIR / "recordings"
+BASELINES_DIR = PACKAGE_DIR / "baselines"
 REPORTS_DIR = PACKAGE_DIR / "reports"
 RESULTS = PACKAGE_DIR.parents[1] / "docs" / "results.md"
 PARTS = ("parser", "extraction", "decisions", "attacks")
@@ -77,6 +78,13 @@ def _parser() -> argparse.ArgumentParser:
         help="replay: count a missing recording as a failed call (calls that failed live)",
     )
     run.add_argument("--out", type=Path, help="report path (default: reports/latest-<set>.json)")
+    check = commands.add_parser("gate", help="compare a report with its baseline (the CI gate)")
+    check.add_argument("report", type=Path)
+    check.add_argument("--baseline", type=Path, help="default: baselines/<set>.json")
+    check.add_argument("--effort", default=DEFAULT_EFFORT)
+    check.add_argument(
+        "--write-baseline", action="store_true", help="write the report's numbers as the baseline"
+    )
     write = commands.add_parser("report", help="write docs/results.md from a report")
     write.add_argument("report", type=Path)
     write.add_argument("--effort", default=DEFAULT_EFFORT, help="the level to show in detail")
@@ -234,6 +242,26 @@ def run(args: argparse.Namespace) -> Path:
     return out
 
 
+def run_gate(args: argparse.Namespace) -> None:
+    current = gate.gate_metrics(json.loads(args.report.read_text("utf-8")), args.effort)
+    baseline_path = args.baseline or BASELINES_DIR / f"{current['set']}.json"
+    if args.write_baseline:
+        gate.write_baseline(baseline_path, current)
+        print(f"wrote {baseline_path}")
+        return
+    baseline = gate.read_baseline(baseline_path)
+    for label, numbers in ((f"baseline {baseline_path}", baseline), ("report", current)):
+        print(
+            f"{label} (commit {numbers['git_commit']}): field accuracy "
+            f"{numbers['field_accuracy']:.1%}, ${numbers['cost_usd_per_invoice']:.4f} per invoice, "
+            f"{numbers['attacks_succeeded']} of {numbers['attack_cases']} attacks succeeded"
+        )
+    failures = gate.compare(baseline, current)
+    if failures:
+        sys.exit("Eval gate failed:\n" + "\n".join(f"- {failure}" for failure in failures))
+    print("Eval gate passed.")
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     args = _parser().parse_args(argv)
     if args.command == "fetch":
@@ -242,6 +270,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         print(f"wrote {datasets.write_generated()} files to {datasets.GENERATED_DIR}")
     elif args.command == "run":
         print(f"report: {run(args)}")
+    elif args.command == "gate":
+        run_gate(args)
     else:
         content = json.loads(args.report.read_text("utf-8"))
         path = args.report.resolve()

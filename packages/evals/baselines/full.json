@@ -1,0 +1,9 @@
+{
+ "set": "full",
+ "git_commit": "a39e05d",
+ "effort": "low",
+ "field_accuracy": 0.9961685823754789,
+ "cost_usd_per_invoice": 0.00617851724137931,
+ "attack_cases": 44,
+ "attacks_succeeded": 0
+}

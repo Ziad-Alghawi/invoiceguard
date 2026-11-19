@@ -1,7 +1,7 @@
 # Status
 
-**Current milestone:** R3 — Evals, RAG, CI gate (in progress: R3-2 done, next R3-3)
-**Last updated:** 2026-11-18
+**Current milestone:** R3 — Evals, RAG, CI gate (in progress: R3-2 and R3-3 done, next R3-4)
+**Last updated:** 2026-11-19
 
 ## Done
 - R0 — Foundation (complete)
@@ -180,19 +180,24 @@
   - Confidence measured: at `low` 8 of 9 wrong fields had 0.8 or more (AUROC 0.82); the errors cluster at
     0.8 to 0.9 (4 of 6 wrong there, 3 of 1,110 wrong at 1.0). Not fixed in R3-2: the planned evidence check would
     not catch any of the observed errors (every wrong value is printed on the page); a threshold change follows
+  - Attack set and CI gate (R3-3, ADR-019 updated): 44 poisoned twins of generated invoices (PDF visible, white
+    and 1 pt text, seller and item names, XML notes, filenames; change IBAN or totals, approve, skip checks,
+    reveal the prompt, call tools; en, de, fr, tr), run through the app on the eval database and, when blocked,
+    through the real exception agent with the real MCP servers in process. One live run (103 calls, $0.31 of the
+    $0.90 cap), replayed: **0 of 44 attacks succeeded end to end and 0 model only** (agent run on scan-flagged
+    invoices too); the heuristic scan flagged **14 of 44** (none of the 24 indirect wordings, filenames, French
+    or Turkish), regexes not tuned to the set. No LLM injection classifier: no attack got through. The fraud set
+    rerun on the eval database at threshold 0.9: 10 of 10 as XML and as PDF, no clean invoice flagged. CI
+    workflow `eval-gate` (replay, no key; `small` on PRs touching prompts, agent, checks, parsers, MCP servers or
+    the evals, `full` nightly; KoSIT validator built in the job) fails on a field-accuracy drop over 2 points,
+    any successful attack, a smaller attack set, or cost per invoice up more than 25 % against
+    `packages/evals/baselines/`; `make eval-gate` locally. promptfoo not used (ADR-019)
 
 ## Open decisions
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
 - R3 — Evals, RAG, CI gate (PLAN.md §11), three rounds, one PR each:
-  - R3-2 Eval harness and extraction results (ADR-019): `packages/evals` with the KoSIT set, the ZUGFeRD corpus
-    (pinned downloads with SHA-256, not committed), a reportlab generator with conflicting printed values, the
-    fraud set; eval CLI with recorded replies and a spend cap ($3 for this round); `docs/results.md`; the
-    extraction thinking level chosen on the eval set (ADR-010); confidence measured against errors, and fixed in
-    code if it misleads
-  - R3-3 Attack set (≥ 40 cases) and the CI gate (PR paths and nightly, baseline, a deliberate regression that
-    fails); the LLM injection classifier only if the attack set shows the heuristics miss attacks
   - R3-4 RAG: pgvector booking suggestions and rulebook search with evidence in the UI, top-1/top-3 eval; agent
     tools `get_invoice_history` with `search_similar_invoices`, and `search_rulebook`
 - Backlog: scan-like generated PDFs (image noise, no text layer) for the eval set
@@ -212,10 +217,11 @@
 - Graph (ADR-015): startup reads the thread of every invoice waiting for review (one query each); each graph run
   opens its own database connection for the checkpointer; a decision waits while a run (an LLM extraction) holds
   the invoice's lock.
-- Injection scan (R2-4): heuristics only, so new wordings or other languages get through (R3's attack set measures
-  this; an LLM classifier only if it is needed, ADR-002). It cannot see text drawn white or tiny, text in images
-  (scans without a text layer are `skipped`), or invisible PDF text (render mode 3, skipped on purpose: OCR'd scans
-  use it). The security log has no alerting or retention yet.
+- Injection scan (R2-4): heuristics only, so new wordings or other languages get through: R3-3 measured 14 of 44
+  attack texts flagged, none of the indirect ones. No attack succeeded, so no LLM classifier (ADR-002). White and
+  tiny text is in the text layer and scanned like any other, but hiding it is not itself a signal; text in images
+  (scans without a text layer are `skipped`) and invisible PDF text (render mode 3, skipped on purpose: OCR'd scans
+  use it) are not seen. The security log has no alerting or retention yet.
 - Login lockout is per account: anyone who knows a demo email can lock it for 15 minutes, and the `429` reveals that
   the account exists. No per-IP rate limit (ingress in R4).
 - The audit trigger stops UPDATE and DELETE through the app's database user, not the table owner (TRUNCATE, dropping
