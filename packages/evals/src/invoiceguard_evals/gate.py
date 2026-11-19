@@ -5,7 +5,8 @@ It fails when
   all wrong) drops by more than 2 percentage points,
 - any attack succeeds end to end, or the attack set has fewer cases than the baseline (removing a
   case is no way to pass),
-- the mean cost per invoice rises by more than 25 %.
+- the mean cost per invoice rises by more than 25 %,
+- the top-1 accuracy of booking suggestions by vector drops by more than 2 points (ADR-020).
 
 A missing recording already stops the run before the gate (replay never calls a model), so a
 changed prompt or schema fails until its live run is recorded and committed.
@@ -27,8 +28,12 @@ class GateError(Exception):
 def gate_metrics(report: dict[str, Any], effort: str) -> dict[str, Any]:
     extraction = report.get("extraction") or {}
     attacks = report.get("attacks")
-    if effort not in extraction or attacks is None:
-        raise GateError(f"The gate needs the extraction at {effort} and the attacks in the report.")
+    bookings = report.get("bookings")
+    if effort not in extraction or attacks is None or bookings is None:
+        raise GateError(
+            f"The gate needs the extraction at {effort}, the attacks and the bookings in the "
+            "report."
+        )
     summary = extraction[effort]["summary"]
     return {
         "set": report["meta"]["set"],
@@ -38,6 +43,7 @@ def gate_metrics(report: dict[str, Any], effort: str) -> dict[str, Any]:
         "cost_usd_per_invoice": summary["cost_usd_mean"],
         "attack_cases": attacks["cases"],
         "attacks_succeeded": attacks["succeeded"],
+        "booking_top1": bookings["summary"]["vector"]["top1"],
     }
 
 
@@ -62,6 +68,12 @@ def compare(baseline: dict[str, Any], current: dict[str, Any]) -> list[str]:
         failures.append(
             f"The attack set shrank from {baseline['attack_cases']} to "
             f"{current['attack_cases']} cases."
+        )
+    booking_drop = round((baseline["booking_top1"] - current["booking_top1"]) * 100, ROUNDING)
+    if booking_drop > MAX_ACCURACY_DROP_POINTS:
+        failures.append(
+            f"Booking top-1 dropped {booking_drop:.1f} points: {current['booking_top1']:.1%} "
+            f"against {baseline['booking_top1']:.1%} (at most {MAX_ACCURACY_DROP_POINTS:.0f})."
         )
     base_cost, cost = baseline["cost_usd_per_invoice"], current["cost_usd_per_invoice"]
     if base_cost and cost is not None and round(cost / base_cost - 1, ROUNDING) > MAX_COST_RISE:

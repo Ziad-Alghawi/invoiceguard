@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from invoiceguard_api.booking import history
 
 from invoiceguard_evals import cli
 from invoiceguard_evals.attacks import ATTACKS
@@ -142,3 +143,42 @@ def test_the_attack_set_records_replays_and_reports(
     assert "## Attacks: prompt injection through the app and the agent" in results.read_text(
         "utf-8"
     )
+
+
+def test_the_booking_eval_records_replays_and_reports(
+    isolated: Path, monkeypatch: pytest.MonkeyPatch, eval_database_url: str
+) -> None:
+    monkeypatch.setenv("INVOICEGUARD_EVAL_DATABASE_URL", eval_database_url)
+    _model(monkeypatch, [])
+    common = ["--only", "bookings", "--set", "small"]
+
+    live = _run(*common, "--live", "--max-spend-usd", "1", "--out", str(isolated / "a.json"))
+    replay = _run(*common, "--out", str(isolated / "b.json"))
+
+    bookings = live["bookings"]
+    assert bookings["history_bookings"] == 159
+    assert bookings["summary"]["lines"] == 62
+    # Fake vectors carry no meaning, but a booked wording finds itself.
+    assert bookings["by_kind"]["seen"]["vector"]["top1"] == 1.0
+    assert replay["meta"]["live_calls"] == 0
+    assert replay["bookings"]["cases"] == bookings["cases"]
+    results = isolated / "results.md"
+    cli.main(["report", str(isolated / "b.json"), "--out", str(results)])
+    assert "## Booking suggestions and retrieval" in results.read_text("utf-8")
+
+
+def test_the_vectors_command_writes_the_packaged_vectors(
+    isolated: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _model(monkeypatch, [])
+    path = isolated / "vectors.json"
+    monkeypatch.setattr(history, "VECTORS", path)
+
+    cli.main(["vectors", "--live", "--max-spend-usd", "1"])
+    written = json.loads(path.read_text("utf-8"))
+    cli.main(["vectors"])
+
+    assert json.loads(path.read_text("utf-8")) == written
+    assert written["dimensions"] == 768
+    assert "Notebook 14 Zoll, 32 GB RAM" in written["vectors"]
+    assert len(written["vectors"]) == 59

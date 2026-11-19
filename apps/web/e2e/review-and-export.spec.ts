@@ -74,10 +74,21 @@ test("reject the fraud invoice, approve a clean one, export it to DATEV", async 
   // The clean invoice passed every check and is approved without an override.
   await page.getByRole("link", { name: "← Queue" }).click();
   await page.getByRole("link", { name: clean.file }).click();
+  // One SKR03 account per line (ADR-020), preselected with the suggestion; the reviewer decides.
+  await page.getByLabel(/^1\. Notebook/).selectOption("0410");
+  await page.getByLabel(/^2\. Einrichtung/).selectOption("4806");
   await page.getByRole("button", { name: "Approve", exact: true }).click();
   await expect(
     page.getByText("No decision possible while the invoice is approved."),
   ).toBeVisible();
+  const api = await apiAs(login);
+  const invoiceId = new URL(page.url()).pathname.split("/").at(-1);
+  const booked = await api.get(`/invoices/${invoiceId}/bookings`);
+  const lines = (await booked.json()).lines as {
+    booked: { account: string };
+  }[];
+  expect(lines.map((line) => line.booked.account)).toEqual(["0410", "4806"]);
+  await api.dispose();
 
   // Export: the booking file downloads and holds the approved invoice, not the rejected one.
   await page.getByRole("link", { name: "← Queue" }).click();

@@ -52,3 +52,17 @@
 - **Attacks: canaries in the finding.** In four cases (a25, a37, a39, a40) the agent's finding quotes the
   attacker's order number, VAT ID or link while describing the attack. Those are listed under finding mentions,
   not counted as successes: no tool was called with them and the email does not contain them.
+- **Bookings: spend.** Two live embedding runs on 2026-11-19 recorded every text: 59 history wordings for the
+  demo's packaged vectors ($0.0001) and 34 held-out wordings ($0.00007); everything since is replayed. One
+  probe call before any code ($0.000003). Total for R3-4a: under $0.001.
+- **Bookings: the vote was changed once, after the first run.** The first design summed the neighbours'
+  cosine similarities; it missed all three phone lines for the internet account of the same supplier, an
+  exact match included, because the model's similarities are compressed (unrelated item names still score
+  about 0.8) and the more frequent account won. The app now weighs each neighbour by
+  exp((score - best) / 0.05). That change was made after seeing this test set, so its number is optimistic;
+  the "first design" column keeps the original. The same weighting made the text match worse (it follows
+  spurious trigram overlaps): see the misses below the table, all on held-out wordings.
+- **Bookings: what the set can and cannot show.** The catalogue and the truth are mine, each item's wordings are
+  distinct, and the history is clean (one account per item). It shows that retrieval finds meaning where words
+  differ (held-out wordings: 100 % by vector, 82 % by text match) and that the supplier's most frequent account
+  is a poor guess (45 %); it does not measure a real ledger with inconsistent bookings.

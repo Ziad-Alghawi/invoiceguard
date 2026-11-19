@@ -34,7 +34,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
@@ -45,6 +45,7 @@ from pydantic import TypeAdapter
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
+from invoiceguard_api.booking.record import BookingChoice, record_bookings
 from invoiceguard_api.checkpoints import engine_of, invoice_lock, open_checkpointer
 from invoiceguard_api.checks import (
     KositValidator,
@@ -146,6 +147,13 @@ class Decision(TypedDict):
     # The status the reviewer decided on; decide refuses to write if it has changed since.
     status_before: str
     reason: str | None
+    # Approve and confirm_override: the account the user chose per line (ADR-020); written
+    # with the decision. Not set by older clients and other decisions.
+    bookings: NotRequired[list[BookingChoice]]
+
+
+# The decisions that approve an invoice, and with it the accounts chosen for its lines.
+APPROVING: frozenset[Action] = frozenset({"approve", "confirm_override"})
 
 
 class RunState(TypedDict, total=False):
@@ -523,6 +531,8 @@ def _decision_event(session: Session, invoice: Invoice, decision: Decision) -> A
     details: dict[str, Any] = {}
     if action in ("request_override", "confirm_override", "decline_override"):
         details["failed_checks"] = failed_checks(session, invoice.id)
+    if decision.get("bookings"):
+        details["bookings"] = decision["bookings"]
     return AuditEvent(
         actor=decision["actor"],
         user_id=uuid.UUID(decision["user_id"]),
@@ -556,6 +566,10 @@ def _decide_node(state: RunState, runtime: Runtime[Services]) -> RunState:
             session.execute(delete(InvoiceField).where(InvoiceField.invoice_id == invoice.id))
             session.execute(delete(Check).where(Check.invoice_id == invoice.id))
         session.add(_decision_event(session, invoice, decision))
+        if decision["action"] in APPROVING:
+            record_bookings(
+                session, invoice.id, uuid.UUID(decision["user_id"]), decision.get("bookings", [])
+            )
         invoice.status = NEW_STATUS[decision["action"]]
         invoice.status_reason = decision["reason"]
         session.commit()

@@ -8,6 +8,10 @@ every recording and needs a live run; replay can never answer it with an old rep
 Database IDs are the one exception: the agent's case file and tool results carry UUIDs (a
 supplier's ID in the IBAN check's evidence) that are new in every freshly created eval database,
 so the key replaces each UUID with a placeholder. The reply was given for the same data.
+
+Embeddings (ADR-020) are recorded per text, keyed by model, dimensions, task and the text, so a
+text embedded once replays in any batch. A live batch's tokens and cost are split evenly over
+its texts.
 """
 
 import hashlib
@@ -18,10 +22,23 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
-from invoiceguard_api.llm import FilePart, LLMClient, LLMError, LLMReply, ReasoningEffort, UserPart
+from invoiceguard_api.booking.history import decode_vector, encode_vector
+from invoiceguard_api.llm import (
+    Embedder,
+    EmbeddingReply,
+    EmbeddingTask,
+    FilePart,
+    LLMClient,
+    LLMError,
+    LLMReply,
+    ReasoningEffort,
+    UserPart,
+)
 
+# A live run's share of a batch's cost is kept to the nano-dollar.
+SHARE_SCALE = Decimal("0.000000001")
 UUID = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")
 
 
@@ -65,11 +82,27 @@ def request_key(description: dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(description, sort_keys=True).encode()).hexdigest()
 
 
+def embedding_request(
+    *, model: str, dimensions: int, task: EmbeddingTask, text: str
+) -> dict[str, Any]:
+    return {
+        "kind": "embedding",
+        "model": model,
+        "dimensions": dimensions,
+        "task": task,
+        "text": text,
+    }
+
+
+class LiveClient(LLMClient, Embedder, Protocol):
+    """What a live run calls: the LiteLLM client does both."""
+
+
 @dataclass
 class RecordingClient:
     directory: Path
     # The real client; None replays only.
-    live: LLMClient | None = None
+    live: LiveClient | None = None
     max_spend_usd: Decimal = Decimal(0)
     # Repeated runs of the same request are separate recordings.
     run: int = 1
@@ -128,9 +161,77 @@ class RecordingClient:
         _save(path, description, reply)
         return reply
 
+    def embed(
+        self, *, model: str, texts: Sequence[str], dimensions: int, task: EmbeddingTask
+    ) -> EmbeddingReply:
+        keys = [
+            request_key(embedding_request(model=model, dimensions=dimensions, task=task, text=t))
+            for t in texts
+        ]
+        paths = [self.directory / f"{key}.json" for key in keys]
+        missing = [index for index, path in enumerate(paths) if not path.exists()]
+        if not missing:
+            self.replayed += 1
+        elif self.live is None and self.missing_as_failure:
+            raise LLMError("No recorded embedding: the live call failed or was never made.", 0)
+        elif self.live is None:
+            raise MissingRecording(
+                f"No recorded embedding for {len(missing)} text(s) with {model}; run with --live."
+            )
+        else:
+            self._embed_live(
+                model, dimensions, task, [texts[i] for i in missing], [paths[i] for i in missing]
+            )
+        records = [json.loads(path.read_text("utf-8"))["reply"] for path in paths]
+        return EmbeddingReply(
+            vectors=tuple(tuple(decode_vector(record["vector"])) for record in records),
+            input_tokens=sum(record["input_tokens"] for record in records),
+            cost_usd=sum((Decimal(record["cost_usd"]) for record in records), Decimal(0)),
+            latency_ms=max(record["latency_ms"] for record in records),
+        )
+
+    def _embed_live(
+        self,
+        model: str,
+        dimensions: int,
+        task: EmbeddingTask,
+        texts: list[str],
+        paths: list[Path],
+    ) -> None:
+        assert self.live is not None
+        if self.spent_usd >= self.max_spend_usd:
+            raise SpendCapReached(
+                f"Spent ${self.spent_usd} of the ${self.max_spend_usd} cap; stopping."
+            )
+        reply = self.live.embed(model=model, texts=texts, dimensions=dimensions, task=task)
+        if reply.cost_usd is None or len(reply.vectors) != len(texts):
+            raise LLMError("The embedding reply has no price or the wrong number of vectors.", 0)
+        self.live_calls += 1
+        self.spent_usd += reply.cost_usd
+        share = (reply.cost_usd / len(texts)).quantize(SHARE_SCALE)
+        recorded_at = datetime.now(UTC).isoformat(timespec="seconds")
+        for text, path, vector in zip(texts, paths, reply.vectors, strict=True):
+            record = {
+                "recorded_at": recorded_at,
+                "request": embedding_request(
+                    model=model, dimensions=dimensions, task=task, text=text
+                ),
+                "reply": {
+                    "vector": encode_vector(vector),
+                    "input_tokens": round(reply.input_tokens / len(texts)),
+                    "cost_usd": str(share),
+                    "latency_ms": reply.latency_ms,
+                },
+            }
+            _write(path, record)
+
+
+def _write(path: Path, record: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(record, indent=1, ensure_ascii=False) + "\n", "utf-8", newline="\n")
+
 
 def _save(path: Path, description: dict[str, Any], reply: LLMReply) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
     record = {
         "recorded_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "request": description,
@@ -142,7 +243,7 @@ def _save(path: Path, description: dict[str, Any], reply: LLMReply) -> None:
             "latency_ms": reply.latency_ms,
         },
     }
-    path.write_text(json.dumps(record, indent=1, ensure_ascii=False) + "\n", "utf-8", newline="\n")
+    _write(path, record)
 
 
 def _load(path: Path) -> LLMReply:

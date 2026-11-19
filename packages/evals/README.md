@@ -22,7 +22,8 @@ uv run invoiceguard-eval fetch                      # download corpus files, che
 uv run invoiceguard-eval run --set small            # replay; report in reports/latest-small.json
 uv run invoiceguard-eval run --set full --only parser,extraction
 uv run invoiceguard-eval report reports/full-baseline.json   # write docs/results.md
-uv run invoiceguard-eval generate                   # rewrite datasets/generated after a spec change
+uv run invoiceguard-eval generate                   # rewrite datasets/generated and the booking history
+uv run invoiceguard-eval vectors                    # rewrite the api's packaged booking vectors (replay)
 uv run invoiceguard-eval gate reports/latest-small.json   # the CI gate against baselines/small.json
 ```
 
@@ -45,6 +46,7 @@ Only send public or generated invoices to a model (ADR-010).
 | `generated` | 17 PDFs from `specs.py`: clean, variants, conflicting printed values, fraud | `datasets/generated/*.truth.json` | yes |
 | fraud set | the 10 generated specs with an expected decision, as UBL and as PDF | `Expected` in `specs.py` | PDF only |
 | attack set | 44 poisoned twins of generated specs (`attacks.py`), as UBL or PDF | the twin's truth and expected decision | PDF and agent |
+| bookings | a booking history of 159 lines (written to the api package) and 62 held-out lines (`bookings.py`) | the item's SKR03 account, set by hand | embeddings |
 
 `--set small` takes the files tagged `small` (for quick runs and the CI gate).
 
@@ -65,12 +67,23 @@ the status less strict, suppressed a check or put its canary or a prompt line in
 end** is the app as it runs (a scan-flagged invoice never reaches the agent); **model only** also runs the
 agent on those. Details: ADR-019, `attack_eval.py`.
 
+## Bookings
+
+Booking suggestions (ADR-020) on a fresh eval database with the packaged history: every text is embedded
+through the recording client, then each held-out line is suggested by vector and by the text match with the
+app's own `neighbours` and `vote`. The test lines are a wording booked in the history, a held-out wording of
+the same item, or a supplier without history. Metrics: top-1 and top-3 accuracy, hit@k and MRR (a booking of
+the same item is relevant), the first design's vote, and two baselines without retrieval. `vectors` writes the
+vectors of the history and of the demo samples' lines into `apps/api/.../booking/vectors.json` for the demo
+(no key there); with `--live` it embeds texts that have no recording.
+
 ## The CI gate
 
 `.github/workflows/eval-gate.yml` replays the `small` set on PRs that touch prompts, the agent, checks,
 parsers, the MCP servers or this package, and the `full` set nightly; `make eval-gate` does the same locally.
 `invoiceguard-eval gate` fails when field accuracy at `low` drops more than 2 points, any attack succeeds end
-to end, the attack set shrinks, or cost per invoice rises more than 25 % against `baselines/<set>.json`.
+to end, the attack set shrinks, cost per invoice rises more than 25 %, or booking top-1 by vector drops more
+than 2 points against `baselines/<set>.json`.
 After an intended change (a new prompt, more cases), record it live, replay, and rewrite the baseline:
 
 ```bash
@@ -85,7 +98,9 @@ Baselines are replays with the validator, like the CI job, at one run per invoic
 `recordings/<sha256>.json` holds one model reply with its tokens, cost and latency. The key covers model,
 system prompt, schema, reasoning effort, the user parts (files by hash) and the run number, so any change to
 the prompt or a file needs a live run. Recordings store file hashes, never the files. UUIDs in text parts are
-replaced by `<uuid>` in the key, because the eval database is new on every run.
+replaced by `<uuid>` in the key, because the eval database is new on every run. Embeddings are recorded one
+file per text (key: model, dimensions, task and the text), the vector in base64, so a text replays in any
+batch.
 
 ## Metrics
 

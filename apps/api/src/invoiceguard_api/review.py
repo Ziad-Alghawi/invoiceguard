@@ -10,6 +10,10 @@ thread with the decision; the graph's decide node checks the four-eyes rule agai
 the status and the audit row in one transaction. The lock makes two users clicking at the same
 time decide one after the other, so the second one gets a 409.
 
+Approving (`/approve`, `/override/confirm`) can carry the SKR03 account the user chose for each
+line (ADR-020): all lines or none, each an account of the chart. The decide node stores them with
+the decision, next to the top suggestion at that moment.
+
 Any user can reopen a `rejected` invoice with a reason: the same resume, after which the graph
 reads and checks the invoice again and pauses it at review. An approved invoice is never
 reopened: it may already be in a DATEV export.
@@ -20,12 +24,17 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from invoiceguard_api.agent.service import investigate_if_blocked
 from invoiceguard_api.auth import CurrentUser, current_user
+from invoiceguard_api.booking.accounts import ACCOUNTS
+from invoiceguard_api.booking.embedding import embed_invoice_lines
+from invoiceguard_api.booking.lines import invoice_lines
+from invoiceguard_api.booking.record import BookingChoice
+from invoiceguard_api.booking.suggest import suggest_invoice
 from invoiceguard_api.checkpoints import lock_invoice
 from invoiceguard_api.db import DbSession
 from invoiceguard_api.invoices import ErrorOut, InvoiceOut, get_invoice_or_404
@@ -74,14 +83,39 @@ OVERRIDE_DECISION_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 
-class ApproveIn(BaseModel):
-    # Nothing to send. A blocked invoice is approved through the override endpoints, so an
-    # `override_reason` from an older client is refused (422) instead of ignored.
+def _known_account(number: str) -> str:
+    if number not in ACCOUNTS:
+        raise ValueError(f"{number} is not an account of the chart")
+    return number
+
+
+Account = Annotated[str, AfterValidator(_known_account)]
+# More lines than any invoice we have seen; a bound on the request, not a business rule.
+MAX_LINES = 500
+
+
+class BookingIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+    line_no: int = Field(ge=1)
+    account: Account
+
+
+class ApproveIn(BaseModel):
+    # A blocked invoice is approved through the override endpoints, so an `override_reason`
+    # from an older client is refused (422) instead of ignored.
+    model_config = ConfigDict(extra="forbid")
+
+    # The account per line (ADR-020): every line once, or none.
+    bookings: list[BookingIn] = Field(default_factory=list, max_length=MAX_LINES)
 
 
 class ReasonIn(BaseModel):
     reason: Reason
+
+
+class ConfirmIn(ReasonIn):
+    bookings: list[BookingIn] = Field(default_factory=list, max_length=MAX_LINES)
 
 
 class AuditEventOut(BaseModel):
@@ -117,14 +151,48 @@ def _require_status(invoice: Invoice, expected: InvoiceStatus, action: str) -> N
         )
 
 
-def _decision(user: User, invoice: Invoice, action: Action, reason: str | None) -> Decision:
-    return {
+def _decision(
+    user: User,
+    invoice: Invoice,
+    action: Action,
+    reason: str | None,
+    bookings: list[BookingChoice] | None = None,
+) -> Decision:
+    decision: Decision = {
         "action": action,
         "user_id": str(user.id),
         "actor": user.email,
         "status_before": invoice.status.value,
         "reason": reason,
     }
+    if bookings:
+        decision["bookings"] = bookings
+    return decision
+
+
+def _choices(
+    session: Session, request: Request, invoice: Invoice, bookings: list[BookingIn]
+) -> list[BookingChoice]:
+    """The chosen accounts with the top suggestion per line; 422 unless every line of the
+    invoice is there exactly once."""
+    if not bookings:
+        return []
+    lines = [line.line_no for line in invoice_lines(session, invoice.id)]
+    chosen = [booking.line_no for booking in bookings]
+    if sorted(chosen) != lines:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"Choose one account for each line: lines {lines}, got {sorted(chosen)}.",
+        )
+    model = request.app.state.settings.embedding_model
+    top = {
+        line.line_no: line.suggestions[0].account if line.suggestions else None
+        for line in suggest_invoice(session, model, invoice.id)
+    }
+    return [
+        {"line_no": b.line_no, "account": b.account, "suggested_account": top[b.line_no]}
+        for b in bookings
+    ]
 
 
 def _resume(session: Session, request: Request, invoice: Invoice, decision: Decision) -> InvoiceOut:
@@ -158,7 +226,8 @@ def approve_invoice(
             "An override is requested for this invoice; an approver confirms or declines it."
         )
     _require_status(invoice, InvoiceStatus.READY, "be approved")
-    return _resume(session, request, invoice, _decision(user, invoice, "approve", None))
+    choices = _choices(session, request, invoice, body.bookings)
+    return _resume(session, request, invoice, _decision(user, invoice, "approve", None, choices))
 
 
 @router.post("/{invoice_id}/reject", responses=DECISION_RESPONSES)
@@ -205,6 +274,7 @@ def _decide_override(
     invoice_id: uuid.UUID,
     action: Action,
     reason: str,
+    bookings: list[BookingIn],
 ) -> InvoiceOut:
     """Confirm or decline a requested override: an approver, never the requester. Both
     refusals are written to the security log (R2-4)."""
@@ -231,19 +301,22 @@ def _decide_override(
             attempt,
             "You requested this override; a different approver has to decide it (four eyes).",
         )
-    return _resume(session, request, invoice, _decision(user, invoice, action, reason))
+    choices = _choices(session, request, invoice, bookings)
+    return _resume(session, request, invoice, _decision(user, invoice, action, reason, choices))
 
 
 @router.post("/{invoice_id}/override/confirm", responses=OVERRIDE_DECISION_RESPONSES)
 def confirm_override(
     invoice_id: uuid.UUID,
-    body: ReasonIn,
+    body: ConfirmIn,
     session: DbSession,
     user: CurrentUser,
     request: Request,
 ) -> InvoiceOut:
     """Approver only: confirm another user's override request; the invoice is `approved`."""
-    return _decide_override(session, request, user, invoice_id, "confirm_override", body.reason)
+    return _decide_override(
+        session, request, user, invoice_id, "confirm_override", body.reason, body.bookings
+    )
 
 
 @router.post("/{invoice_id}/override/decline", responses=OVERRIDE_DECISION_RESPONSES)
@@ -255,7 +328,7 @@ def decline_override(
     request: Request,
 ) -> InvoiceOut:
     """Approver only: decline an override request; the invoice is `blocked` again."""
-    return _decide_override(session, request, user, invoice_id, "decline_override", body.reason)
+    return _decide_override(session, request, user, invoice_id, "decline_override", body.reason, [])
 
 
 @router.post("/{invoice_id}/reopen", responses=DECISION_RESPONSES)
@@ -286,6 +359,14 @@ def reopen_invoice(
         background_tasks.add_task(
             extract_invoice, state.session_factory, state.storage, state.extractor, invoice.id
         )
+    background_tasks.add_task(
+        embed_invoice_lines,
+        state.session_factory,
+        state.embedder,
+        state.settings.embedding_model,
+        state.settings.llm_daily_budget_usd,
+        invoice.id,
+    )
     if state.settings.agent_auto_investigate:
         background_tasks.add_task(
             investigate_if_blocked, state.session_factory, state.agent, invoice.id

@@ -1,6 +1,6 @@
 """Reset the public demo (ADR-014): delete every invoice, export, stored file and graph thread,
-restore the master data and process the sample invoices again, so each visitor finds the same
-queue.
+restore the master data and the booking history with its packaged vectors (ADR-020), and process
+the sample invoices again, so each visitor finds the same queue.
 
 Deletes data, so it runs only with INVOICEGUARD_DEMO_MODE=true. The audit log is append-only and
 is kept; the reset itself is an audit event. LLM costs stay in `model_calls` (the invoice link is
@@ -17,6 +17,7 @@ from importlib.resources import files
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from invoiceguard_api.booking.history import import_packaged
 from invoiceguard_api.checks import KositValidator
 from invoiceguard_api.db import make_engine, make_session_factory
 from invoiceguard_api.extraction import PdfExtractor
@@ -43,9 +44,13 @@ def sample_invoices() -> list[tuple[str, bytes]]:
 
 
 def _clear(
-    session_factory: sessionmaker[Session], session: Session, storage: FileStorage
+    session_factory: sessionmaker[Session],
+    session: Session,
+    storage: FileStorage,
+    embedding_model: str,
 ) -> tuple[int, int]:
-    """Delete invoices (fields and checks cascade) and exports, then their files and threads."""
+    """Delete invoices (fields, checks and bookings cascade) and exports, then their files and
+    threads; restore the master data and the booking history."""
     rows = session.execute(select(Invoice.id, Invoice.storage_path)).all()
     paths = [row.storage_path for row in rows]
     exports = session.scalar(select(func.count(DatevExport.id))) or 0
@@ -62,6 +67,7 @@ def _clear(
         )
     )
     seed_demo_data(session)
+    import_packaged(session, embedding_model)
     session.commit()
     for path in paths:
         storage.delete(path)
@@ -74,13 +80,14 @@ def reset_demo(
     storage: FileStorage,
     validator: KositValidator,
     extractor: PdfExtractor | None,
+    embedding_model: str,
 ) -> list[uuid.UUID]:
     """Empty the demo and load the samples; returns the new invoice IDs in loading order.
 
     The samples are processed here, one after another, not by the API's background tasks.
     """
     with session_factory() as session:
-        invoices, exports = _clear(session_factory, session, storage)
+        invoices, exports = _clear(session_factory, session, storage, embedding_model)
         logger.info("Deleted %d invoices and %d DATEV exports", invoices, exports)
         ids = []
         for name, content in sample_invoices():
@@ -113,6 +120,7 @@ def main() -> None:
                 settings.validator_timeout_seconds,
             ),
             make_extractor(settings, None),
+            settings.embedding_model,
         )
     finally:
         engine.dispose()

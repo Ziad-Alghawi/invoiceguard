@@ -26,7 +26,7 @@ SEED_VARS = INVOICEGUARD_SEED_USER_EMAIL INVOICEGUARD_SEED_USER_PASSWORD INVOICE
 export $(SEED_VARS)
 SEED_USER = exec $(foreach var,$(SEED_VARS),-e $(var)) api invoiceguard-seed-user
 
-.PHONY: dev down seed seed-user check test e2e eval eval-gate prod-up prod-down demo-reset deploy
+.PHONY: dev down seed seed-user index check test e2e eval eval-gate prod-up prod-down demo-reset deploy
 
 dev: ## Build and start api + web + db + validator + MCP servers, wait until all are healthy
 ifeq ($(wildcard .env),)
@@ -40,6 +40,9 @@ seed: ## Load the German demo master data into the running stack (safe to run ag
 
 seed-user: ## Create or reset the login users from INVOICEGUARD_SEED_USER_* / _APPROVER_* in .env (safe to run again)
 	$(COMPOSE) $(SEED_USER)
+
+index: ## (Re)build the booking index: packaged history and vectors, embed the rest with a key (ADR-020)
+	$(COMPOSE) exec api invoiceguard-index
 
 down: ## Stop and remove the containers (the database volume is kept)
 	$(COMPOSE) down

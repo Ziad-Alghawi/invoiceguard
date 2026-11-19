@@ -6,6 +6,7 @@ import {
   DecisionPanel,
   type OverrideRequest,
 } from "@/components/decision-panel";
+import type { Bookings } from "@/lib/bookings";
 import type { InvoiceStatus } from "@/lib/invoices";
 
 afterEach(cleanup);
@@ -15,7 +16,7 @@ type Action = (state: ActionState, formData: FormData) => Promise<ActionState>;
 function actions() {
   const done = { error: null };
   return {
-    approve: vi.fn<() => Promise<ActionState>>().mockResolvedValue(done),
+    approve: vi.fn<Action>().mockResolvedValue(done),
     reject: vi.fn<Action>().mockResolvedValue(done),
     requestOverride: vi.fn<Action>().mockResolvedValue(done),
     confirmOverride: vi.fn<Action>().mockResolvedValue(done),
@@ -25,6 +26,37 @@ function actions() {
 }
 
 const NO_REQUEST: OverrideRequest = { requestedBy: null, blocker: null };
+const BOOKINGS: Bookings = {
+  accounts: [
+    { number: "0410", name: "Geschäftsausstattung" },
+    { number: "4806", name: "Wartungskosten für Hard- und Software" },
+    { number: "4900", name: "Sonstige betriebliche Aufwendungen" },
+  ],
+  default_account: "4900",
+  lines: [
+    {
+      line_no: 1,
+      text: "Notebook 14 Zoll",
+      method: "vector",
+      suggestions: [
+        {
+          account: "0410",
+          name: "Geschäftsausstattung",
+          share: 0.9,
+          sources: [],
+        },
+      ],
+      booked: null,
+    },
+    {
+      line_no: 2,
+      text: "Neuer Artikel",
+      method: "text",
+      suggestions: [],
+      booked: null,
+    },
+  ],
+};
 const OWN_REQUEST =
   "You requested it, so a different approver has to decide it.";
 
@@ -38,6 +70,7 @@ function panel(
       status={status}
       failedChecks={status === "ready" ? [] : ["iban"]}
       override={override}
+      bookings={BOOKINGS}
       actions={calls}
     />,
   );
@@ -50,6 +83,25 @@ describe("DecisionPanel", () => {
     expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
     expect(screen.queryByLabelText("Override reason")).toBeNull();
     expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
+  });
+
+  it("approves with an account per line, preselected from the suggestion", async () => {
+    const calls = actions();
+    panel("ready", NO_REQUEST, calls);
+
+    const first = screen.getByLabelText<HTMLSelectElement>(/1\. Notebook/);
+    const second =
+      screen.getByLabelText<HTMLSelectElement>(/2\. Neuer Artikel/);
+    expect(first.value).toBe("0410");
+    expect(second.value).toBe("4900");
+    expect(screen.getByText(/No suggestion/)).toBeTruthy();
+    fireEvent.change(second, { target: { value: "4806" } });
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+
+    await vi.waitFor(() => expect(calls.approve).toHaveBeenCalledOnce());
+    const formData = calls.approve.mock.calls[0][1];
+    expect(formData.get("account-1")).toBe("0410");
+    expect(formData.get("account-2")).toBe("4806");
   });
 
   it("offers an override request, not an approval, on a blocked invoice", () => {
@@ -90,6 +142,7 @@ describe("DecisionPanel", () => {
     );
     const formData = calls.confirmOverride.mock.calls[0][1];
     expect(formData.get("approver_reason")).toBe("Call notes checked.");
+    expect(formData.get("account-1")).toBe("0410");
     expect(calls.declineOverride).not.toHaveBeenCalled();
   });
 
@@ -134,6 +187,7 @@ describe("DecisionPanel", () => {
         status="approved"
         failedChecks={[]}
         override={NO_REQUEST}
+        bookings={BOOKINGS}
         actions={actions()}
       />,
     );

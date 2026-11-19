@@ -49,6 +49,10 @@ mechanism, not real separation of duties.
 - **Exception agent:** a blocked invoice is investigated by an LLM agent with read-only tools on two MCP servers
   (ERP and supplier registry, each with its own read-only database role). It writes a finding for the reviewer and a
   German email draft to the supplier, with every step, token and cent shown; it cannot approve or change anything.
+- **Booking suggestions (RAG, no chat model):** each invoice line gets an SKR03 account suggested from the
+  accounts booked for similar lines before (Gemini embeddings in pgvector, a trigram text match without a key),
+  with the bookings it rests on. The reviewer picks the account per line when approving; only approved invoices
+  enter the index, never one flagged for prompt injection. 98 % top-1 on a held-out set ([results](docs/results.md)).
 - **DATEV-style export:** approved invoices as an `EXTF` Buchungsstapel CSV, each invoice exported once.
 - **Built like production:** typed Python and TypeScript, 99 % API test coverage, Playwright E2E test, CI on
   every PR, Docker Compose, deployed behind Caddy with HTTPS.
@@ -241,6 +245,7 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
 - [ADR-014: R1 demo on one VPS with Docker Compose and Caddy](docs/decisions/ADR-014-demo-hosting-single-vps.md)
 - [ADR-015: Processing graph with LangGraph, approval as `interrupt()`](docs/decisions/ADR-015-processing-graph-approval-interrupt.md)
 - [ADR-016: Four-eyes override of blocked invoices and reopening rejected invoices](docs/decisions/ADR-016-four-eyes-override-and-reopen.md)
+- [ADR-020: Booking suggestions by retrieval over pgvector, with Gemini embeddings](docs/decisions/ADR-020-booking-suggestions-pgvector.md)
 
 ## Roadmap
 
@@ -282,7 +287,8 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
   account, and the nightly reset deletes every upload.
 - DATEV export: not certified and not yet imported into a real DATEV installation. One row per invoice, so invoices
   with several VAT rates (or lines without a rate) get no tax key and the advisor sets the tax; one collective
-  creditor and one expense account for all invoices until booking suggestions (R3); no exchange rate for non-EUR
+  creditor and one expense account for all invoices: the accounts reviewers choose per line are stored but not
+  exported yet ([#24](https://github.com/Ziad-Alghawi/invoiceguard/issues/24)); no exchange rate for non-EUR
   invoices; invoice numbers lose characters DATEV does not allow in Belegfeld 1 (they become `-`).
 
 ## Deutsch

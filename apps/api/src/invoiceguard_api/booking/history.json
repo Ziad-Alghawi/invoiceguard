@@ -1,0 +1,1273 @@
+{
+ "description": "Generated booking history (packages/evals/src/invoiceguard_evals/bookings.py). Every supplier, invoice and amount is made up.",
+ "invoices": [
+  {
+   "supplier_vat_id": "DE999000033",
+   "supplier_name": "Demo IT-Service GmbH",
+   "invoice_number": "IT-2025-0005",
+   "issue_date": "2025-01-11",
+   "lines": [
+    {
+     "text": "Fernwartung Arbeitsplatzrechner",
+     "account": "4806"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000025",
+   "supplier_name": "Beispiel Logistik AG",
+   "invoice_number": "BL-2025-0002",
+   "issue_date": "2025-01-15",
+   "lines": [
+    {
+     "text": "Stückgutversand an Kunden, Zone 3",
+     "account": "4730"
+    },
+    {
+     "text": "Stückgutversand an Kunden, Zone 3",
+     "account": "4730"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000050",
+   "supplier_name": "Exempel Druck & Medien GmbH",
+   "invoice_number": "DM-2025-0004",
+   "issue_date": "2025-01-26",
+   "lines": [
+    {
+     "text": "Fachbuch Rechnungswesen, gedruckt",
+     "account": "4940"
+    },
+    {
+     "text": "Fachzeitschrift Steuerrecht, Jahresabo",
+     "account": "4940"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2025-0002",
+   "issue_date": "2025-01-31",
+   "lines": [
+    {
+     "text": "Schreibtisch höhenverstellbar, 160 x 80 cm",
+     "account": "0420"
+    },
+    {
+     "text": "Schreibtisch höhenverstellbar, 160 x 80 cm",
+     "account": "0420"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000041",
+   "supplier_name": "Fiktiv Gebäudereinigung GmbH",
+   "invoice_number": "GR-2025-0001",
+   "issue_date": "2025-02-01",
+   "lines": [
+    {
+     "text": "Austausch defekter Deckenleuchten",
+     "account": "4260"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000033",
+   "supplier_name": "Demo IT-Service GmbH",
+   "invoice_number": "IT-2025-0002",
+   "issue_date": "2025-02-20",
+   "lines": [
+    {
+     "text": "Einrichtung und Inbetriebnahme",
+     "account": "4806"
+    },
+    {
+     "text": "Webhosting Business-Tarif, monatlich",
+     "account": "4925"
+    },
+    {
+     "text": "Domainregistrierung .de, jährlich",
+     "account": "4925"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000121",
+   "supplier_name": "Autohaus Exempel GmbH",
+   "invoice_number": "AH-2025-0003",
+   "issue_date": "2025-03-12",
+   "lines": [
+    {
+     "text": "Reifenwechsel inkl. Wuchten",
+     "account": "4540"
+    },
+    {
+     "text": "Tankkarte Abrechnung Oktober, Diesel",
+     "account": "4530"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000033",
+   "supplier_name": "Demo IT-Service GmbH",
+   "invoice_number": "IT-2025-0012",
+   "issue_date": "2025-04-02",
+   "lines": [
+    {
+     "text": "Bildschirm 24 Zoll Full HD",
+     "account": "4855"
+    },
+    {
+     "text": "Bildschirm 24 Zoll Full HD",
+     "account": "4855"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2025-0005",
+   "issue_date": "2025-04-08",
+   "lines": [
+    {
+     "text": "Aktenschrank abschließbar, 5 Ordnerhöhen",
+     "account": "0420"
+    },
+    {
+     "text": "Aktenordner breit, 10 Stück",
+     "account": "4930"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000105",
+   "supplier_name": "Beispiel Steuerberatung Partnerschaft",
+   "invoice_number": "SB-2025-0001",
+   "issue_date": "2025-04-11",
+   "lines": [
+    {
+     "text": "Steuerliche Beratung, 4 Stunden",
+     "account": "4950"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000113",
+   "supplier_name": "Beispielnetz Telekommunikation GmbH",
+   "invoice_number": "TK-2025-0004",
+   "issue_date": "2025-04-14",
+   "lines": [
+    {
+     "text": "DSL-Anschluss Filiale, Monatsgebühr",
+     "account": "4925"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000113",
+   "supplier_name": "Beispielnetz Telekommunikation GmbH",
+   "invoice_number": "TK-2025-0003",
+   "issue_date": "2025-04-19",
+   "lines": [
+    {
+     "text": "Mobilfunkvertrag 5 Karten, monatlich",
+     "account": "4920"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2025-0017",
+   "issue_date": "2025-04-21",
+   "lines": [
+    {
+     "text": "Aktenschrank abschließbar, 5 Ordnerhöhen",
+     "account": "0420"
+    },
+    {
+     "text": "Kugelschreiber blau, 50 Stück",
+     "account": "4930"
+    },
+    {
+     "text": "Kopierpapier A4, 80 g/m², Karton à 2.500 Blatt",
+     "account": "4930"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000121",
+   "supplier_name": "Autohaus Exempel GmbH",
+   "invoice_number": "AH-2025-0001",
+   "issue_date": "2025-04-24",
+   "lines": [
+    {
+     "text": "Kraftstoff Super E10, Flottenkarte",
+     "account": "4530"
+    },
+    {
+     "text": "Inspektion Firmenwagen nach Herstellervorgabe",
+     "account": "4540"
+    },
+    {
+     "text": "Kraftstoff Super E10, Flottenkarte",
+     "account": "4530"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000033",
+   "supplier_name": "Demo IT-Service GmbH",
+   "invoice_number": "IT-2025-0001",
+   "issue_date": "2025-05-09",
+   "lines": [
+    {
+     "text": "Virenschutz-Lizenz, Jahresabo 10 Plätze",
+     "account": "4964"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2025-0015",
+   "issue_date": "2025-05-18",
+   "lines": [
+    {
+     "text": "Kopierpapier A4, 80 g/m², Karton à 2.500 Blatt",
+     "account": "4930"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000033",
+   "supplier_name": "Demo IT-Service GmbH",
+   "invoice_number": "IT-2025-0010",
+   "issue_date": "2025-05-20",
+   "lines": [
+    {
+     "text": "Virenschutz-Lizenz, Jahresabo 10 Plätze",
+     "account": "4964"
+    },
+    {
+     "text": "IT-Support-Pauschale Oktober 2026",
+     "account": "4806"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000033",
+   "supplier_name": "Demo IT-Service GmbH",
+   "invoice_number": "IT-2025-0008",
+   "issue_date": "2025-05-24",
+   "lines": [
+    {
+     "text": "Monitor 27 Zoll, USB-C",
+     "account": "4855"
+    },
+    {
+     "text": "Domainregistrierung .de, jährlich",
+     "account": "4925"
+    },
+    {
+     "text": "Einrichtung und Inbetriebnahme",
+     "account": "4806"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2025-0019",
+   "issue_date": "2025-05-31",
+   "lines": [
+    {
+     "text": "Haftnotizen 76 x 76 mm, gelb",
+     "account": "4930"
+    },
+    {
+     "text": "Kugelschreiber blau, 50 Stück",
+     "account": "4930"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000025",
+   "supplier_name": "Beispiel Logistik AG",
+   "invoice_number": "BL-2025-0003",
+   "issue_date": "2025-06-08",
+   "lines": [
+    {
+     "text": "Eilfracht Anlieferung Rohmaterial",
+     "account": "3800"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000033",
+   "supplier_name": "Demo IT-Service GmbH",
+   "invoice_number": "IT-2025-0013",
+   "issue_date": "2025-06-18",
+   "lines": [
+    {
+     "text": "Bildschirm 24 Zoll Full HD",
+     "account": "4855"
+    },
+    {
+     "text": "Domainregistrierung .de, jährlich",
+     "account": "4925"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000050",
+   "supplier_name": "Exempel Druck & Medien GmbH",
+   "invoice_number": "DM-2025-0007",
+   "issue_date": "2025-06-19",
+   "lines": [
+    {
+     "text": "Flyer DIN lang, 5.000 Stück",
+     "account": "4600"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000041",
+   "supplier_name": "Fiktiv Gebäudereinigung GmbH",
+   "invoice_number": "GR-2025-0007",
+   "issue_date": "2025-06-29",
+   "lines": [
+    {
+     "text": "Reparatur Türschließanlage Büro",
+     "account": "4260"
+    },
+    {
+     "text": "Grundreinigung Teppichböden",
+     "account": "4250"
+    },
+    {
+     "text": "Grundreinigung Teppichböden",
+     "account": "4250"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000076",
+   "supplier_name": "Stadtwerke Beispielstadt GmbH",
+   "invoice_number": "SW-2025-0003",
+   "issue_date": "2025-07-03",
+   "lines": [
+    {
+     "text": "Erdgas Abschlagszahlung Oktober",
+     "account": "4240"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000092",
+   "supplier_name": "Muster Versicherung AG",
+   "invoice_number": "MV-2025-0002",
+   "issue_date": "2025-07-06",
+   "lines": [
+    {
+     "text": "Inhaltsversicherung Büro, Jahresprämie",
+     "account": "4360"
+    },
+    {
+     "text": "Betriebshaftpflichtversicherung, Jahresbeitrag",
+     "account": "4360"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000105",
+   "supplier_name": "Beispiel Steuerberatung Partnerschaft",
+   "invoice_number": "SB-2025-0004",
+   "issue_date": "2025-07-11",
+   "lines": [
+    {
+     "text": "Finanzbuchhaltung Monat Oktober",
+     "account": "4955"
+    },
+    {
+     "text": "Steuerliche Beratung, 4 Stunden",
+     "account": "4950"
+    },
+    {
+     "text": "Lohnabrechnung für 12 Mitarbeiter",
+     "account": "4955"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000050",
+   "supplier_name": "Exempel Druck & Medien GmbH",
+   "invoice_number": "DM-2025-0008",
+   "issue_date": "2025-07-15",
+   "lines": [
+    {
+     "text": "Flyer DIN lang, 5.000 Stück",
+     "account": "4600"
+    },
+    {
+     "text": "Visitenkarten, 4/4-farbig, 500 Stück",
+     "account": "4600"
+    },
+    {
+     "text": "Fachzeitschrift Steuerrecht, Jahresabo",
+     "account": "4940"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000076",
+   "supplier_name": "Stadtwerke Beispielstadt GmbH",
+   "invoice_number": "SW-2025-0002",
+   "issue_date": "2025-07-16",
+   "lines": [
+    {
+     "text": "Erdgas Abschlagszahlung Oktober",
+     "account": "4240"
+    },
+    {
+     "text": "Stromlieferung Abschlag November",
+     "account": "4240"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000050",
+   "supplier_name": "Exempel Druck & Medien GmbH",
+   "invoice_number": "DM-2025-0003",
+   "issue_date": "2025-07-18",
+   "lines": [
+    {
+     "text": "Flyer DIN lang, 5.000 Stück",
+     "account": "4600"
+    },
+    {
+     "text": "Visitenkarten, 4/4-farbig, 500 Stück",
+     "account": "4600"
+    },
+    {
+     "text": "Visitenkarten, 4/4-farbig, 500 Stück",
+     "account": "4600"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000025",
+   "supplier_name": "Beispiel Logistik AG",
+   "invoice_number": "BL-2025-0006",
+   "issue_date": "2025-07-29",
+   "lines": [
+    {
+     "text": "Palettentransport Hamburg nach München",
+     "account": "4730"
+    },
+    {
+     "text": "Lagerung pro Palette und Monat",
+     "account": "4210"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000033",
+   "supplier_name": "Demo IT-Service GmbH",
+   "invoice_number": "IT-2025-0009",
+   "issue_date": "2025-08-22",
+   "lines": [
+    {
+     "text": "Monitor 27 Zoll, USB-C",
+     "account": "4855"
+    },
+    {
+     "text": "IT-Support-Pauschale Oktober 2026",
+     "account": "4806"
+    },
+    {
+     "text": "Einrichtung und Inbetriebnahme",
+     "account": "4806"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000033",
+   "supplier_name": "Demo IT-Service GmbH",
+   "invoice_number": "IT-2025-0003",
+   "issue_date": "2025-10-07",
+   "lines": [
+    {
+     "text": "Laptop 15,6 Zoll, 16 GB RAM",
+     "account": "0410"
+    },
+    {
+     "text": "Virenschutz-Lizenz, Jahresabo 10 Plätze",
+     "account": "4964"
+    },
+    {
+     "text": "Laptop 15,6 Zoll, 16 GB RAM",
+     "account": "0410"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000113",
+   "supplier_name": "Beispielnetz Telekommunikation GmbH",
+   "invoice_number": "TK-2025-0001",
+   "issue_date": "2025-10-07",
+   "lines": [
+    {
+     "text": "Glasfaser-Internetanschluss 1 Gbit/s, monatlich",
+     "account": "4925"
+    },
+    {
+     "text": "DSL-Anschluss Filiale, Monatsgebühr",
+     "account": "4925"
+    },
+    {
+     "text": "Festnetz-Telefonanlage Grundgebühr",
+     "account": "4920"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000050",
+   "supplier_name": "Exempel Druck & Medien GmbH",
+   "invoice_number": "DM-2025-0009",
+   "issue_date": "2025-10-12",
+   "lines": [
+    {
+     "text": "Imagebroschüre A4, 16 Seiten, Auflage 1.000",
+     "account": "4600"
+    },
+    {
+     "text": "Fachbuch Rechnungswesen, gedruckt",
+     "account": "4940"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000092",
+   "supplier_name": "Muster Versicherung AG",
+   "invoice_number": "MV-2025-0001",
+   "issue_date": "2025-10-27",
+   "lines": [
+    {
+     "text": "Betriebshaftpflichtversicherung, Jahresbeitrag",
+     "account": "4360"
+    },
+    {
+     "text": "Inhaltsversicherung Büro, Jahresprämie",
+     "account": "4360"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000025",
+   "supplier_name": "Beispiel Logistik AG",
+   "invoice_number": "BL-2025-0001",
+   "issue_date": "2025-11-03",
+   "lines": [
+    {
+     "text": "Palettentransport Hamburg nach München",
+     "account": "4730"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000041",
+   "supplier_name": "Fiktiv Gebäudereinigung GmbH",
+   "invoice_number": "GR-2025-0003",
+   "issue_date": "2025-11-12",
+   "lines": [
+    {
+     "text": "Unterhaltsreinigung Büroflächen Oktober 2026",
+     "account": "4250"
+    },
+    {
+     "text": "Glasreinigung Fensterfronten",
+     "account": "4250"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000033",
+   "supplier_name": "Demo IT-Service GmbH",
+   "invoice_number": "IT-2025-0014",
+   "issue_date": "2025-11-15",
+   "lines": [
+    {
+     "text": "Office-Paket Cloud-Abo, 12 Monate pro Nutzer",
+     "account": "4964"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000121",
+   "supplier_name": "Autohaus Exempel GmbH",
+   "invoice_number": "AH-2025-0002",
+   "issue_date": "2025-11-23",
+   "lines": [
+    {
+     "text": "Tankkarte Abrechnung Oktober, Diesel",
+     "account": "4530"
+    },
+    {
+     "text": "Reifenwechsel inkl. Wuchten",
+     "account": "4540"
+    },
+    {
+     "text": "Inspektion Firmenwagen nach Herstellervorgabe",
+     "account": "4540"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000041",
+   "supplier_name": "Fiktiv Gebäudereinigung GmbH",
+   "invoice_number": "GR-2025-0004",
+   "issue_date": "2025-12-05",
+   "lines": [
+    {
+     "text": "Unterhaltsreinigung Büroflächen Oktober 2026",
+     "account": "4250"
+    },
+    {
+     "text": "Glasreinigung Fensterfronten",
+     "account": "4250"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000105",
+   "supplier_name": "Beispiel Steuerberatung Partnerschaft",
+   "invoice_number": "SB-2025-0002",
+   "issue_date": "2025-12-10",
+   "lines": [
+    {
+     "text": "Rechtsberatung Vertragsprüfung",
+     "account": "4950"
+    },
+    {
+     "text": "Bilanz und Gewinn- und Verlustrechnung 2024",
+     "account": "4957"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000105",
+   "supplier_name": "Beispiel Steuerberatung Partnerschaft",
+   "invoice_number": "SB-2026-0005",
+   "issue_date": "2026-01-01",
+   "lines": [
+    {
+     "text": "Bilanz und Gewinn- und Verlustrechnung 2024",
+     "account": "4957"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000105",
+   "supplier_name": "Beispiel Steuerberatung Partnerschaft",
+   "invoice_number": "SB-2026-0006",
+   "issue_date": "2026-01-01",
+   "lines": [
+    {
+     "text": "Lohnabrechnung für 12 Mitarbeiter",
+     "account": "4955"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000033",
+   "supplier_name": "Demo IT-Service GmbH",
+   "invoice_number": "IT-2026-0004",
+   "issue_date": "2026-01-06",
+   "lines": [
+    {
+     "text": "Notebook 14 Zoll, 32 GB RAM",
+     "account": "0410"
+    },
+    {
+     "text": "Office-Paket Cloud-Abo, 12 Monate pro Nutzer",
+     "account": "4964"
+    },
+    {
+     "text": "Fernwartung Arbeitsplatzrechner",
+     "account": "4806"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2026-0003",
+   "issue_date": "2026-01-18",
+   "lines": [
+    {
+     "text": "Schiebetürenschrank Stahl, 120 cm",
+     "account": "0420"
+    },
+    {
+     "text": "Toner schwarz für Bürodrucker",
+     "account": "4930"
+    },
+    {
+     "text": "Haftnotizen 76 x 76 mm, gelb",
+     "account": "4930"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000076",
+   "supplier_name": "Stadtwerke Beispielstadt GmbH",
+   "invoice_number": "SW-2026-0001",
+   "issue_date": "2026-02-02",
+   "lines": [
+    {
+     "text": "Stromlieferung Abschlag November",
+     "account": "4240"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000033",
+   "supplier_name": "Demo IT-Service GmbH",
+   "invoice_number": "IT-2026-0015",
+   "issue_date": "2026-03-03",
+   "lines": [
+    {
+     "text": "Monitor 27 Zoll, USB-C",
+     "account": "4855"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2026-0011",
+   "issue_date": "2026-03-12",
+   "lines": [
+    {
+     "text": "Ordner DIN A4, 8 cm, blau",
+     "account": "4930"
+    },
+    {
+     "text": "Bürodrehstuhl ergonomisch mit Armlehnen",
+     "account": "4855"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2026-0008",
+   "issue_date": "2026-03-17",
+   "lines": [
+    {
+     "text": "Bürodrehstuhl ergonomisch mit Armlehnen",
+     "account": "4855"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2026-0018",
+   "issue_date": "2026-03-21",
+   "lines": [
+    {
+     "text": "Haftnotizen 76 x 76 mm, gelb",
+     "account": "4930"
+    },
+    {
+     "text": "Elektrisch höhenverstellbarer Arbeitstisch",
+     "account": "0420"
+    },
+    {
+     "text": "Toner schwarz für Bürodrucker",
+     "account": "4930"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000025",
+   "supplier_name": "Beispiel Logistik AG",
+   "invoice_number": "BL-2026-0009",
+   "issue_date": "2026-03-26",
+   "lines": [
+    {
+     "text": "Stückgutversand an Kunden, Zone 3",
+     "account": "4730"
+    },
+    {
+     "text": "Lagerfläche 50 m², Monatsmiete",
+     "account": "4210"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000050",
+   "supplier_name": "Exempel Druck & Medien GmbH",
+   "invoice_number": "DM-2026-0002",
+   "issue_date": "2026-04-13",
+   "lines": [
+    {
+     "text": "Fachbuch Rechnungswesen, gedruckt",
+     "account": "4940"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000025",
+   "supplier_name": "Beispiel Logistik AG",
+   "invoice_number": "BL-2026-0004",
+   "issue_date": "2026-04-20",
+   "lines": [
+    {
+     "text": "Lagerfläche 50 m², Monatsmiete",
+     "account": "4210"
+    },
+    {
+     "text": "Lagerung pro Palette und Monat",
+     "account": "4210"
+    },
+    {
+     "text": "Eilfracht Anlieferung Rohmaterial",
+     "account": "3800"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2026-0004",
+   "issue_date": "2026-04-23",
+   "lines": [
+    {
+     "text": "Tonerkartusche Laserdrucker schwarz",
+     "account": "4930"
+    },
+    {
+     "text": "Kopierpapier DIN A4 weiß, 500 Blatt",
+     "account": "4930"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000041",
+   "supplier_name": "Fiktiv Gebäudereinigung GmbH",
+   "invoice_number": "GR-2026-0002",
+   "issue_date": "2026-05-08",
+   "lines": [
+    {
+     "text": "Grundreinigung Teppichböden",
+     "account": "4250"
+    },
+    {
+     "text": "Austausch defekter Deckenleuchten",
+     "account": "4260"
+    },
+    {
+     "text": "Reparatur Türschließanlage Büro",
+     "account": "4260"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2026-0012",
+   "issue_date": "2026-05-11",
+   "lines": [
+    {
+     "text": "Schiebetürenschrank Stahl, 120 cm",
+     "account": "0420"
+    },
+    {
+     "text": "Schreibtischstuhl mit Netzrücken",
+     "account": "4855"
+    },
+    {
+     "text": "Aktenordner breit, 10 Stück",
+     "account": "4930"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000025",
+   "supplier_name": "Beispiel Logistik AG",
+   "invoice_number": "BL-2026-0007",
+   "issue_date": "2026-05-18",
+   "lines": [
+    {
+     "text": "Expresszustellung Ersatzteile",
+     "account": "3800"
+    },
+    {
+     "text": "Eilfracht Anlieferung Rohmaterial",
+     "account": "3800"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000025",
+   "supplier_name": "Beispiel Logistik AG",
+   "invoice_number": "BL-2026-0005",
+   "issue_date": "2026-05-22",
+   "lines": [
+    {
+     "text": "Palettentransport Hamburg nach München",
+     "account": "4730"
+    },
+    {
+     "text": "Expresszustellung Ersatzteile",
+     "account": "3800"
+    },
+    {
+     "text": "Lagerung pro Palette und Monat",
+     "account": "4210"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2026-0009",
+   "issue_date": "2026-05-23",
+   "lines": [
+    {
+     "text": "Aktenschrank abschließbar, 5 Ordnerhöhen",
+     "account": "0420"
+    },
+    {
+     "text": "Schreibtischstuhl mit Netzrücken",
+     "account": "4855"
+    },
+    {
+     "text": "Schreibtisch höhenverstellbar, 160 x 80 cm",
+     "account": "0420"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000033",
+   "supplier_name": "Demo IT-Service GmbH",
+   "invoice_number": "IT-2026-0007",
+   "issue_date": "2026-05-24",
+   "lines": [
+    {
+     "text": "Laptop 15,6 Zoll, 16 GB RAM",
+     "account": "0410"
+    },
+    {
+     "text": "Webhosting Business-Tarif, monatlich",
+     "account": "4925"
+    },
+    {
+     "text": "Webhosting Business-Tarif, monatlich",
+     "account": "4925"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000041",
+   "supplier_name": "Fiktiv Gebäudereinigung GmbH",
+   "invoice_number": "GR-2026-0005",
+   "issue_date": "2026-05-30",
+   "lines": [
+    {
+     "text": "Unterhaltsreinigung Büroflächen Oktober 2026",
+     "account": "4250"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2026-0007",
+   "issue_date": "2026-05-31",
+   "lines": [
+    {
+     "text": "Toner schwarz für Bürodrucker",
+     "account": "4930"
+    },
+    {
+     "text": "Ordner DIN A4, 8 cm, blau",
+     "account": "4930"
+    },
+    {
+     "text": "Elektrisch höhenverstellbarer Arbeitstisch",
+     "account": "0420"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000033",
+   "supplier_name": "Demo IT-Service GmbH",
+   "invoice_number": "IT-2026-0011",
+   "issue_date": "2026-06-06",
+   "lines": [
+    {
+     "text": "Fernwartung Arbeitsplatzrechner",
+     "account": "4806"
+    },
+    {
+     "text": "Notebook 14 Zoll, 32 GB RAM",
+     "account": "0410"
+    },
+    {
+     "text": "Office-Paket Cloud-Abo, 12 Monate pro Nutzer",
+     "account": "4964"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000025",
+   "supplier_name": "Beispiel Logistik AG",
+   "invoice_number": "BL-2026-0008",
+   "issue_date": "2026-06-13",
+   "lines": [
+    {
+     "text": "Expresszustellung Ersatzteile",
+     "account": "3800"
+    },
+    {
+     "text": "Lagerfläche 50 m², Monatsmiete",
+     "account": "4210"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000050",
+   "supplier_name": "Exempel Druck & Medien GmbH",
+   "invoice_number": "DM-2026-0006",
+   "issue_date": "2026-06-19",
+   "lines": [
+    {
+     "text": "Fachzeitschrift Steuerrecht, Jahresabo",
+     "account": "4940"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2026-0013",
+   "issue_date": "2026-06-20",
+   "lines": [
+    {
+     "text": "Ordner DIN A4, 8 cm, blau",
+     "account": "4930"
+    },
+    {
+     "text": "Tonerkartusche Laserdrucker schwarz",
+     "account": "4930"
+    },
+    {
+     "text": "Kopierpapier A4, 80 g/m², Karton à 2.500 Blatt",
+     "account": "4930"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000041",
+   "supplier_name": "Fiktiv Gebäudereinigung GmbH",
+   "invoice_number": "GR-2026-0008",
+   "issue_date": "2026-06-22",
+   "lines": [
+    {
+     "text": "Glasreinigung Fensterfronten",
+     "account": "4250"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2026-0016",
+   "issue_date": "2026-06-25",
+   "lines": [
+    {
+     "text": "Aktenordner breit, 10 Stück",
+     "account": "4930"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2026-0010",
+   "issue_date": "2026-06-27",
+   "lines": [
+    {
+     "text": "Tonerkartusche Laserdrucker schwarz",
+     "account": "4930"
+    },
+    {
+     "text": "Kugelschreiber blau, 50 Stück",
+     "account": "4930"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000050",
+   "supplier_name": "Exempel Druck & Medien GmbH",
+   "invoice_number": "DM-2026-0005",
+   "issue_date": "2026-07-02",
+   "lines": [
+    {
+     "text": "Imagebroschüre A4, 16 Seiten, Auflage 1.000",
+     "account": "4600"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000050",
+   "supplier_name": "Exempel Druck & Medien GmbH",
+   "invoice_number": "DM-2026-0001",
+   "issue_date": "2026-07-17",
+   "lines": [
+    {
+     "text": "Imagebroschüre A4, 16 Seiten, Auflage 1.000",
+     "account": "4600"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000105",
+   "supplier_name": "Beispiel Steuerberatung Partnerschaft",
+   "invoice_number": "SB-2026-0003",
+   "issue_date": "2026-07-18",
+   "lines": [
+    {
+     "text": "Finanzbuchhaltung Monat Oktober",
+     "account": "4955"
+    },
+    {
+     "text": "Erstellung Jahresabschluss 2025",
+     "account": "4957"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000113",
+   "supplier_name": "Beispielnetz Telekommunikation GmbH",
+   "invoice_number": "TK-2026-0002",
+   "issue_date": "2026-07-29",
+   "lines": [
+    {
+     "text": "Festnetz-Telefonanlage Grundgebühr",
+     "account": "4920"
+    },
+    {
+     "text": "Glasfaser-Internetanschluss 1 Gbit/s, monatlich",
+     "account": "4925"
+    },
+    {
+     "text": "Mobilfunkvertrag 5 Karten, monatlich",
+     "account": "4920"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000041",
+   "supplier_name": "Fiktiv Gebäudereinigung GmbH",
+   "invoice_number": "GR-2026-0006",
+   "issue_date": "2026-08-14",
+   "lines": [
+    {
+     "text": "Austausch defekter Deckenleuchten",
+     "account": "4260"
+    },
+    {
+     "text": "Reparatur Türschließanlage Büro",
+     "account": "4260"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000105",
+   "supplier_name": "Beispiel Steuerberatung Partnerschaft",
+   "invoice_number": "SB-2026-0007",
+   "issue_date": "2026-08-15",
+   "lines": [
+    {
+     "text": "Erstellung Jahresabschluss 2025",
+     "account": "4957"
+    },
+    {
+     "text": "Rechtsberatung Vertragsprüfung",
+     "account": "4950"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2026-0014",
+   "issue_date": "2026-08-18",
+   "lines": [
+    {
+     "text": "Kopierpapier DIN A4 weiß, 500 Blatt",
+     "account": "4930"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2026-0001",
+   "issue_date": "2026-08-20",
+   "lines": [
+    {
+     "text": "Elektrisch höhenverstellbarer Arbeitstisch",
+     "account": "0420"
+    },
+    {
+     "text": "Schreibtischstuhl mit Netzrücken",
+     "account": "4855"
+    },
+    {
+     "text": "Schiebetürenschrank Stahl, 120 cm",
+     "account": "0420"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000033",
+   "supplier_name": "Demo IT-Service GmbH",
+   "invoice_number": "IT-2026-0006",
+   "issue_date": "2026-08-26",
+   "lines": [
+    {
+     "text": "Notebook 14 Zoll, 32 GB RAM",
+     "account": "0410"
+    },
+    {
+     "text": "IT-Support-Pauschale Oktober 2026",
+     "account": "4806"
+    }
+   ]
+  },
+  {
+   "supplier_vat_id": "DE999000017",
+   "supplier_name": "Muster Bürobedarf GmbH",
+   "invoice_number": "MB-2026-0006",
+   "issue_date": "2026-08-28",
+   "lines": [
+    {
+     "text": "Bürodrehstuhl ergonomisch mit Armlehnen",
+     "account": "4855"
+    },
+    {
+     "text": "Kopierpapier DIN A4 weiß, 500 Blatt",
+     "account": "4930"
+    }
+   ]
+  }
+ ]
+}

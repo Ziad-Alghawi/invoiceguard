@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from invoiceguard_api.agent.service import investigate_if_blocked
 from invoiceguard_api.auth import CurrentUser, current_user
+from invoiceguard_api.booking.embedding import embed_invoice_lines
 from invoiceguard_api.db import DbSession
 from invoiceguard_api.filetype import safe_filename, source_type_for
 from invoiceguard_api.models import (
@@ -295,7 +296,15 @@ def upload_invoice(
         request.app.state.extractor,
         invoice.id,
     )
-    # Background tasks run one after another: this one sees the processed invoice (ADR-018).
+    # Background tasks run one after another: these see the processed invoice (ADR-018).
+    background_tasks.add_task(
+        embed_invoice_lines,
+        request.app.state.session_factory,
+        request.app.state.embedder,
+        settings.embedding_model,
+        settings.llm_daily_budget_usd,
+        invoice.id,
+    )
     if settings.agent_auto_investigate:
         background_tasks.add_task(
             investigate_if_blocked,

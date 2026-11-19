@@ -394,9 +394,9 @@ def test_demo_reset_replaces_the_threads(
 ) -> None:
     session_factory = make_session_factory(engine)
     storage = FileStorage(settings.storage_dir)
-    old = demo.reset_demo(session_factory, storage, NO_VALIDATOR, None)
+    old = demo.reset_demo(session_factory, storage, NO_VALIDATOR, None, settings.embedding_model)
 
-    new = demo.reset_demo(session_factory, storage, NO_VALIDATOR, None)
+    new = demo.reset_demo(session_factory, storage, NO_VALIDATOR, None, settings.embedding_model)
 
     assert all(graph.get_state(config(invoice_id)).values == {} for invoice_id in old)
     assert all(paused_for_review(graph, invoice_id) for invoice_id in new)

@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Booking suggestions (R3-4a, ADR-020): pgvector in our PostgreSQL (migration 0012: `embeddings`, `bookings`,
+  extensions `vector` and `pg_trgm`). The lines of a new invoice are embedded after processing
+  (`gemini/gemini-embedding-001`, 768 dimensions, through LiteLLM; logged and within the daily budget); a line
+  without a vector uses a trigram text match. `GET /invoices/{id}/bookings` suggests an SKR03 account per line
+  from the 10 most similar booked lines (same supplier preferred) with the bookings it rests on; no chat model.
+  `/approve` and `/override/confirm` take the account per line, stored with the decision and the top suggestion,
+  and the approved lines are indexed at once (an invoice flagged for prompt injection is never retrieved). Web:
+  one account dropdown per line, preselected with the suggestion and its evidence. `make index`
+  (`invoiceguard-index`) imports a generated booking history with packaged vectors (the demo reset does too) and
+  embeds what is missing. Eval part `bookings`: **98.4 % top-1 / 100 % top-3 by vector** on 62 held-out lines
+  (text match 91.9 %, the supplier's most frequent account 45.2 %); the gate fails on a drop over 2 points.
+  Live spend under $0.001. The DATEV export does not use the chosen accounts yet (#24).
 - Attack set and CI eval gate (R3-3, ADR-019 updated): 44 prompt-injection cases in `packages/evals`
   (`attacks.py`), each a poisoned twin of a generated invoice, with the text in PDF text (visible, white, 1 pt),
   supplier and item names, XML notes or the filename. They run through the app and, when blocked, through the

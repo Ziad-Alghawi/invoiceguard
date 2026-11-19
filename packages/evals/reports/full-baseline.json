@@ -1,7 +1,7 @@
 {
  "meta": {
-  "created_at": "2026-11-19T00:55:18+00:00",
-  "git_commit": "a39e05d",
+  "created_at": "2026-11-19T11:42:06+00:00",
+  "git_commit": "65259f6",
   "set": "full",
   "model": "gemini/gemini-3.8-flash",
   "runs": 2,
@@ -14,9 +14,10 @@
   "threshold": "0.9",
   "mode": "replay",
   "live_calls": 0,
-  "replayed_calls": 260,
+  "replayed_calls": 261,
   "live_spend_usd": "0",
-  "validator": true
+  "validator": true,
+  "embedding_model": "gemini/gemini-embedding-001"
  },
  "parser": {
   "files": 72,
@@ -15863,6 +15864,2509 @@
      "email_subject": "Rechnung FG-26-1129-A44 vom 23.01.2027 zu Bestellung PO-2026-0008: Korrektur des Bruttobetrags erforderlich",
      "email_body": "Guten Tag,\n\nbei der Prüfung Ihrer Rechnung FG-26-1129-A44 vom 23.01.2027 zu unserer Bestellung PO-2026-0008 ist eine rechnerische Unstimmigkeit aufgetreten.\n\nBei einem Nettobetrag von 1.450,00 EUR und 19 % Umsatzsteuer in Höhe von 275,50 EUR beläuft sich der korrekte Bruttobetrag auf 1.725,50 EUR. In Ihrer Rechnung ist jedoch ein Bruttobetrag von 1.825,50 EUR ausgewiesen.\n\nBitte senden Sie uns eine korrigierte Rechnung mit dem berichtigten Gesamtbetrag zu.\n\nMit freundlichen Grüßen\nIhre Kreditorenbuchhaltung",
      "cost_usd": "0.005127"
+    }
+   }
+  ]
+ },
+ "bookings": {
+  "model": "gemini/gemini-embedding-001",
+  "history_bookings": 159,
+  "history_invoices": 79,
+  "embedded_texts": 93,
+  "embedding_cost_usd": "0.000170",
+  "summary": {
+   "lines": 62,
+   "vector": {
+    "top1": 0.9838709677419355,
+    "top3": 1.0,
+    "hit1": 0.9838709677419355,
+    "hit3": 0.9838709677419355,
+    "hit10": 0.9838709677419355,
+    "mrr": 0.9838709677419355
+   },
+   "text": {
+    "top1": 0.9193548387096774,
+    "top3": 1.0,
+    "hit1": 0.9193548387096774,
+    "hit3": 0.9354838709677419,
+    "hit10": 1.0,
+    "mrr": 0.9391321044546851
+   },
+   "vector_sum": {
+    "top1": 0.9516129032258065,
+    "top3": 1.0,
+    "hit1": 0.9838709677419355,
+    "hit3": 0.9838709677419355,
+    "hit10": 0.9838709677419355,
+    "mrr": 0.9838709677419355
+   },
+   "supplier_top": {
+    "top1": 0.45161290322580644
+   },
+   "default": {
+    "top1": 0.0
+   }
+  },
+  "by_kind": {
+   "seen": {
+    "lines": 28,
+    "vector": {
+     "top1": 1.0,
+     "top3": 1.0,
+     "hit1": 1.0,
+     "hit3": 1.0,
+     "hit10": 1.0,
+     "mrr": 1.0
+    },
+    "text": {
+     "top1": 1.0,
+     "top3": 1.0,
+     "hit1": 1.0,
+     "hit3": 1.0,
+     "hit10": 1.0,
+     "mrr": 1.0
+    },
+    "vector_sum": {
+     "top1": 0.9642857142857143,
+     "top3": 1.0,
+     "hit1": 1.0,
+     "hit3": 1.0,
+     "hit10": 1.0,
+     "mrr": 1.0
+    },
+    "supplier_top": {
+     "top1": 0.4642857142857143
+    },
+    "default": {
+     "top1": 0.0
+    }
+   },
+   "unseen": {
+    "lines": 28,
+    "vector": {
+     "top1": 1.0,
+     "top3": 1.0,
+     "hit1": 0.9642857142857143,
+     "hit3": 0.9642857142857143,
+     "hit10": 0.9642857142857143,
+     "mrr": 0.9642857142857143
+    },
+    "text": {
+     "top1": 0.8214285714285714,
+     "top3": 1.0,
+     "hit1": 0.8214285714285714,
+     "hit3": 0.8571428571428571,
+     "hit10": 1.0,
+     "mrr": 0.865221088435374
+    },
+    "vector_sum": {
+     "top1": 0.9642857142857143,
+     "top3": 1.0,
+     "hit1": 0.9642857142857143,
+     "hit3": 0.9642857142857143,
+     "hit10": 0.9642857142857143,
+     "mrr": 0.9642857142857143
+    },
+    "supplier_top": {
+     "top1": 0.4642857142857143
+    },
+    "default": {
+     "top1": 0.0
+    }
+   },
+   "new_supplier": {
+    "lines": 6,
+    "vector": {
+     "top1": 0.8333333333333334,
+     "top3": 1.0,
+     "hit1": 1.0,
+     "hit3": 1.0,
+     "hit10": 1.0,
+     "mrr": 1.0
+    },
+    "text": {
+     "top1": 1.0,
+     "top3": 1.0,
+     "hit1": 1.0,
+     "hit3": 1.0,
+     "hit10": 1.0,
+     "mrr": 1.0
+    },
+    "vector_sum": {
+     "top1": 0.8333333333333334,
+     "top3": 1.0,
+     "hit1": 1.0,
+     "hit3": 1.0,
+     "hit10": 1.0,
+     "mrr": 1.0
+    },
+    "supplier_top": {
+     "top1": 0.3333333333333333
+    },
+    "default": {
+     "top1": 0.0
+    }
+   }
+  },
+  "cases": [
+   {
+    "case": "seen-paper",
+    "kind": "seen",
+    "line": "Kopierpapier A4, 80 g/m², Karton à 2.500 Blatt",
+    "account": "4930",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-paper",
+    "kind": "unseen",
+    "line": "Druckerpapier A4, 5 Pakete à 500 Blatt",
+    "account": "4930",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4930",
+      "0420"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4930",
+      "0420"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-folders",
+    "kind": "seen",
+    "line": "Ordner DIN A4, 8 cm, blau",
+    "account": "4930",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4930",
+      "0420"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4930",
+      "0420"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-folders",
+    "kind": "unseen",
+    "line": "Stehordner A4 mit 80 mm Rücken",
+    "account": "4930",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4930",
+      "0420"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4930",
+      "0420"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4930",
+      "4855"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-toner",
+    "kind": "seen",
+    "line": "Toner schwarz für Bürodrucker",
+    "account": "4930",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4930",
+      "4855"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-toner",
+    "kind": "unseen",
+    "line": "Druckerpatrone schwarz, hohe Reichweite",
+    "account": "4930",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4930",
+      "4855",
+      "0420"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-stationery",
+    "kind": "seen",
+    "line": "Haftnotizen 76 x 76 mm, gelb",
+    "account": "4930",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4930",
+      "4855",
+      "0420"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-stationery",
+    "kind": "unseen",
+    "line": "Schreibblöcke A4 kariert, 10 Stück",
+    "account": "4930",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": null
+    },
+    "vector_sum": {
+     "suggested": [
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": null
+    },
+    "text": {
+     "suggested": [
+      "4930",
+      "4855",
+      "0420"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-chair",
+    "kind": "seen",
+    "line": "Bürodrehstuhl ergonomisch mit Armlehnen",
+    "account": "4855",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4855",
+      "0420"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4855",
+      "0420"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4855",
+      "4930",
+      "0420"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-chair",
+    "kind": "unseen",
+    "line": "Ergonomischer Bürostuhl mit Lordosenstütze",
+    "account": "4855",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4855",
+      "0420"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4855",
+      "0420"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4855",
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-desk",
+    "kind": "seen",
+    "line": "Schreibtisch höhenverstellbar, 160 x 80 cm",
+    "account": "0420",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "0420",
+      "4855"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "0420",
+      "4855"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "0420",
+      "4855"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-desk",
+    "kind": "unseen",
+    "line": "Steh-Sitz-Schreibtisch 180 cm",
+    "account": "0420",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "0420",
+      "4855"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "0420",
+      "4855"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "0420",
+      "4855",
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-cabinet",
+    "kind": "seen",
+    "line": "Aktenschrank abschließbar, 5 Ordnerhöhen",
+    "account": "0420",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "0420",
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "0420",
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "0420",
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-cabinet",
+    "kind": "unseen",
+    "line": "Büroschrank mit Flügeltüren, abschließbar",
+    "account": "0420",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "0420",
+      "4855"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "0420",
+      "4855"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "0420",
+      "4855"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-freight_out",
+    "kind": "seen",
+    "line": "Palettentransport Hamburg nach München",
+    "account": "4730",
+    "baselines": {
+     "supplier_top": "3800",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4730",
+      "4210",
+      "3800"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4730",
+      "4210",
+      "3800"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4730",
+      "4210"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-freight_out",
+    "kind": "unseen",
+    "line": "Spedition: Auslieferung von 6 Paletten an Kunde in Leipzig",
+    "account": "4730",
+    "baselines": {
+     "supplier_top": "3800",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4730",
+      "4210",
+      "3800"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4730",
+      "4210",
+      "3800"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4210",
+      "4730",
+      "3800"
+     ],
+     "top1": false,
+     "top3": true,
+     "rank": 4
+    }
+   },
+   {
+    "case": "seen-storage",
+    "kind": "seen",
+    "line": "Lagerung pro Palette und Monat",
+    "account": "4210",
+    "baselines": {
+     "supplier_top": "3800",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4210",
+      "4730"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4210",
+      "4730"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4210",
+      "4730",
+      "4964"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-storage",
+    "kind": "unseen",
+    "line": "Miete Außenlager Oktober",
+    "account": "4210",
+    "baselines": {
+     "supplier_top": "3800",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4210",
+      "4730"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4210",
+      "4730"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4210",
+      "4240",
+      "4530"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-freight_in",
+    "kind": "seen",
+    "line": "Expresszustellung Ersatzteile",
+    "account": "3800",
+    "baselines": {
+     "supplier_top": "3800",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "3800",
+      "4730"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "3800",
+      "4730"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "3800",
+      "4957",
+      "4210"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-freight_in",
+    "kind": "unseen",
+    "line": "Kurierdienst für Wareneingang Maschinenteile",
+    "account": "3800",
+    "baselines": {
+     "supplier_top": "3800",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "3800",
+      "4730"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "3800",
+      "4730"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "3800",
+      "4210",
+      "4730"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-notebook",
+    "kind": "seen",
+    "line": "Notebook 14 Zoll, 32 GB RAM",
+    "account": "0410",
+    "baselines": {
+     "supplier_top": "4806",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "0410",
+      "4855"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "0410",
+      "4855"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "0410",
+      "4855"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-notebook",
+    "kind": "unseen",
+    "line": "Business-Notebook mit Dockingstation",
+    "account": "0410",
+    "baselines": {
+     "supplier_top": "4806",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "0410",
+      "4806",
+      "4855"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "0410",
+      "4806",
+      "4855"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4925",
+      "0410",
+      "4964"
+     ],
+     "top1": false,
+     "top3": true,
+     "rank": 4
+    }
+   },
+   {
+    "case": "seen-monitor",
+    "kind": "seen",
+    "line": "Monitor 27 Zoll, USB-C",
+    "account": "4855",
+    "baselines": {
+     "supplier_top": "4806",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4855",
+      "0410"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4855",
+      "0410"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4855",
+      "0410"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-monitor",
+    "kind": "unseen",
+    "line": "Flachbildschirm 27 Zoll für Arbeitsplatz",
+    "account": "4855",
+    "baselines": {
+     "supplier_top": "4806",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4855",
+      "4806"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4855",
+      "4806"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4855",
+      "4806",
+      "0410"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-it_service",
+    "kind": "seen",
+    "line": "Einrichtung und Inbetriebnahme",
+    "account": "4806",
+    "baselines": {
+     "supplier_top": "4806",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4806",
+      "4925"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4806",
+      "4925"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4806",
+      "4925",
+      "4360"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-it_service",
+    "kind": "unseen",
+    "line": "Technischer Support vor Ort, Stunden",
+    "account": "4806",
+    "baselines": {
+     "supplier_top": "4806",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4806",
+      "4925"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4806",
+      "4925"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4806",
+      "4950"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-licences",
+    "kind": "seen",
+    "line": "Office-Paket Cloud-Abo, 12 Monate pro Nutzer",
+    "account": "4964",
+    "baselines": {
+     "supplier_top": "4806",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4964",
+      "4925",
+      "4806"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4964",
+      "4925",
+      "4806"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4964",
+      "4210",
+      "4925"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-licences",
+    "kind": "unseen",
+    "line": "Softwarelizenz Buchhaltungsprogramm, Jahresgebühr",
+    "account": "4964",
+    "baselines": {
+     "supplier_top": "4806",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4964",
+      "4925"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4964",
+      "4925"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4964",
+      "4806",
+      "4360"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-hosting",
+    "kind": "seen",
+    "line": "Webhosting Business-Tarif, monatlich",
+    "account": "4925",
+    "baselines": {
+     "supplier_top": "4806",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4925",
+      "4964",
+      "4806"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4925",
+      "4964",
+      "4806"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4925",
+      "4964",
+      "4920"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-hosting",
+    "kind": "unseen",
+    "line": "Cloud-Server, monatliche Gebühr",
+    "account": "4925",
+    "baselines": {
+     "supplier_top": "4806",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4925",
+      "4964",
+      "4806"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4925",
+      "4964",
+      "4806"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4964",
+      "4925",
+      "4920"
+     ],
+     "top1": false,
+     "top3": true,
+     "rank": 4
+    }
+   },
+   {
+    "case": "seen-cleaning",
+    "kind": "seen",
+    "line": "Unterhaltsreinigung Büroflächen Oktober 2026",
+    "account": "4250",
+    "baselines": {
+     "supplier_top": "4250",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4250",
+      "4260"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4250",
+      "4260"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4250",
+      "4806"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-cleaning",
+    "kind": "unseen",
+    "line": "Reinigung Sanitärbereiche und Küche, monatlich",
+    "account": "4250",
+    "baselines": {
+     "supplier_top": "4250",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4250",
+      "4260"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4250",
+      "4260"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4250",
+      "4210"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-repairs",
+    "kind": "seen",
+    "line": "Reparatur Türschließanlage Büro",
+    "account": "4260",
+    "baselines": {
+     "supplier_top": "4250",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4260",
+      "4250"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4260",
+      "4250"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4260",
+      "4250"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-repairs",
+    "kind": "unseen",
+    "line": "Instandsetzung Bodenbelag im Flur",
+    "account": "4260",
+    "baselines": {
+     "supplier_top": "4250",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4260",
+      "4250"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4260",
+      "4250"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4250",
+      "4260"
+     ],
+     "top1": false,
+     "top3": true,
+     "rank": 7
+    }
+   },
+   {
+    "case": "seen-print_ads",
+    "kind": "seen",
+    "line": "Visitenkarten, 4/4-farbig, 500 Stück",
+    "account": "4600",
+    "baselines": {
+     "supplier_top": "4600",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4600",
+      "4940"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4600",
+      "4940"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4600",
+      "4940"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-print_ads",
+    "kind": "unseen",
+    "line": "Werbeplakate A1 für den Messestand",
+    "account": "4600",
+    "baselines": {
+     "supplier_top": "4600",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4600",
+      "4940"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4600",
+      "4940"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4600",
+      "4940"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-books",
+    "kind": "seen",
+    "line": "Fachbuch Rechnungswesen, gedruckt",
+    "account": "4940",
+    "baselines": {
+     "supplier_top": "4600",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4940",
+      "4600"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4940",
+      "4600"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4940",
+      "4600",
+      "4957"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-books",
+    "kind": "unseen",
+    "line": "Kommentar zum Umsatzsteuergesetz, Loseblattwerk",
+    "account": "4940",
+    "baselines": {
+     "supplier_top": "4600",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4940",
+      "4600"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4940",
+      "4600"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4940",
+      "4600"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-energy",
+    "kind": "seen",
+    "line": "Stromlieferung Abschlag November",
+    "account": "4240",
+    "baselines": {
+     "supplier_top": "4240",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4240",
+      "4530",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4240",
+      "4530",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4240",
+      "3800",
+      "0420"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-energy",
+    "kind": "unseen",
+    "line": "Wasser und Abwasser, Quartalsabrechnung",
+    "account": "4240",
+    "baselines": {
+     "supplier_top": "4240",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4240",
+      "4530",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4240",
+      "4530",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4530",
+      "4240",
+      "4957"
+     ],
+     "top1": false,
+     "top3": true,
+     "rank": 3
+    }
+   },
+   {
+    "case": "seen-insurance",
+    "kind": "seen",
+    "line": "Betriebshaftpflichtversicherung, Jahresbeitrag",
+    "account": "4360",
+    "baselines": {
+     "supplier_top": "4360",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4360",
+      "4940",
+      "4925"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4360",
+      "4940",
+      "4925"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4360",
+      "4806",
+      "4925"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-insurance",
+    "kind": "unseen",
+    "line": "Elektronikversicherung für EDV-Anlagen",
+    "account": "4360",
+    "baselines": {
+     "supplier_top": "4360",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4360",
+      "4806",
+      "4964"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4360",
+      "4806",
+      "4964"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4360",
+      "0420",
+      "3800"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-bookkeeping",
+    "kind": "seen",
+    "line": "Finanzbuchhaltung Monat Oktober",
+    "account": "4955",
+    "baselines": {
+     "supplier_top": "4950",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4955",
+      "4957",
+      "4530"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4955",
+      "4957",
+      "4530"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4955",
+      "4250",
+      "4240"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-bookkeeping",
+    "kind": "unseen",
+    "line": "Laufende Buchhaltung September, Belege kontiert",
+    "account": "4955",
+    "baselines": {
+     "supplier_top": "4950",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4955",
+      "4957",
+      "4950"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4955",
+      "4957",
+      "4950"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4955",
+      "4950",
+      "4957"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-annual_accounts",
+    "kind": "seen",
+    "line": "Erstellung Jahresabschluss 2025",
+    "account": "4957",
+    "baselines": {
+     "supplier_top": "4950",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4957",
+      "4955",
+      "4950"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4957",
+      "4955",
+      "4950"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4957",
+      "3800",
+      "4240"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-annual_accounts",
+    "kind": "unseen",
+    "line": "Abschlussarbeiten und Steuerbilanz 2025",
+    "account": "4957",
+    "baselines": {
+     "supplier_top": "4950",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4957",
+      "4955",
+      "4950"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4957",
+      "4955",
+      "4950"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4957",
+      "4950",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-advice",
+    "kind": "seen",
+    "line": "Steuerliche Beratung, 4 Stunden",
+    "account": "4950",
+    "baselines": {
+     "supplier_top": "4950",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4950",
+      "4957",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4950",
+      "4957",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4950",
+      "4957",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-advice",
+    "kind": "unseen",
+    "line": "Beratung zur Umsatzsteuer, 3 Std.",
+    "account": "4950",
+    "baselines": {
+     "supplier_top": "4950",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4950",
+      "4957",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4950",
+      "4957",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4950",
+      "4957",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-phone",
+    "kind": "seen",
+    "line": "Mobilfunkvertrag 5 Karten, monatlich",
+    "account": "4920",
+    "baselines": {
+     "supplier_top": "4920",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4920",
+      "4925"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4925",
+      "4920"
+     ],
+     "top1": false,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4920",
+      "4925"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-phone",
+    "kind": "unseen",
+    "line": "Datenvolumen-Zusatzpaket für Diensthandys",
+    "account": "4920",
+    "baselines": {
+     "supplier_top": "4920",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4920",
+      "4925"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4925",
+      "4920"
+     ],
+     "top1": false,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4920",
+      "4925",
+      "4250"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-internet",
+    "kind": "seen",
+    "line": "Glasfaser-Internetanschluss 1 Gbit/s, monatlich",
+    "account": "4925",
+    "baselines": {
+     "supplier_top": "4920",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4925",
+      "4920"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4925",
+      "4920"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4925",
+      "4920"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-internet",
+    "kind": "unseen",
+    "line": "Breitbandanschluss Büro, 500 Mbit/s",
+    "account": "4925",
+    "baselines": {
+     "supplier_top": "4920",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4925",
+      "4920",
+      "4360"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4925",
+      "4920",
+      "4360"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4925",
+      "4930",
+      "4920"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-car_repair",
+    "kind": "seen",
+    "line": "Inspektion Firmenwagen nach Herstellervorgabe",
+    "account": "4540",
+    "baselines": {
+     "supplier_top": "4530",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4540",
+      "4530",
+      "4806"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4540",
+      "4530",
+      "4806"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4540",
+      "4730",
+      "4530"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-car_repair",
+    "kind": "unseen",
+    "line": "Ölwechsel und Bremsbeläge vorne erneuert",
+    "account": "4540",
+    "baselines": {
+     "supplier_top": "4530",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4540",
+      "4530",
+      "4806"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4540",
+      "4530",
+      "4806"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4540",
+      "4530",
+      "4957"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "seen-fuel",
+    "kind": "seen",
+    "line": "Tankkarte Abrechnung Oktober, Diesel",
+    "account": "4530",
+    "baselines": {
+     "supplier_top": "4530",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4530",
+      "4540",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4530",
+      "4540",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4530",
+      "4240",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "unseen-fuel",
+    "kind": "unseen",
+    "line": "Tankrechnung Dienstfahrzeuge September",
+    "account": "4530",
+    "baselines": {
+     "supplier_top": "4530",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4530",
+      "4540",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4530",
+      "4540",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4530",
+      "4955",
+      "4540"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "new-paper",
+    "kind": "new_supplier",
+    "line": "Kopierpapier A4 weiß, 2.500 Blatt",
+    "account": "4930",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4930",
+      "4600"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4930",
+      "4600"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "new-toner",
+    "kind": "new_supplier",
+    "line": "Toner cyan für Farblaser",
+    "account": "4930",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4930",
+      "4600"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4930",
+      "4600"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4930",
+      "4955"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "new-chair",
+    "kind": "new_supplier",
+    "line": "Drehstuhl schwarz mit Armlehnen",
+    "account": "4855",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4855",
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4855",
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4855",
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "new-print_ads",
+    "kind": "new_supplier",
+    "line": "Flyer A5, 2.000 Stück, beidseitig",
+    "account": "4600",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4600",
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4600",
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4600",
+      "4930"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "new-phone",
+    "kind": "new_supplier",
+    "line": "Mobilfunk-Grundgebühr April",
+    "account": "4920",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4925",
+      "4920"
+     ],
+     "top1": false,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4925",
+      "4920"
+     ],
+     "top1": false,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4920",
+      "4925",
+      "4250"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    }
+   },
+   {
+    "case": "new-it_service",
+    "kind": "new_supplier",
+    "line": "Wartung der IT-Systeme, Pauschale",
+    "account": "4806",
+    "baselines": {
+     "supplier_top": "4930",
+     "default": "4900"
+    },
+    "vector": {
+     "suggested": [
+      "4806",
+      "4920",
+      "4925"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "vector_sum": {
+     "suggested": [
+      "4806",
+      "4920",
+      "4925"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
+    },
+    "text": {
+     "suggested": [
+      "4806",
+      "4930",
+      "4260"
+     ],
+     "top1": true,
+     "top3": true,
+     "rank": 1
     }
    }
   ]

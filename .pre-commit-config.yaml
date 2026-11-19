@@ -34,5 +34,6 @@ repos:
       - id: detect-secrets
         args: [--baseline, .secrets.baseline]
         # Lock files, and eval data that is hashes by design: SHA-256 pins, recorded replies keyed by
-        # hash, generated invoices with fictitious IBANs (ADR-019). All code stays scanned.
-        exclude: (^|/)(uv\.lock|pnpm-lock\.yaml)$|^packages/evals/(sources\.json|datasets/generated/|recordings/|reports/)
+        # hash, generated invoices with fictitious IBANs (ADR-019), packaged embedding vectors in
+        # base64 (ADR-020). All code stays scanned.
+        exclude: (^|/)(uv\.lock|pnpm-lock\.yaml)$|^packages/evals/(sources\.json|datasets/generated/|recordings/|reports/)|^apps/api/src/invoiceguard_api/booking/vectors\.json$

@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     # Spending cap per UTC day in US dollars, summed from `model_calls`. Once reached, PDFs wait in
     # `awaiting_extraction` until a later restart (ADR-014). Unset: no cap.
     llm_daily_budget_usd: Decimal | None = Field(default=None, gt=0)
+    # Booking suggestions (ADR-020): a LiteLLM embedding model whose vectors have the size of the
+    # `embeddings.vector` column (768). Changing it means running `invoiceguard-index` again.
+    embedding_model: str = "gemini/gemini-embedding-001"
     # Exception agent (ADR-018): investigates blocked invoices with the read-only MCP servers
     # (ADR-017). It runs only with a model key and both MCP URLs; otherwise the "Investigate"
     # button shows a recorded run where one exists.
@@ -83,7 +86,8 @@ class Settings(BaseSettings):
     # own creditor numbers.
     datev_creditor_account: str = Field(default="70000", pattern=r"^\d{5,9}$")
     # Gegenkonto: the expense account, not an automatic tax account (the BU key adds the tax).
-    # SKR03 4900 "Sonstige betriebliche Aufwendungen" until booking suggestions exist (R3).
+    # SKR03 4900 "Sonstige betriebliche Aufwendungen". The accounts reviewers choose per line
+    # (ADR-020) are not exported yet.
     datev_expense_account: str = Field(default="4900", pattern=r"^\d{4,8}$")
     # Input VAT rate -> BU key (SKR03: 9 = 19 % Vorsteuer, 8 = 7 % Vorsteuer). Set as JSON in
     # the environment, for example {"19": "9", "7": "8"}.

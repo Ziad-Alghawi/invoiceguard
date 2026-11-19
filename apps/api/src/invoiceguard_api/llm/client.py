@@ -48,6 +48,29 @@ class LLMError(Exception):
         self.latency_ms = latency_ms
 
 
+# What vectors are for, mapped to the provider's task type (ADR-020). `similarity`: short texts
+# compared with each other, such as invoice line descriptions with booked ones.
+EmbeddingTask = Literal["similarity"]
+
+
+@dataclass(frozen=True)
+class EmbeddingReply:
+    # One vector per text, in the order of the texts.
+    vectors: tuple[tuple[float, ...], ...]
+    input_tokens: int
+    # None when the price table has no price for the model, as for `LLMReply`.
+    cost_usd: Decimal | None
+    latency_ms: int
+
+
+class Embedder(Protocol):
+    def embed(
+        self, *, model: str, texts: Sequence[str], dimensions: int, task: EmbeddingTask
+    ) -> EmbeddingReply:
+        """One vector of `dimensions` numbers per text; raises LLMError if the call fails."""
+        ...
+
+
 class LLMClient(Protocol):
     def structured(
         self,

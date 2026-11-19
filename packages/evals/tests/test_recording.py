@@ -7,20 +7,40 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from invoiceguard_api.llm import FilePart, LLMError, LLMReply, ReasoningEffort, TextPart, UserPart
+from invoiceguard_api.llm import (
+    EmbeddingReply,
+    EmbeddingTask,
+    FilePart,
+    LLMError,
+    LLMReply,
+    ReasoningEffort,
+    TextPart,
+    UserPart,
+)
 
 from invoiceguard_evals.recording import MissingRecording, RecordingClient, SpendCapReached
+
+from .fakes import FakeEmbeddings
 
 REPLY = LLMReply(
     text='{"ok": true}', input_tokens=10, output_tokens=5, cost_usd=Decimal("0.01"), latency_ms=1200
 )
 
 
-class FakeModel:
+class FakeModel(FakeEmbeddings):
     def __init__(self, reply: LLMReply = REPLY, fail: bool = False) -> None:
         self.reply = reply
         self.fail = fail
         self.calls = 0
+        self.embedded: list[list[str]] = []
+
+    def embed(
+        self, *, model: str, texts: Sequence[str], dimensions: int, task: EmbeddingTask
+    ) -> EmbeddingReply:
+        self.embedded.append(list(texts))
+        if self.fail:
+            raise LLMError("quota exceeded", 50)
+        return super().embed(model=model, texts=texts, dimensions=dimensions, task=task)
 
     def structured(
         self,
@@ -126,3 +146,46 @@ def test_an_unknown_price_is_recorded_as_unknown(tmp_path: Path) -> None:
 def test_replay_can_count_a_missing_recording_as_a_failed_call(tmp_path: Path) -> None:
     with pytest.raises(LLMError, match="live call failed or was never made"):
         ask(RecordingClient(tmp_path, missing_as_failure=True))
+
+
+def embed(client: RecordingClient, *texts: str) -> EmbeddingReply:
+    return client.embed(model="gemini/embed", texts=texts, dimensions=768, task="similarity")
+
+
+def test_embeddings_are_recorded_per_text_and_replay_in_any_batch(tmp_path: Path) -> None:
+    model = FakeModel()
+    recorded = embed(RecordingClient(tmp_path, model, Decimal(1)), "Toner", "Papier")
+
+    replayed = embed(RecordingClient(tmp_path), "Papier", "Toner", "Papier")
+
+    assert replayed.vectors == (recorded.vectors[1], recorded.vectors[0], recorded.vectors[1])
+    assert len(replayed.vectors[0]) == 768
+    assert model.embedded == [["Toner", "Papier"]]
+    assert len(list(tmp_path.iterdir())) == 2
+
+
+def test_live_embeds_only_the_texts_without_a_recording(tmp_path: Path) -> None:
+    model = FakeModel()
+    client = RecordingClient(tmp_path, model, Decimal(1))
+    embed(client, "Toner")
+
+    reply = embed(client, "Toner", "Ordner")
+
+    assert model.embedded == [["Toner"], ["Ordner"]]
+    assert reply.cost_usd == Decimal("0.000002")
+    assert client.live_calls == 2
+
+
+def test_a_missing_embedding_stops_replay_or_counts_as_failed(tmp_path: Path) -> None:
+    with pytest.raises(MissingRecording, match="1 text"):
+        embed(RecordingClient(tmp_path), "Toner")
+    with pytest.raises(LLMError, match="never made"):
+        embed(RecordingClient(tmp_path, missing_as_failure=True), "Toner")
+
+
+def test_the_cap_and_failed_calls_record_no_embedding(tmp_path: Path) -> None:
+    with pytest.raises(SpendCapReached):
+        embed(RecordingClient(tmp_path, FakeModel(), Decimal(0)), "Toner")
+    with pytest.raises(LLMError):
+        embed(RecordingClient(tmp_path, FakeModel(fail=True), Decimal(1)), "Toner")
+    assert list(tmp_path.iterdir()) == []

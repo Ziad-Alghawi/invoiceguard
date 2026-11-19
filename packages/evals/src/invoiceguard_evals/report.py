@@ -289,6 +289,69 @@ def _attacks(attacks: dict[str, Any]) -> list[str]:
     return [*lines, ""]
 
 
+BOOKING_KINDS = (
+    ("seen", "Wording in the history"),
+    ("unseen", "Held-out wording"),
+    ("new_supplier", "Supplier without history"),
+)
+
+
+def _bookings(bookings: dict[str, Any]) -> list[str]:
+    b = bookings
+    s = b["summary"]
+    vector, by_text = s["vector"], s["text"]
+    lines = [
+        "## Booking suggestions and retrieval",
+        "",
+        "An SKR03 account per invoice line from the accounts booked for similar lines before "
+        "(ADR-020; no chat model). The history is generated (`bookings.py`): "
+        f"{b['history_bookings']} booked lines on {b['history_invoices']} invoices of 10 "
+        "suppliers. "
+        f"The {s['lines']} test lines are a wording that is in the history, a held-out wording of "
+        "the same item, or a supplier without any history; the truth is the item's account, set "
+        "by hand. **Vector**: embeddings (`" + b["model"] + "`, 768 dimensions); **text**: the "
+        "trigram text match the app uses for a line without a vector. A retrieved booking is "
+        "relevant when it books the same item.",
+        "",
+        f"- Top-1 / top-3 by vector: **{pct(vector['top1'])} / {pct(vector['top3'])}**; "
+        f"by text match: {pct(by_text['top1'])} / {pct(by_text['top3'])}",
+        f"- Retrieval by vector: hit@1 {pct(vector['hit1'])}, hit@3 {pct(vector['hit3'])}, "
+        f"MRR {num(vector['mrr'], 3)}; by text match: hit@1 {pct(by_text['hit1'])}, "
+        f"hit@3 {pct(by_text['hit3'])}, MRR {num(by_text['mrr'], 3)}",
+        "- Without retrieval: the supplier's most frequent account "
+        f"{pct(s['supplier_top']['top1'])} top-1, always 4900 {pct(s['default']['top1'])}",
+        f"- First design (plain sum of similarities, replaced after the first run): top-1 "
+        f"{pct(s['vector_sum']['top1'])}, top-3 {pct(s['vector_sum']['top3'])} by vector",
+        f"- Embedded texts: {b['embedded_texts']}, ${b['embedding_cost_usd']} in total",
+        "",
+    ]
+    rows = []
+    for kind, label in BOOKING_KINDS:
+        k = b["by_kind"][kind]
+        rows.append([
+            label, str(k["lines"]),
+            f"{pct(k['vector']['top1'])} / {pct(k['vector']['top3'])}",
+            f"{pct(k['text']['top1'])} / {pct(k['text']['top3'])}",
+            f"{pct(k['vector_sum']['top1'])} / {pct(k['vector_sum']['top3'])}",
+            pct(k["supplier_top"]["top1"]),
+        ])  # fmt: skip
+    lines += _table(
+        ["Test lines", "Lines", "Vector top-1 / top-3", "Text top-1 / top-3",
+         "First design top-1 / top-3", "Supplier's top account"],
+        rows,
+    )  # fmt: skip
+    misses = [
+        [c["case"], c["line"], c["account"], method, ", ".join(c[method]["suggested"]) or "-"]
+        for c in b["cases"]
+        for method in ("vector", "text")
+        if not c[method]["top1"]
+    ]
+    if misses:
+        lines += ["", "Lines whose top suggestion was wrong:", ""]
+        lines += _table(["Case", "Line", "Account", "Method", "Suggested (best first)"], misses)
+    return [*lines, ""]
+
+
 def render_results(
     report: dict[str, Any], chosen_effort: str, source: str, notes: str | None = None
 ) -> str:
@@ -321,6 +384,8 @@ def render_results(
         lines += _decisions(report["decisions"])
     if report.get("attacks"):
         lines += _attacks(report["attacks"])
+    if report.get("bookings"):
+        lines += _bookings(report["bookings"])
     if notes:
         lines += ["## Notes on this run", "", notes.strip(), ""]
     return "\n".join(lines).rstrip() + "\n"
