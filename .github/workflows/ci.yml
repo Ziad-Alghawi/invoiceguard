@@ -487,9 +487,14 @@ jobs:
             yq 'select(.kind == "CustomResourceDefinition")' "$RUNNER_TEMP/platform/$file" \
               | kubectl apply --server-side --filename -
           done
-          # A new CRD's kind is served only once it is Established.
-          kubectl wait --for condition=established --timeout=60s \
-            crd/applications.argoproj.io crd/sealedsecrets.bitnami.com
+          # A new CRD's kind is served only once it is Established; `kubectl wait` fails at once
+          # while a CRD has no status conditions yet, so wait for the kinds themselves.
+          for attempt in $(seq 1 60); do
+            kubectl get applications.argoproj.io,sealedsecrets.bitnami.com --all-namespaces \
+              > /dev/null 2>&1 && break
+            [ "$attempt" -lt 60 ] || { echo "the CRDs were not served after 60 s"; exit 1; }
+            sleep 1
+          done
           kubectl create namespace argocd
           kubectl apply --dry-run=server --filename infra/k3s/traefik-config.yaml
           kubectl apply --dry-run=server --filename infra/argocd/root.yaml --filename infra/argocd/apps
