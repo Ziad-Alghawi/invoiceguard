@@ -490,9 +490,15 @@ jobs:
           kubectl create namespace argocd
           kubectl apply --dry-run=server --filename infra/k3s/traefik-config.yaml
           kubectl apply --dry-run=server --filename infra/argocd/root.yaml --filename infra/argocd/apps
+      # Last: the server's Traefik settings, merged into k3s's own Traefik chart as on the server;
+      # Traefik must start with them (a dry run cannot see a flag the chart builds wrongly).
+      - name: Traefik starts with the server's settings (hostPort 8880, entrypoint address, ClusterIP)
+        run: .github/scripts/k3d-traefik-config-test.sh
       - name: Cluster state and logs
         if: failure()
         run: |
+          kubectl --namespace kube-system get pods
+          kubectl --namespace kube-system logs deployment/traefik --tail=20 || true
           kubectl --namespace invoiceguard get all,pvc,jobs,networkpolicies
           kubectl --namespace invoiceguard get events --sort-by=.lastTimestamp
           for pod in $(kubectl --namespace invoiceguard get pods --output name); do
