@@ -58,7 +58,7 @@ k3d (job `helm`).
 The demo server runs one k3s node ([ADR-021](../docs/decisions/ADR-021-platform-k3s-argocd.md)):
 
 - [`k3s/`](k3s): the server's k3s settings (no ServiceLB, encrypted Secrets), Traefik's settings (a
-  hostPort on Docker's bridge address for the shared Caddy, trusted forwarded headers), a systemd drop-in
+  hostPort 8880 that the shared Caddy reaches through Docker's bridge, trusted forwarded headers), a systemd drop-in
   that starts k3s after Docker, `fetch.sh` (Argo CD core, the sealed-secrets controller and kubeseal at
   pinned versions, checked by SHA-256) and `seal-secrets.sh`.
 - [`argocd/`](argocd): the root Application (app-of-apps) and, in [`argocd/apps/`](argocd/apps), the

@@ -2,9 +2,11 @@
 # /var/lib/rancher/k3s/server/manifests/traefik-config.yaml; k3s applies changes by itself.
 #
 # The shared Caddy (/opt/edge, in Docker) keeps ports 80/443 and TLS. It forwards the demo's host
-# to Traefik on 172.17.0.1:8880: Docker's bridge address, reachable from the server and its
-# containers only (and port 8880 is closed in the Hetzner firewall). Caddy reaches it as
-# host.docker.internal (extra_hosts in infra/edge/compose.yml).
+# to Traefik's hostPort 8880 at Docker's bridge address 172.17.0.1, as host.docker.internal
+# (extra_hosts in infra/edge/compose.yml). The hostPort answers on every address of the server;
+# the Hetzner Cloud Firewall lets only 22, 80 and 443 in, as for k3s's own ports 6443 and 10250.
+# No `hostIP`: the chart also uses it as Traefik's listen address inside the pod, where that
+# address does not exist, so Traefik could not start (CI checks this, job `helm`).
 apiVersion: helm.cattle.io/v1
 kind: HelmChartConfig
 metadata:
@@ -19,7 +21,6 @@ spec:
     ports:
       web:
         hostPort: 8880
-        hostIP: 172.17.0.1
         forwardedHeaders:
           # Caddy's requests arrive from the address Docker gives them on the way into the pod
           # network. Traefik keeps their X-Forwarded-For only from these addresses; from any other

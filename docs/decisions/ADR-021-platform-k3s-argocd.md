@@ -121,5 +121,10 @@ images built, scanned and pushed by CI.
   - The "rescale right before R4-4" step and its downgrade path are gone.
   - About 1.4 GiB stays free at idle. Prometheus and Grafana (R4-5) need an estimated 250 to 350 MiB, so
     their retention and scrape intervals are chosen for this node in R4-5.
-  - A reboot test runs before and after the cutover: k3s starts after Docker, whose bridge address carries
-    Traefik's port.
+  - A reboot test runs before and after the cutover: k3s starts after Docker, through whose bridge
+    (`host.docker.internal`) Caddy reaches Traefik.
+- **Edge, corrected:** Traefik does not listen on localhost or on Docker's bridge address only. Its chart uses
+  a port's `hostIP` also as Traefik's listen address inside the pod, where that address does not exist, so
+  Traefik could not start. Traefik's hostPort 8880 answers on every address of the server instead; the
+  Hetzner Cloud Firewall lets only 22, 80 and 443 in, as for k3s's own ports 6443 and 10250. The CI job
+  `helm` starts k3s's Traefik with the server's settings on k3d, so a wrong flag fails there.
