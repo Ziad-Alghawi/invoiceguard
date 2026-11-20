@@ -1,0 +1,41 @@
+# Settings for k3s's bundled Traefik (chart 40.1.0, Traefik 3.7 in k3s v1.36.6; ADR-024). Copied to
+# /var/lib/rancher/k3s/server/manifests/traefik-config.yaml; k3s applies changes by itself.
+#
+# The shared Caddy (/opt/edge, in Docker) keeps ports 80/443 and TLS. It forwards the demo's host
+# to Traefik's hostPort 8880 at Docker's bridge address 172.17.0.1, as host.docker.internal
+# (extra_hosts in infra/edge/compose.yml). The hostPort answers on every address of the server;
+# the Hetzner Cloud Firewall lets only 22, 80 and 443 in, as for k3s's own ports 6443 and 10250.
+# No `hostIP`: the chart also uses it as Traefik's listen address inside the pod, where that
+# address does not exist, so Traefik could not start (CI checks this, job `helm`).
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    service:
+      spec:
+        # No LoadBalancer: ServiceLB is off (config.yaml), and the hostPort below is the way in.
+        type: ClusterIP
+    ports:
+      web:
+        hostPort: 8880
+        forwardedHeaders:
+          # Docker masquerades Caddy's requests to the pod network's gateway (cni0, 10.42.0.1) on
+          # their way into the pod network; measured on the server with a whoami pod (2026-11-20).
+          # Traefik keeps X-Forwarded-For only from this address; from any other it would replace
+          # the header, and the per-IP login limit would see one visitor. Outside traffic to the
+          # hostPort keeps its own source address (and is blocked by the Hetzner firewall).
+          trustedIPs:
+            - 10.42.0.1/32
+      websecure:
+        # TLS ends at Caddy.
+        expose:
+          default: false
+    # One node and a hostPort: a second Traefik pod could never bind the port, so the old pod
+    # stops before the new one starts (a few seconds without ingress on a Traefik upgrade).
+    updateStrategy:
+      rollingUpdate:
+        maxUnavailable: 1
+        maxSurge: 0

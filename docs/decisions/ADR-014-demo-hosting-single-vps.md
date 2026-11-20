@@ -1,6 +1,7 @@
 # ADR-014: R1 demo on one VPS with Docker Compose and Caddy
 
-- **Status:** Accepted; hosting partly superseded by [ADR-021](ADR-021-platform-k3s-argocd.md) (k3s, Argo CD) from R4-4
+- **Status:** Accepted; hosting partly superseded by [ADR-021](ADR-021-platform-k3s-argocd.md) (k3s, Argo CD) from R4-4,
+  on the same server (amendment below)
 - **Date:** 2026-11-14 (updated 2026-11-18 with R2-7: upload page, demo upload rules)
 
 ## Context
@@ -70,3 +71,14 @@ stack** we test in CI, plus a production override (`infra/docker-compose.prod.ym
   for all sites, so `caddy validate` runs first (CI validates ours).
 - In R4 the same images move to the cluster; Caddy's job goes to the ingress controller and cert-manager, the
   reset becomes a Kubernetes CronJob.
+
+## Amendment (2026-11-20, R4-4): the same server, now with k3s
+
+- The demo stays on this VPS (`invoiceguard`, CX23); no larger server is available at an acceptable price
+  (ADR-021 amendment). k3s runs on it next to Docker, and Compose is switched off at the cutover.
+- What stays: one shared Caddy in `/opt/edge` with one file per site, the only process with public ports, TLS
+  and security headers; the Hetzner Cloud Firewall; the host name and its DNS record; no access log; no
+  backups (sample data, reset nightly).
+- What changes: InvoiceGuard's site file forwards to k3s's Traefik on Docker's bridge address (Caddy gets an
+  `extra_hosts` entry) instead of a Compose container on `edge`; images come from GHCR instead of being built on
+  the server; the nightly reset is a CronJob instead of a cron entry; `deploy` has sudo with a password.

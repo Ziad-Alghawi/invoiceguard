@@ -1,0 +1,30 @@
+# The app (ADR-023): api, web, validator, MCP servers, the migration hook (PreSync) and the demo
+# reset. The image tag is the commit Argo CD deployed: `demo` resolves to a commit SHA, and CI pushed
+# the images under that SHA before it moved the tag (ADR-021), so no commit is needed to deploy.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: invoiceguard
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Ziad-Alghawi/invoiceguard.git
+    targetRevision: demo
+    path: infra/helm/invoiceguard
+    helm:
+      releaseName: invoiceguard
+      parameters:
+        - name: image.tag
+          value: $ARGOCD_APP_REVISION
+        - name: ingress.host
+          value: invoiceguard.ziadalghawi.com
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: invoiceguard
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

@@ -40,7 +40,13 @@ test "$(k exec statefulset/invoiceguard-postgres -- psql -U postgres -d invoiceg
   "SELECT rolsuper::text || ',' || rolcreaterole::text FROM pg_roles WHERE rolname = 'invoiceguard_owner'")" = false,true
 
 echo "--- The web page through Traefik shows the api ok"
-curl --fail --silent --show-error "$ingress/" | grep -qE 'API: (<!-- -->)?ok'
+# `helm --wait` returns as soon as the pods are Ready, but the NetworkPolicy controller admits a new
+# pod's address a moment later, so web's first call to the api can still be dropped: retry for 30 s.
+for attempt in $(seq 1 30); do
+  curl --fail --silent --show-error "$ingress/" | grep -qE 'API: (<!-- -->)?ok' && break
+  [ "$attempt" -lt 30 ] || { echo "the web page never showed the api ok"; exit 1; }
+  sleep 1
+done
 
 echo "--- Traefik refuses a body above the limit with 413"
 test "$(head -c 12000000 /dev/zero | curl --silent --output /dev/null --write-out '%{http_code}' \

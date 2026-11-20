@@ -1,6 +1,7 @@
-# InvoiceGuard public demo. Only the web app is public; api, validator and database stay on the
-# project's own Compose network. `invoiceguard-web` is the web container's alias on `edge`
-# (infra/docker-compose.prod.yml).
+# InvoiceGuard public demo, served from k3s on this server (ADR-021, ADR-024). Caddy keeps TLS and
+# forwards to k3s's Traefik on Docker's bridge address (host.docker.internal, extra_hosts in
+# ../compose.yml); Traefik routes the host name to the web pods. Caddy sets X-Forwarded-For to the
+# visitor's address, which Traefik trusts from Caddy only (infra/k3s/traefik-config.yaml).
 invoiceguard.ziadalghawi.com {
 	import security_headers
 	encode zstd gzip
@@ -10,5 +11,5 @@ invoiceguard.ziadalghawi.com {
 		max_size 12MB
 	}
 
-	reverse_proxy invoiceguard-web:3000
+	reverse_proxy host.docker.internal:8880
 }

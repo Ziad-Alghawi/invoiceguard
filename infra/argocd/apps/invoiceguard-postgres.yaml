@@ -1,0 +1,29 @@
+# PostgreSQL (ADR-023), before the app: the app's migration hook needs the database. No
+# resources-finalizer, so deleting this Application leaves PostgreSQL and its volume running.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: invoiceguard-postgres
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Ziad-Alghawi/invoiceguard.git
+    targetRevision: demo
+    path: infra/helm/invoiceguard-postgres
+    helm:
+      releaseName: invoiceguard-postgres
+      parameters:
+        # One 4 GB node (ADR-021): the demo data fits easily with the default shared_buffers of
+        # 128 MB; the chart's default limit is 1 Gi.
+        - name: resources.limits.memory
+          value: 512Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: invoiceguard
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
