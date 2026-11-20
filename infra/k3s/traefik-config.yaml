@@ -22,12 +22,13 @@ spec:
       web:
         hostPort: 8880
         forwardedHeaders:
-          # Caddy's requests arrive from the address Docker gives them on the way into the pod
-          # network. Traefik keeps their X-Forwarded-For only from these addresses; from any other
-          # it would replace the header, and the per-IP login limit would see one visitor.
+          # Docker masquerades Caddy's requests to the pod network's gateway (cni0, 10.42.0.1) on
+          # their way into the pod network; measured on the server with a whoami pod (2026-11-20).
+          # Traefik keeps X-Forwarded-For only from this address; from any other it would replace
+          # the header, and the per-IP login limit would see one visitor. Outside traffic to the
+          # hostPort keeps its own source address (and is blocked by the Hetzner firewall).
           trustedIPs:
             - 10.42.0.1/32
-            - 172.18.0.0/16
       websecure:
         # TLS ends at Caddy.
         expose:
