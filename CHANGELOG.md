@@ -273,6 +273,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fraud sample ends `blocked` with the IBAN evidence.
 
 ### Fixed
+- Startup recovery could leave an uploaded plain PDF in `awaiting_extraction` (#31): a run that finds the
+  invoice already read, by recovery, now still goes on to extraction, which claims the invoice, so it is
+  extracted once. Found as flaky CI; covered by two deterministic tests.
 - Injection scan docstring and known limitations: white and tiny PDF text is in the text layer and scanned like
   visible text (the attack set showed it); the earlier note said it was not seen.
 - Eval recordings: UUIDs in text parts are replaced in the replay key, so agent runs replay on a fresh eval

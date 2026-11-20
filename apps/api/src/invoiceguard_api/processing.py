@@ -697,17 +697,24 @@ def process_invoice(
 
     A plain PDF goes on to `extract_invoice` when an extractor is configured. If the database
     itself fails, the invoice stays `processing` and startup recovery resumes it. With
-    `wait=False` (recovery) an invoice whose lock another session holds is skipped.
+    `wait=False` (recovery) an invoice whose lock another session holds is skipped: the holder
+    finishes it.
+
+    A run that finds the invoice already read still goes on to extraction (issue #31). Startup
+    recovery may have read it and released the lock before extracting; while this run holds the
+    lock, recovery's extraction is skipped, so this run must do it. `extract_invoice` claims the
+    invoice, so it is extracted once.
     """
     with invoice_lock(session_factory, invoice_id, wait=wait) as locked:
         if not locked:
             logger.info("Invoice %s is locked by another run; skipped", invoice_id)
             return
         with session_factory() as session:
-            if not _claim(session, invoice_id, InvoiceStatus.RECEIVED):
-                logger.info("Invoice %s is not waiting for processing; skipped", invoice_id)
-                return
-        _run(Services(session_factory, storage, validator, extractor), invoice_id, "read")
+            claimed = _claim(session, invoice_id, InvoiceStatus.RECEIVED)
+        if claimed:
+            _run(Services(session_factory, storage, validator, extractor), invoice_id, "read")
+        else:
+            logger.info("Invoice %s is not waiting for processing; not read again", invoice_id)
     awaiting = _status(session_factory, invoice_id) is InvoiceStatus.AWAITING_EXTRACTION
     if awaiting and extractor is not None:
         extract_invoice(session_factory, storage, extractor, invoice_id, wait=wait)

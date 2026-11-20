@@ -271,6 +271,10 @@
       through the web container give `429` with `Retry-After: 899`, while another address still gets `401`.
     - Before the next demo deploy: add `INVOICEGUARD_APP_DB_PASSWORD` to the server's `.env`
       (`docs/deploy.md`).
+    - Fix (#31, 2026-11-20): recovery reads an upload and releases the lock before extracting; the
+      upload's own run then took the lock, found the invoice already read and returned before the
+      extraction check, while recovery's extraction skipped the held lock. A run whose claim fails now
+      still goes on to extraction (claimed, so once). Found as flaky CI on PR #30.
   - R4-3: Helm charts (done, ADR-023; ADR-021 and ADR-022 amended):
     - `infra/helm/invoiceguard-postgres`: PostgreSQL 16 with pgvector, a StatefulSet with a local volume and
       the image pinned by digest. It is installed first, because a hook runs before anything else in its
