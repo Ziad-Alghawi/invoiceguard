@@ -1,0 +1,8 @@
+# Merged into Argo CD's argocd-cmd-params-cm once, after the install (docs/deploy.md):
+#   kubectl -n argocd patch configmap argocd-cmd-params-cm --type merge --patch-file infra/argocd/bootstrap/argocd-cmd-params-patch.yaml
+#   kubectl -n argocd rollout restart deployment argocd-repo-server
+# The demo runs on one 4 GB node (ADR-021): the repo-server renders one Helm chart at a time, so
+# its memory peaks stay small. Three Applications sync in waves anyway, so nothing waits longer.
+# The applicationset-controller is not used and is scaled to 0 (docs/deploy.md).
+data:
+  reposerver.parallelism.limit: "1"

@@ -86,18 +86,40 @@ images built, scanned and pushed by CI.
   chart, because a hook runs before anything else in its release exists. In R4-4 the two charts become two
   Applications in sync waves. Details in [ADR-023](ADR-023-helm-chart-and-postgres.md).
 
-## Amendment (2026-11-20, R4-4): a new server instead of a rescale
+## Amendment (2026-11-20, R4-4): k3s on the existing 4 GB server
 
-- **Why:** CX33 is not offered in Nuremberg, where the demo VPS (`invoiceguard`, CX23) runs, so it cannot
-  be rescaled in place.
-- **Server:** a new CX33 (8 GB, 80 GB disk) named `demo-fsn1` in Falkenstein, with the same Hetzner Cloud
-  Firewall and SSH key. Its first boot is [`infra/server/cloud-init.yaml`](../../infra/server/cloud-init.yaml)
-  (updates, Docker for the shared Caddy, swap, the `deploy` user with sudo); CI checks it against the
-  cloud-init schema. k3s and Argo CD are installed there from scratch, while the old server keeps the live demo.
-- **Cutover:** the demo data is streamed from the Compose database to the k3s PostgreSQL over SSH, the A record
-  at Namecheap moves to the new address (TTL lowered to one minute beforehand), and Caddy gets the
-  certificate on the new server only once DNS points there. The old server stays untouched as the rollback
-  (A record back, its stopped services started again) for three days, then it is deleted.
-- **Consequences:** about €9 a month net with IPv4, as planned, plus about €0.20 a day while both servers run.
-  The "CPU and RAM only" downgrade path is gone: a CX33's 80 GB disk cannot shrink to a CX23, so a smaller
-  server would again be a new one. The server's address changes once.
+- **Why:** a CX33 cannot be rescaled to in Nuremberg, and no 8 GB server in an EU location is available at
+  an acceptable price (CX33 and Arm unavailable, the dedicated 8 GB type about $50 a month). The demo stays
+  on the CX23 `invoiceguard` (2 vCPU, 4 GB, 2 GB swap) and k3s goes onto it.
+- **The 4 GB estimate above assumed Compose and k3s side by side.** They do not run together: Compose stops
+  before the app starts in k3s. Expected memory at idle, about 2.3 GiB of 3.7:
+
+  | Part | MiB |
+  | --- | --- |
+  | Ubuntu, Docker and Caddy | 290 |
+  | k3s (server, containerd, CoreDNS, Traefik, metrics-server, local-path) | 765 |
+  | Argo CD core (applicationset-controller scaled to 0) and sealed-secrets | 285 |
+  | The app as measured under Compose (validator 445, api 162, web 138, MCP 3 × 80, PostgreSQL 63) | 1,050 |
+
+  The deploy hook, the nightly reset Job and Helm rendering add up to about 550 MiB at peaks, the validator's
+  heap up to about 300 MiB more under load.
+- **Settings for the small node:**
+  - kubelet `system-reserved` 300 Mi, `kube-reserved` 600 Mi and a hard eviction at 200 Mi available, so a
+    pod is evicted before the server runs out of memory (`infra/k3s/config.yaml`);
+  - the 2 GB swap stays (k3s starts the kubelet with `failSwapOn: false`; pods do not swap);
+  - Argo CD core only, the applicationset-controller scaled to 0, and the repo-server renders one chart at a
+    time;
+  - PostgreSQL's memory limit is 512 Mi on the demo (set in its Application).
+- **Gates:** with k3s, Argo CD and sealed-secrets installed and Compose still running, at least 1.2 GB must
+  be available, or the move stops; after the cutover the real numbers are compared with the table.
+- **Cutover on the same server:** back up the database (full and data-only dumps) and the uploads, copy the
+  backup off the server, stop Compose, start the app through Argo CD, restore the data and point Caddy's
+  site at Traefik. About 10 to 15 minutes of downtime. Rollback: stop k3s and start Compose again from its
+  kept volumes; they are deleted three days after the cutover.
+- **Consequences:**
+  - No new address, no DNS change, no extra cost (about €6 a month stays).
+  - The "rescale right before R4-4" step and its downgrade path are gone.
+  - About 1.4 GiB stays free at idle. Prometheus and Grafana (R4-5) need an estimated 250 to 350 MiB, so
+    their retention and scrape intervals are chosen for this node in R4-5.
+  - A reboot test runs before and after the cutover: k3s starts after Docker, whose bridge address carries
+    Traefik's port.

@@ -15,6 +15,11 @@ spec:
     path: infra/helm/invoiceguard-postgres
     helm:
       releaseName: invoiceguard-postgres
+      parameters:
+        # One 4 GB node (ADR-021): the demo data fits easily with the default shared_buffers of
+        # 128 MB; the chart's default limit is 1 Gi.
+        - name: resources.limits.memory
+          value: 512Mi
   destination:
     server: https://kubernetes.default.svc
     namespace: invoiceguard

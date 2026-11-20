@@ -11,3 +11,13 @@ secrets-encryption: true
 
 # Only root reads the admin kubeconfig; deploy gets its own copy (docs/deploy.md).
 write-kubeconfig-mode: "0600"
+
+# One node with 4 GB (a CX23, ADR-021 amendment of 2026-11-20). The reservations keep memory for
+# the system (Ubuntu, Docker, Caddy) and for k3s itself out of what pods may request, and the
+# kubelet evicts a pod before the server runs out of memory. eviction-hard replaces k3s's own list,
+# so its two disk thresholds are repeated. k3s already starts the kubelet with failSwapOn false,
+# so the server's 2 GB swap stays (pods do not swap; host processes may).
+kubelet-arg:
+  - system-reserved=memory=300Mi
+  - kube-reserved=memory=600Mi
+  - eviction-hard=memory.available<200Mi,imagefs.available<5%,nodefs.available<5%

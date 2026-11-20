@@ -1,4 +1,4 @@
-# InvoiceGuard (ADR-021, ADR-023). The defaults are the public demo on one 8 GB k3s node.
+# InvoiceGuard (ADR-021, ADR-023). The defaults are the public demo on one 4 GB k3s node (a CX23).
 # Memory requests are a little above what the pods used idle on k3d (CI job `helm` prints
 # `kubectl top pods`); the limits leave room for processing.
 # Install after the invoiceguard-postgres chart:
