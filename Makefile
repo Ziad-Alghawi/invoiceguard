@@ -2,9 +2,6 @@
 
 # Compose runs from infra/ (see infra/README.md) with the root .env for configuration.
 COMPOSE = cd infra && docker compose --env-file ../.env
-# The public demo (ADR-014, docs/deploy.md): the dev stack plus the prod override, behind the
-# server's shared Caddy (infra/edge).
-PROD = $(COMPOSE) -f docker-compose.yml -f docker-compose.prod.yml
 API = cd apps/api &&
 # The eval harness (ADR-019), its own uv project.
 EVALS = cd packages/evals &&
@@ -26,7 +23,7 @@ SEED_VARS = INVOICEGUARD_SEED_USER_EMAIL INVOICEGUARD_SEED_USER_PASSWORD INVOICE
 export $(SEED_VARS)
 SEED_USER = exec $(foreach var,$(SEED_VARS),-e $(var)) api invoiceguard-seed-user
 
-.PHONY: dev down seed seed-user index check test e2e eval eval-gate prod-up prod-down demo-reset deploy
+.PHONY: dev down seed seed-user index check test e2e eval eval-gate demo-reset
 
 dev: ## Build and start api + web + db + validator + MCP servers, wait until all are healthy
 ifeq ($(wildcard .env),)
@@ -47,25 +44,11 @@ index: ## (Re)build the booking index and the rulebook: packaged history and vec
 down: ## Stop and remove the containers (the database volume is kept)
 	$(COMPOSE) down
 
-prod-up: ## Demo server: build and start the stack on the `edge` network, wait until healthy
-ifeq ($(wildcard .env),)
-	$(error .env not found: see docs/deploy.md)
-endif
-	$(PROD) up --build --detach --wait --remove-orphans
-
-prod-down: ## Demo server: stop the stack (volumes with data are kept)
-	$(PROD) down
-
-demo-reset: ## Demo server: delete all invoices, reload the samples, reset the demo logins
-	# As the database owner in a one-off `migrate` container, never as the api's role (ADR-022).
-	$(PROD) run --rm migrate invoiceguard-demo-reset
-	$(PROD) $(SEED_USER)
-
-deploy: ## From your machine: pull and restart the demo over SSH (DEPLOY_HOST in .env, docs/deploy.md)
-ifeq ($(strip $(DEPLOY_HOST)),)
-	$(error DEPLOY_HOST is empty: set it in .env, for example DEPLOY_HOST=deploy@<server IP> (see docs/deploy.md, section 6))
-endif
-	ssh $(DEPLOY_HOST) "cd /opt/invoiceguard && git pull && make prod-up"
+demo-reset: ## Reset the local stack as the demo's nightly CronJob does: invoices, samples, master data, logins
+	# As the database owner in a one-off `migrate` container, never as the api's role (ADR-022). The
+	# public demo runs the same command as a Kubernetes CronJob (docs/deploy.md).
+	$(COMPOSE) run --rm -e INVOICEGUARD_DEMO_MODE=true migrate invoiceguard-demo-reset
+	$(COMPOSE) $(SEED_USER)
 
 check: ## Lint, format check and type check (api + web)
 	$(API) uv run ruff check

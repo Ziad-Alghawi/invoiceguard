@@ -51,7 +51,7 @@ Two charts ([ADR-023](../docs/decisions/ADR-023-helm-chart-and-postgres.md)); in
   NetworkPolicies. The images come from GHCR by commit SHA (`image.tag`, required).
 
 Secrets are referenced by name only. The install steps, the secret keys and the local k3d test are in
-[`docs/deploy.md`](../docs/deploy.md#kubernetes-helm-r4-3). CI lints, renders and installs both charts on
+[`docs/deploy.md`](../docs/deploy.md#5-test-the-charts-locally-on-k3d). CI lints, renders and installs both charts on
 k3d (job `helm`).
 
 ## k3s and Argo CD (R4-4)
@@ -64,16 +64,14 @@ The demo server runs one k3s node ([ADR-021](../docs/decisions/ADR-021-platform-
 - [`argocd/`](argocd): the root Application (app-of-apps) and, in [`argocd/apps/`](argocd/apps), the
   namespace, the SealedSecrets and the two chart Applications in sync waves (PostgreSQL first). Argo CD
   follows the git tag `demo`, which CI moves after a `main` commit's images are in GHCR.
+  [`argocd/bootstrap/`](argocd/bootstrap) holds what the core install lacks: the `default` project, a health
+  check for child Applications and a repo-server that renders one chart at a time.
 
-CI checks the pinned hashes and dry-runs these manifests against k3d (job `helm`).
+CI (job `helm`) checks the pinned hashes, dry-runs these manifests, lets Argo CD core bootstrap and render the
+Applications at the commit, and starts k3s's Traefik with the server's settings, all on k3d. The steps on the
+server are in [`docs/deploy.md`](../docs/deploy.md) ([ADR-024](../docs/decisions/ADR-024-edge-and-cluster-bootstrap.md)).
 
-## Public demo (prod override)
-[`docker-compose.prod.yml`](docker-compose.prod.yml) is layered on top of the dev file for the demo server
-([ADR-014](../docs/decisions/ADR-014-demo-hosting-single-vps.md)): it removes every host port, attaches the web
-container to the server's shared Caddy network `edge` as `invoiceguard-web`, sets `INVOICEGUARD_ENV=prod` (Secure cookies), demo mode and a daily LLM budget, restarts services after a reboot,
-rotates logs and caps the validator's memory. `make prod-up`, `make prod-down` and `make demo-reset` use it; the
-step-by-step guide is [docs/deploy.md](../docs/deploy.md).
-
+## The server's edge
 [`edge/`](edge) is the server's shared reverse proxy, not part of this project's stack: one Caddy with ports
 80/443 and automatic Let's Encrypt certificates, shared security headers, and one file per site in
 [`edge/sites/`](edge/sites). It is copied to `/opt/edge` on the server, so other projects can add their sites.

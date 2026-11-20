@@ -112,6 +112,10 @@ images built, scanned and pushed by CI.
   - PostgreSQL's memory limit is 512 Mi on the demo (set in its Application).
 - **Gates:** with k3s, Argo CD and sealed-secrets installed and Compose still running, at least 1.2 GB must
   be available, or the move stops; after the cutover the real numbers are compared with the table.
+- **Measured after the move (2026-11-20):** about 2.4 GB in use at idle and 1.26 to 1.43 GB available (the gate
+  before the cutover passed with 1.58 GB). The app used less than estimated (about 870 MiB), the k3s server
+  process more (about 900 MiB instead of 600), Argo CD about 300 MiB. Edge and bootstrap details in
+  [ADR-024](ADR-024-edge-and-cluster-bootstrap.md).
 - **Cutover on the same server:** back up the database (full and data-only dumps) and the uploads, copy the
   backup off the server, stop Compose, start the app through Argo CD, restore the data and point Caddy's
   site at Traefik. About 10 to 15 minutes of downtime. Rollback: stop k3s and start Compose again from its

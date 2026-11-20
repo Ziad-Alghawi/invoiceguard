@@ -183,10 +183,9 @@ jobs:
           echo "INVOICEGUARD_MCP_ERP_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
           echo "INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
           echo "INVOICEGUARD_MCP_HISTORY_DB_PASSWORD=$(openssl rand -hex 24)" >> .env
-      - name: Demo prod override, shared Caddy and its sites are valid (ADR-014)
+      - name: The server's shared Caddy and its sites are valid (ADR-014)
         working-directory: infra
         run: |
-          docker compose --env-file ../.env -f docker-compose.yml -f docker-compose.prod.yml config --quiet
           docker compose -f edge/compose.yml config --quiet
           docker run --rm -v "$PWD/edge/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$PWD/edge/sites:/etc/caddy/sites:ro"             caddy:2.10.2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
       - name: Build images and start api, web, db, validator, MCP servers (waits for healthy)
@@ -498,6 +497,13 @@ jobs:
           kubectl create namespace argocd
           kubectl apply --dry-run=server --filename infra/k3s/traefik-config.yaml
           kubectl apply --dry-run=server --filename infra/argocd/root.yaml --filename infra/argocd/apps
+      # Argo CD core with the server's bootstrap files reads, renders and compares the Applications
+      # at this commit, without deploying (ADR-024): the core install has no default project, and
+      # a dry run cannot see that.
+      - name: Argo CD core bootstraps and renders the Applications at this commit
+        env:
+          REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: .github/scripts/k3d-argocd-test.sh "$RUNNER_TEMP/platform" "$REVISION"
       # Last: the server's Traefik settings, merged into k3s's own Traefik chart as on the server;
       # Traefik must start with them (a dry run cannot see a flag the chart builds wrongly).
       - name: Traefik starts with the server's settings (hostPort 8880, entrypoint address, ClusterIP)
@@ -507,6 +513,8 @@ jobs:
         run: |
           kubectl --namespace kube-system get pods
           kubectl --namespace kube-system logs deployment/traefik --tail=20 || true
+          kubectl --namespace argocd get applications,pods || true
+          kubectl --namespace argocd get applications --output yaml | yq '.items[].status.conditions' || true
           kubectl --namespace invoiceguard get all,pvc,jobs,networkpolicies
           kubectl --namespace invoiceguard get events --sort-by=.lastTimestamp
           for pod in $(kubectl --namespace invoiceguard get pods --output name); do

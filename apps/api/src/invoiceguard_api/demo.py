@@ -3,12 +3,14 @@ restore the master data and the booking history with its packaged vectors (ADR-0
 rulebook (R3-4b), and process the sample invoices again, so each visitor finds the same queue.
 
 Deletes data, so it runs only with INVOICEGUARD_DEMO_MODE=true, and only as the database owner
-(ADR-022): `make demo-reset` runs it in a one-off `migrate` container, and it refuses to run as
-the api's restricted role. The audit log is append-only and is kept; the reset itself is an
+(ADR-022): on the demo a Kubernetes CronJob runs it as the owner every night (docs/deploy.md),
+locally `make demo-reset` runs it in a one-off `migrate` container; it refuses to run as the api's
+restricted role. The audit log is append-only and is kept; the reset itself is an
 audit event. LLM costs stay in `model_calls` (the invoice link is
 set to null), so a reset does not refill the daily budget.
 
-Run with `make demo-reset`, or `uv run invoiceguard-demo-reset` with the owner's database URL.
+Run with `make demo-reset` locally, or `uv run invoiceguard-demo-reset` with the owner's database
+URL.
 """
 
 import logging
@@ -127,7 +129,7 @@ def main() -> None:
             if connection.execute(text("SELECT current_user")).scalar_one() == APP_ROLE:
                 sys.exit(
                     f"Refusing to reset as {APP_ROLE}: owner tasks run as the database owner. "
-                    "Use `make demo-reset`."
+                    "Use `make demo-reset` locally, the demo-reset CronJob on the demo."
                 )
         ids = reset_demo(
             make_session_factory(engine),

@@ -18,13 +18,14 @@ New ADRs start from the [template](ADR-000-template.md).
 | [ADR-011](ADR-011-session-cookie-auth.md) | Server-side sessions in an HttpOnly cookie, with a lockout | Accepted |
 | [ADR-012](ADR-012-review-decisions-in-r1.md) | Review decisions in R1: a status change by one reviewer, override with a reason | Accepted |
 | [ADR-013](ADR-013-datev-style-export.md) | DATEV-style booking export (EXTF Buchungsstapel), one row per invoice | Accepted |
-| [ADR-014](ADR-014-demo-hosting-single-vps.md) | R1 demo on one VPS with Docker Compose and Caddy | Accepted, partly superseded by ADR-021 |
+| [ADR-014](ADR-014-demo-hosting-single-vps.md) | R1 demo on one VPS with Docker Compose and Caddy | Accepted; hosting superseded by ADR-021 and ADR-024 (k3s since R4-4) |
 | [ADR-015](ADR-015-processing-graph-approval-interrupt.md) | Processing graph with LangGraph, approval as `interrupt()` | Accepted |
 | [ADR-016](ADR-016-four-eyes-override-and-reopen.md) | Four-eyes override of blocked invoices, and reopening rejected invoices | Accepted |
 | [ADR-017](ADR-017-read-only-mcp-servers.md) | Read-only MCP servers with one database role each | Accepted |
 | [ADR-018](ADR-018-exception-agent.md) | Exception agent: an own bounded loop outside the graph, with a per-invoice cost cap | Accepted |
 | [ADR-019](ADR-019-eval-harness.md) | Evaluation harness with pinned datasets and recorded model replies | Accepted |
 | [ADR-020](ADR-020-booking-suggestions-pgvector.md) | Booking suggestions by retrieval over pgvector, with Gemini embeddings | Accepted |
-| [ADR-021](ADR-021-platform-k3s-argocd.md) | Platform: k3s on the demo VPS, Helm, Argo CD and GHCR images | Accepted, amended by ADR-023 |
+| [ADR-021](ADR-021-platform-k3s-argocd.md) | Platform: k3s on the demo VPS, Helm, Argo CD and GHCR images | Accepted, amended by ADR-023 and ADR-024 |
 | [ADR-022](ADR-022-database-roles-and-migrate-step.md) | A restricted database role for the api, migrations as a separate step | Accepted, amended by ADR-023 |
 | [ADR-023](ADR-023-helm-chart-and-postgres.md) | Helm chart, a separate PostgreSQL chart and a non-superuser owner | Accepted |
+| [ADR-024](ADR-024-edge-and-cluster-bootstrap.md) | Edge to cluster and cluster bootstrap on the demo server | Accepted |

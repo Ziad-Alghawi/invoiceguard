@@ -1,7 +1,7 @@
 # Status
 
-**Current milestone:** R4 — Platform (R4-1 to R4-3 done; next: R4-4)
-**Last updated:** 2026-11-19
+**Current milestone:** R4 — Platform (R4-1 to R4-4 done; next: R4-5)
+**Last updated:** 2026-11-20
 
 ## Done
 - R0 — Foundation (complete)
@@ -307,18 +307,33 @@
       - `helm upgrade` runs the hook again.
 
       Checked by hand on a local k3d cluster first.
-  - R4-4: cluster, Argo CD and CD on the existing CX23 `invoiceguard` (4 GB; no 8 GB server available at an
-    acceptable price, ADR-021 and ADR-014 amended): k3s with kubelet memory reservations, Argo CD core,
-    sealed-secrets; a memory gate before the cutover (1.2 GB available with Compose still running); the
-    cutover backs up the database and uploads, stops Compose and starts the app in k3s (rollback: Compose,
-    whose volumes stay for three days). CI moves the `demo` tag after pushing images, Helm takes
-    `$ARGOCD_APP_REVISION` as the image tag (no bot commits); `docs/deploy.md` rewritten. Done when: a merge
-    to `main` reaches the live demo with no manual step
-    - The two charts become two Argo CD Applications in sync waves: postgres first, then the app with its
-      PreSync hook.
-    - k3s's Traefik must trust `X-Forwarded-For` from Caddy (`trustedIPs` on its entry point). Otherwise it
-      replaces the header with Caddy's address, and the per-IP login limit counts every visitor as one.
-    - The server's nightly demo-reset cron goes at the cutover, because the CronJob takes over.
+  - R4-4: cluster, Argo CD and CD (done, two PRs: #30 and #33; ADR-024, ADR-021 and ADR-014 amended):
+    - The demo runs on k3s on the existing CX23 `invoiceguard` (4 GB; no 8 GB server was available at an
+      acceptable price). Caddy stays the edge and forwards to Traefik's hostPort 8880 through Docker's bridge;
+      Traefik trusts `X-Forwarded-For` from the pod network's gateway only, as measured with a `whoami` pod.
+    - Argo CD core (no UI) follows the git tag `demo` with an app-of-apps: the namespace, the SealedSecrets,
+      PostgreSQL, then the app with its PreSync migration hook. CI moves `demo` after every job of a `main`
+      commit has passed and its images are in GHCR; the image tag is `$ARGOCD_APP_REVISION`.
+    - The platform (k3s, Argo CD core, sealed-secrets) is installed by hand from pinned files checked by
+      SHA-256; the bootstrap files add the `default` project (the core install has none), the child health
+      check and a repo-server rendering one chart at a time. The sealing key has a backup off the server.
+    - Cutover on 2026-11-20 (about an hour of downtime): the database (full and data-only dumps) and the uploads
+      backed up and copied off the server, Compose stopped, the app synced, the data restored (all 26 tables
+      matched), Caddy's site switched. The Compose deploy path (`docker-compose.prod.yml`, `make prod-up`,
+      `prod-down`, `deploy`) is removed; `make demo-reset` now resets the local stack.
+    - Done-when check:
+      - the demo answers at the same URL from k3s; a login and the demo reset Job work;
+      - the first failed login after the move recorded the visitor's real address, not `10.42.0.1`;
+      - two reboot tests (before and after the cutover): k3s starts after Docker and everything comes back;
+      - memory: 1.58 GB available before the cutover with Compose still running (gate: 1.2 GB), about
+        1.3 to 1.4 GB after it;
+      - a merge to `main` reaches the demo with no manual step: the merge of #33 is the first such deploy,
+        checked after the merge (the `demo` tag and Argo CD's synced revision at the merge commit).
+    - CI (job `helm`) now also bootstraps Argo CD core on k3d and lets it render the Applications at the commit,
+      and starts k3s's Traefik with the server's settings; both tests failed first against the bugs they guard
+      against (no default project; `hostIP` as the listen address).
+    - Until 2026-11-23 the Compose volumes stay on the server as the fallback; then they are deleted (after
+      asking).
   - R4-5: metrics: `/metrics` on the api (invoices, exceptions, approvals, model latency and cost), Prometheus
     (7 days, no node-exporter or alertmanager), Grafana dashboard JSON in the repo, alert rules for error rate,
     cost cap and validator down. Done when: the dashboard shows live demo traffic and one alert fires in a test
@@ -362,10 +377,11 @@
 - The per-IP login limit (R4-2) has these gaps:
   - Failures are counted without a lock, so parallel attempts can pass it by a few.
   - Users behind one shared address (an office NAT) share the limit.
-  - Compose trusts `X-Forwarded-For` from Docker's private ranges. In dev the api's published port is reached
-    through the Docker gateway, so a local caller can set any address. In prod the api has no public port.
+  - Compose (dev) trusts `X-Forwarded-For` from Docker's private ranges, and the api's published port is
+    reached through the Docker gateway, so a local caller can set any address. On the demo the api is not
+    public; if Docker's NAT changes, the address Traefik sees for Caddy may change too (ADR-024).
 - Database roles (ADR-022, ADR-023): the api runs as the restricted `invoiceguard_app`. In Kubernetes the
-  migrator is the non-superuser owner `invoiceguard_owner`. Compose (dev and, until R4-4, the demo) still
+  migrator is the non-superuser owner `invoiceguard_owner`. Compose (dev) still
   migrates as `POSTGRES_USER`, a superuser in the official PostgreSQL image. In Kubernetes a new untrusted
   extension needs the superuser once, by hand: the init script runs on an empty volume only. A new
   append-only table gets UPDATE and DELETE from the default privileges and must revoke them in its migration.
@@ -374,8 +390,10 @@
 - Upload limit (R2-7): counted from the audit log without a lock, so parallel uploads can pass it by a few files; the
   demo accounts are shared, so on the demo it caps all visitors together. One file per upload (no bulk upload);
   there is no sample picker: visitors bring their own XRechnung or ZUGFeRD file.
-- Demo (ADR-014): one VPS, no backups (sample data, reset nightly); the shared demo login can be locked for 15 minutes
-  by anyone, the nightly reset unlocks it.
+- Demo (ADR-014, ADR-021, ADR-024): one VPS with 4 GB (about 1.3 GB available at idle, so R4-5's Prometheus and
+  Grafana must stay small), no backups (sample data, reset nightly); the shared demo login can be locked for 15
+  minutes by anyone, the nightly reset unlocks it. The Hetzner firewall is the only layer in front of ports 8880,
+  6443 and 10250. Platform upgrades (k3s, Argo CD, sealed-secrets) are manual, with new pins and hashes.
 - Duplicate check race: two copies of the same invoice processed at the same moment can both pass, because each
   sees no other stored invoice yet. Unlikely at demo load (one API process, ADR-007); a unique index on
   (seller, normalised invoice number) or a per-seller advisory lock would close it.

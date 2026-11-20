@@ -234,7 +234,7 @@ For development without Docker you also need [uv](https://docs.astral.sh/uv/) an
 | `make test` | pytest (against a `_test` database and the validator in the running stack), vitest |
 | `make e2e` | Playwright browser test against the running stack (after `make seed` and `make seed-user`) |
 | `make eval` | evaluation harness (R3) |
-| `make prod-up`, `make demo-reset` | the public demo stack behind Caddy, and its nightly reset ([deploy guide](docs/deploy.md)) |
+| `make demo-reset` | resets the local stack as the public demo's nightly reset does; the demo runs on k3s ([deploy guide](docs/deploy.md)) |
 | `uvx pre-commit install` | git hooks: ruff, prettier, whitespace, large files, detect-secrets |
 
 ## Decisions

@@ -36,3 +36,14 @@ test "$(ks get service traefik --output jsonpath='{.spec.type}')" = ClusterIP
 if ks get service traefik --output jsonpath='{.spec.ports[*].name}' | grep -q websecure; then
   echo "websecure is exposed"; exit 1
 fi
+
+echo "--- Ingresses get 127.0.0.1 as their address (Argo CD's Ingress health needs one)"
+[[ $(args) == *'"--providers.kubernetesingress.ingressendpoint.ip=127.0.0.1"'* ]]
+[[ $(args) != *publishedservice* ]]
+for attempt in $(seq 1 30); do
+  address=$(kubectl --namespace invoiceguard get ingress invoiceguard \
+    --output jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  [ "$address" = 127.0.0.1 ] && break
+  [ "$attempt" -lt 30 ] || { echo "the Ingress has no address: '$address'"; exit 1; }
+  sleep 2
+done
