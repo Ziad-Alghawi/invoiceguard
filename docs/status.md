@@ -307,15 +307,18 @@
       - `helm upgrade` runs the hook again.
 
       Checked by hand on a local k3d cluster first.
-  - R4-4: cluster, Argo CD and CD: rescale the VPS to CX33 (ask first; about €9/month with IPv4, net, vs about
-    €6 for CX23), k3s, Argo CD core, sealed-secrets; CI moves the `demo` tag after pushing images, Helm takes
-    `$ARGOCD_APP_REVISION` as the image tag (no bot commits); Compose switched off afterwards; `docs/deploy.md`
-    rewritten. Done when: a merge to `main` reaches the live demo with no manual step
+  - R4-4: cluster, Argo CD and CD: a new CX33 server `demo-fsn1` in Falkenstein (about €9/month with IPv4,
+    net, vs about €6 for the CX23; CX33 cannot be rescaled to in Nuremberg, ADR-021 and ADR-014 amended),
+    set up by cloud-init, then k3s, Argo CD core, sealed-secrets; the demo data moves over SSH and the A record
+    switches; the old server `invoiceguard` stays as the rollback for three days, then it is deleted. CI
+    moves the `demo` tag after pushing images, Helm takes `$ARGOCD_APP_REVISION` as the image tag (no bot
+    commits); `docs/deploy.md` rewritten. Done when: a merge to `main` reaches the live demo with no manual
+    step
     - The two charts become two Argo CD Applications in sync waves: postgres first, then the app with its
       PreSync hook.
     - k3s's Traefik must trust `X-Forwarded-For` from Caddy (`trustedIPs` on its entry point). Otherwise it
       replaces the header with Caddy's address, and the per-IP login limit counts every visitor as one.
-    - The server's nightly demo-reset cron goes, because the CronJob takes over.
+    - The nightly demo-reset cron goes with the old server; the CronJob takes over.
   - R4-5: metrics: `/metrics` on the api (invoices, exceptions, approvals, model latency and cost), Prometheus
     (7 days, no node-exporter or alertmanager), Grafana dashboard JSON in the repo, alert rules for error rate,
     cost cap and validator down. Done when: the dashboard shows live demo traffic and one alert fires in a test

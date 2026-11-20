@@ -85,3 +85,19 @@ images built, scanned and pushed by CI.
 - **Database:** PostgreSQL has its own chart (`infra/helm/invoiceguard-postgres`), installed before the app
   chart, because a hook runs before anything else in its release exists. In R4-4 the two charts become two
   Applications in sync waves. Details in [ADR-023](ADR-023-helm-chart-and-postgres.md).
+
+## Amendment (2026-11-20, R4-4): a new server instead of a rescale
+
+- **Why:** CX33 is not offered in Nuremberg, where the demo VPS (`invoiceguard`, CX23) runs, so it cannot
+  be rescaled in place.
+- **Server:** a new CX33 (8 GB, 80 GB disk) named `demo-fsn1` in Falkenstein, with the same Hetzner Cloud
+  Firewall and SSH key. Its first boot is [`infra/server/cloud-init.yaml`](../../infra/server/cloud-init.yaml)
+  (updates, Docker for the shared Caddy, swap, the `deploy` user with sudo); CI checks it against the
+  cloud-init schema. k3s and Argo CD are installed there from scratch, while the old server keeps the live demo.
+- **Cutover:** the demo data is streamed from the Compose database to the k3s PostgreSQL over SSH, the A record
+  at Namecheap moves to the new address (TTL lowered to one minute beforehand), and Caddy gets the
+  certificate on the new server only once DNS points there. The old server stays untouched as the rollback
+  (A record back, its stopped services started again) for three days, then it is deleted.
+- **Consequences:** about €9 a month net with IPv4, as planned, plus about €0.20 a day while both servers run.
+  The "CPU and RAM only" downgrade path is gone: a CX33's 80 GB disk cannot shrink to a CX23, so a smaller
+  server would again be a new one. The server's address changes once.

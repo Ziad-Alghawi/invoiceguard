@@ -453,6 +453,15 @@ jobs:
           if helm template invoiceguard infra/helm/invoiceguard > /dev/null 2>&1; then
             echo "::error::the chart rendered without image.tag"; exit 1
           fi
+      # The server's first-boot config (ADR-014): checked by the cloud-init of Ubuntu 24.04, the
+      # server's image, pinned by digest.
+      - name: The server's cloud-init config is valid
+        run: |
+          docker run --rm --env DEBIAN_FRONTEND=noninteractive \
+            -v "$PWD/infra/server/cloud-init.yaml:/cloud-init.yaml:ro" \
+            ubuntu:24.04@sha256:9c7f200c07e3d4a03e7249d2c16bf66a51120fb876aa2242cf31451412543289 \
+            sh -c 'apt-get update -qq && apt-get install -y -qq cloud-init > /dev/null \
+              && cloud-init schema --config-file /cloud-init.yaml --annotate'
       - name: Install k3d (pinned version, checked against its SHA-256)
         run: |
           curl --fail --silent --show-error --location --output k3d \

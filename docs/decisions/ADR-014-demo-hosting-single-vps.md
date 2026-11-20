@@ -1,6 +1,7 @@
 # ADR-014: R1 demo on one VPS with Docker Compose and Caddy
 
-- **Status:** Accepted; hosting partly superseded by [ADR-021](ADR-021-platform-k3s-argocd.md) (k3s, Argo CD) from R4-4
+- **Status:** Accepted; hosting partly superseded by [ADR-021](ADR-021-platform-k3s-argocd.md) (k3s, Argo CD) from R4-4,
+  on a new server (amendment below)
 - **Date:** 2026-11-14 (updated 2026-11-18 with R2-7: upload page, demo upload rules)
 
 ## Context
@@ -70,3 +71,16 @@ stack** we test in CI, plus a production override (`infra/docker-compose.prod.ym
   for all sites, so `caddy validate` runs first (CI validates ours).
 - In R4 the same images move to the cluster; Caddy's job goes to the ingress controller and cert-manager, the
   reset becomes a Kubernetes CronJob.
+
+## Amendment (2026-11-20, R4-4): the demo moves to a new server
+
+- The VPS cannot be rescaled to CX33 in Nuremberg, so the demo moves to a new CX33 (`demo-fsn1`, Falkenstein,
+  same firewall and SSH key), set up by [`infra/server/cloud-init.yaml`](../../infra/server/cloud-init.yaml)
+  instead of the manual steps; `deploy` gets sudo with a password. Details in ADR-021's amendment.
+- What stays: one shared Caddy in `/opt/edge` with one file per site, the only process with public ports, TLS
+  and security headers; the Hetzner Cloud Firewall; no access log; no backups (sample data, reset nightly).
+- What changes: InvoiceGuard's site file forwards to k3s's Traefik on Docker's bridge address instead of a
+  Compose container on `edge`; images come from GHCR instead of being built on the server; the nightly reset
+  is a CronJob; the A record points to the new server's address.
+- The old server (`invoiceguard`, CX23) keeps the Compose demo until the DNS switch and stays as the rollback
+  for three days, then it is deleted.
