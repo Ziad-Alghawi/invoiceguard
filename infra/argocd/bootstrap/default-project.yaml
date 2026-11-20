@@ -1,0 +1,19 @@
+# The `default` AppProject, applied once after the install (docs/deploy.md):
+#   kubectl apply -f infra/argocd/bootstrap/default-project.yaml
+# argocd-server creates it when it starts; the core install (ADR-021) has no argocd-server, so
+# without this file every Application fails with "project default which does not exist". The
+# same permissions argocd-server would give it: any repo, any destination, any kind.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: default
+  namespace: argocd
+spec:
+  sourceRepos:
+    - "*"
+  destinations:
+    - namespace: "*"
+      server: "*"
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"

@@ -1,237 +1,260 @@
 # Deploying the public demo
 
-The demo runs on one Hetzner Cloud VPS with the Docker Compose stack plus a production override
-([ADR-014](decisions/ADR-014-demo-hosting-single-vps.md)). One shared Caddy (`/opt/edge`, from
-[`infra/edge`](../infra/edge)) serves every site on the server over HTTPS and is the only container with public
-ports. InvoiceGuard's web container joins Caddy's `edge` network; the API, validator and database stay on the
-project's own network.
+The demo runs on one Hetzner Cloud VPS (`invoiceguard`, CX23: 2 vCPU, 4 GB RAM, 2 GB swap, Ubuntu 24.04) as a
+one-node **k3s** cluster, deployed by **Argo CD** from this repository
+([ADR-021](decisions/ADR-021-platform-k3s-argocd.md), [ADR-024](decisions/ADR-024-edge-and-cluster-bootstrap.md)).
+A shared **Caddy** in Docker (`/opt/edge`, from [`infra/edge`](../infra/edge)) is the server's only public entry:
+it holds the TLS certificates of every site on the server and forwards the demo to k3s's Traefik.
 
 ```mermaid
 flowchart LR
     browser([Browser]) -- "HTTPS :443" --> caddy
-    subgraph vps [Hetzner VPS]
-        caddy[shared Caddy, /opt/edge<br/>Let's Encrypt, headers<br/>one file per site]
-        caddy -. "later" .-> other[other projects]
-        caddy -- "network edge" --> web
-        subgraph ig [InvoiceGuard Compose project]
-        web[web<br/>Next.js]
-        web -- "session cookie" --> api[api<br/>FastAPI]
-        api --> db[(PostgreSQL<br/>pgvector)]
-        api --> validator[KoSIT validator]
-        api -. "PDFs only, daily cap" .-> llm[(Gemini API)]
+    subgraph vps [Hetzner VPS, firewall: 22, 80, 443]
+        caddy[shared Caddy in Docker, /opt/edge<br/>Let's Encrypt, headers, one file per site]
+        caddy -- "host.docker.internal:8880" --> traefik
+        subgraph k3s [k3s]
+            traefik[Traefik<br/>hostPort 8880] --> web[web]
+            web --> api[api]
+            api --> db[(PostgreSQL<br/>pgvector)]
+            api --> validator[KoSIT validator]
+            api --> mcp[MCP servers]
+            argocd[Argo CD core] -. "follows the git tag demo" .-> gh[(GitHub)]
         end
     end
+    ci[GitHub Actions] -- "images by commit SHA" --> ghcr[(GHCR)]
+    ci -- "moves the tag demo" --> gh
+    k3s -. "pulls images" .-> ghcr
 ```
 
 Placeholders: `<IP>` is the server's IPv4 address, `invoiceguard.ziadalghawi.com` the demo's host name.
 
-## 1. Create the server (Hetzner Cloud Console)
+## 1. How a change reaches the demo
 
-1. **Server:** location Nuremberg or Falkenstein; image Ubuntu 24.04 LTS; type shared vCPU x86 with 2 vCPU and
-   4 GB RAM (the KoSIT validator and the web build need the memory); public IPv4 and IPv6; your SSH public key;
-   name `invoiceguard-demo`. No password login.
-2. **Firewall** (Firewalls → Create), applied to the server. Inbound rules:
-   - TCP 22 (SSH), ideally from your own IP only
-   - TCP 80 (HTTP, for the certificate challenge and the redirect)
-   - TCP 443 and UDP 443 (HTTPS, HTTP/3)
+1. A pull request is merged to `main`.
+2. CI on `main` runs every job, builds the six images, scans them with Trivy and pushes them to GHCR as
+   `ghcr.io/ziad-alghawi/invoiceguard-<name>:<commit SHA>`.
+3. The job `demo-tag` moves the git tag `demo` to that commit, once every other job has passed. It never moves
+   the tag to an older commit.
+4. Argo CD checks the repository about every three minutes. It finds `demo` at a new commit and syncs: the
+   migration Job runs first (PreSync, as the database owner), then the pods roll over to the new images, whose tag
+   is the commit Argo CD deployed (`$ARGOCD_APP_REVISION`).
 
-   Use this firewall rather than `ufw`: ports that Docker publishes skip the host's `ufw` rules, while the
-   Hetzner firewall filters traffic before it reaches the VM.
+No step on the server and no commit by a bot. To see where a release is (as `deploy` on the server):
 
-## 2. DNS (Namecheap → Domain List → ziadalghawi.com → Advanced DNS)
+```sh
+git ls-remote https://github.com/Ziad-Alghawi/invoiceguard.git refs/tags/demo   # the commit CI released
+kubectl -n argocd get applications          # SYNC, HEALTH and the deployed revision of each app
+kubectl -n invoiceguard get pods             # the pods of the release
+```
 
-Add a new record:
+To sync now instead of waiting for the next check:
+`kubectl -n argocd annotate application root argocd.argoproj.io/refresh=normal --overwrite` (and the same for
+`invoiceguard`).
 
-| Type | Host | Value | TTL |
-| --- | --- | --- | --- |
-| A Record | `invoiceguard` | `<IP>` | Automatic |
+**Roll back a release:** move the tag to an earlier `main` commit; its images are still in GHCR:
 
-An AAAA record with the IPv6 address is optional. Check it before starting Caddy, which needs it to get a
-certificate: `nslookup invoiceguard.ziadalghawi.com` must answer `<IP>` (usually within minutes).
+```sh
+git push --force origin <earlier commit SHA>:refs/tags/demo
+```
 
-## 3. Prepare the server (once, as root)
+Argo CD deploys it within about three minutes; the next merge to `main` moves the tag forward again. A migration
+is not undone this way: if the bad release added one, run `alembic downgrade -1` as the owner first, in a Job
+like the migration hook.
+
+## 2. Operate
+
+Every command runs as `deploy` on the server. k3s's `kubectl` reads `~/.kube/config` only with
+`KUBECONFIG=$HOME/.kube/config`, which `~/.bashrc` sets (section 4).
+
+| Task | Command |
+| --- | --- |
+| Apps and pods | `kubectl -n argocd get applications`; `kubectl -n invoiceguard get pods` |
+| Logs | `kubectl -n invoiceguard logs deploy/invoiceguard-api --tail 100` (or `-web`, `-validator`, `-mcp-erp`, `-mcp-registry`, `-mcp-history`); Caddy: `cd /opt/edge && docker compose logs caddy` |
+| Reset the demo now | `kubectl -n invoiceguard create job reset-now --from=cronjob/invoiceguard-demo-reset` (then `kubectl -n invoiceguard delete job reset-now`) |
+| LLM cost today | `kubectl -n invoiceguard exec statefulset/invoiceguard-postgres -- psql -U postgres -d invoiceguard -c "select sum(cost_usd) from model_calls where at >= current_date"` |
+| Memory | `free -m`; `kubectl top pods -A --sort-by=memory` |
+| Disk | `df -h /`; k3s removes unused images itself |
+| Migration hook output | `kubectl -n invoiceguard get jobs`; a failed hook Job stays with its logs, a successful one is deleted |
+
+The demo reset runs every night at 03:00 Europe/Berlin as the CronJob `invoiceguard-demo-reset`: it deletes
+every invoice, reloads the master data, the booking history, the rulebook and the six samples, and resets the
+demo logins. Caddy writes no access log (visitor addresses are personal data). There is no backup: the demo holds
+only sample data and is reset every night.
+
+**Memory** (4 GB, measured after the move): about 2.4 GB in use at idle, about 1.3 to 1.4 GB available. The
+largest parts are the k3s server process (about 900 MiB), the validator (about 430 MiB), Argo CD (about
+300 MiB) and the api (about 140 MiB). The kubelet keeps 900 MiB for the system and k3s (`system-reserved`,
+`kube-reserved`) and evicts a pod below 200 MiB available ([`infra/k3s/config.yaml`](../infra/k3s/config.yaml)).
+
+## 3. Secrets
+
+Only sealed values are in git ([`infra/argocd/apps/`](../infra/argocd/apps)): the sealed-secrets controller in
+the cluster decrypts them into the Secrets `invoiceguard-postgres` and `invoiceguard`. The plain values live in
+`/opt/invoiceguard/.env` on the server (mode 600; the variables are listed in [`.env.example`](../.env.example)).
+
+**Change a value** (a demo password, the model key): edit `/opt/invoiceguard/.env`, then
+
+```sh
+cd ~/invoiceguard && git pull     # a clone of the repo for these files
+infra/k3s/seal-secrets.sh /opt/invoiceguard/.env
+```
+
+and commit the new `infra/argocd/apps/sealed-secret-invoiceguard.yaml` through a pull request. The script keeps
+the existing `sealed-secret-invoiceguard-postgres.yaml`: PostgreSQL takes the superuser and owner passwords only
+on an empty volume. The migration hook sets the restricted roles' passwords on every deploy.
+
+**The sealing key** decrypts every sealed value. Keep a copy off the server (never in git):
+
+```sh
+kubectl -n kube-system get secret -l sealedsecrets.bitnami.com/sealed-secrets-key -o yaml > ~/sealing-key.yaml
+# copy it to your own machine with scp, then: shred -u ~/sealing-key.yaml
+```
+
+On a rebuilt cluster, apply that file before the sealed secrets
+(`kubectl apply -f sealing-key.yaml`, then `kubectl -n kube-system rollout restart deploy/sealed-secrets-controller`);
+without it, seal everything again (section 4, step 6).
+
+## 4. Set up the server from scratch
+
+The platform (k3s, Argo CD, sealed-secrets) is installed by hand from pinned versions; everything above it comes
+from git.
+
+### 4.1 Server and DNS
+
+1. **Hetzner Cloud Console:** a server with Ubuntu 24.04, type CX23 or larger (shared vCPU, x86), public IPv4 and
+   IPv6, your SSH key, no password login. **Firewall** (Firewalls → Create, applied to the server), inbound:
+   TCP 22 (ideally from your own IP only), TCP 80, TCP 443 and UDP 443. Nothing else: Traefik's port 8880 and
+   k3s's ports 6443 and 10250 listen on every address and must stay closed from outside. Use this firewall rather
+   than `ufw`, whose rules Docker's and k3s's ports bypass.
+2. **DNS** (Namecheap → Domain List → ziadalghawi.com → Manage → Advanced DNS): an **A Record**, host
+   `invoiceguard`, value `<IP>`, TTL **Automatic**. When the server's address changes, lower the TTL to 1 min
+   some hours before the switch, change the value at the switch, and **set the TTL back to Automatic**
+   afterwards. Check with `nslookup invoiceguard.ziadalghawi.com dns1.registrar-servers.com`.
+
+### 4.2 Prepare the server (once, as root)
 
 ```sh
 ssh root@<IP>
-
-# Security updates install themselves.
 apt-get update && apt-get -y upgrade
 apt-get install -y unattended-upgrades git make
 dpkg-reconfigure -f noninteractive unattended-upgrades
 
-# 2 GB swap, so building the images cannot run the 4 GB server out of memory.
+# 2 GB swap: a cushion for host processes (k3s keeps pods off swap).
 fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
 echo '/swapfile none swap sw 0 0' >> /etc/fstab
 
-# Docker Engine and the Compose plugin from Docker's apt repository.
+# Docker Engine and the Compose plugin, for the shared Caddy.
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
 chmod a+r /etc/apt/keyrings/docker.asc
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
 https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
   > /etc/apt/sources.list.d/docker.list
-apt-get update
-apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
-# A deploy user for day-to-day work, with the same SSH key. Membership in the docker group is
-# root-equivalent; it only saves typing sudo, it is not a security boundary.
-adduser --disabled-password --gecos "" deploy
-usermod -aG docker deploy
+# deploy, with sudo (asks for its password) and the docker group (root-equivalent, it saves typing sudo).
+adduser --gecos "" deploy                 # sets deploy's password
+usermod -aG sudo,docker deploy
 install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
 install -m 600 -o deploy -g deploy /root/.ssh/authorized_keys /home/deploy/.ssh/authorized_keys
 
-# SSH: keys only, no root login. Test `ssh deploy@<IP>` in a second terminal before closing this one.
+# SSH: keys only, no root login. Test `ssh deploy@<IP>` in a second terminal first.
 printf 'PermitRootLogin no\nPasswordAuthentication no\n' > /etc/ssh/sshd_config.d/10-hardening.conf
 systemctl reload ssh
-
-install -d -o deploy -g deploy /opt/invoiceguard /opt/edge
+install -d -o deploy -g deploy /opt/edge /opt/invoiceguard
 ```
 
-## 4. Start the shared Caddy (as deploy, once per server)
+### 4.3 The shared Caddy (as deploy)
 
 ```sh
 ssh deploy@<IP>
-git clone https://github.com/Ziad-Alghawi/invoiceguard.git /opt/invoiceguard
-cp -r /opt/invoiceguard/infra/edge/. /opt/edge/
-cd /opt/edge && docker compose up -d     # creates the `edge` network and starts Caddy on 80/443
+git clone https://github.com/Ziad-Alghawi/invoiceguard.git ~/invoiceguard
+cp -r ~/invoiceguard/infra/edge/. /opt/edge/
+cd /opt/edge && docker compose up -d     # ports 80/443, the `edge` network, certificates in a volume
 ```
 
-`/opt/edge` belongs to the server, not to one project: later sites add their own file there. Until InvoiceGuard
-runs, its site answers `502`.
-
-**Adding another site later:** write `/opt/edge/sites/<name>.caddy` (copy `invoiceguard.caddy`: host name,
-`import security_headers`, `reverse_proxy <alias>:<port>`), attach the app's public container to the external
-network `edge` with a unique alias (see `infra/docker-compose.prod.yml`), add a DNS A record, then:
+`/opt/edge` belongs to the server, not to one project. **Adding another site:** write
+`/opt/edge/sites/<name>.caddy` (copy `invoiceguard.caddy`: host name, `import security_headers`,
+`reverse_proxy <upstream>`), add a DNS A record, then validate (a broken file stops every reload) and reload:
 
 ```sh
 cd /opt/edge
-docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile   # a broken file stops every reload
-docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile     # no restart, no downtime
+docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile
+docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
 ```
 
-## 5. Configure and start InvoiceGuard (as deploy)
+A Compose app joins the external network `edge` under a unique alias; a site in k3s gets an Ingress on Traefik and
+`reverse_proxy host.docker.internal:8880`. Change `/opt/edge` files by editing the lines that change, not by
+copying the repo's files over them: other sites live there too.
+
+### 4.4 k3s (as deploy, with sudo)
 
 ```sh
-cd /opt/invoiceguard
-cp .env.example .env && chmod 600 .env
+cd ~/invoiceguard
+sudo install -D -m 644 infra/k3s/config.yaml /etc/rancher/k3s/config.yaml
+sudo install -D -m 644 infra/k3s/k3s-after-docker.conf /etc/systemd/system/k3s.service.d/10-after-docker.conf
+sudo install -D -m 600 infra/k3s/traefik-config.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+curl -sfL https://get.k3s.io -o /tmp/k3s-install.sh          # read it before running it
+sudo INSTALL_K3S_VERSION=v1.36.6+k3s1 sh /tmp/k3s-install.sh  # the version CI tests with
+install -d -m 700 ~/.kube && sudo install -m 600 -o deploy -g deploy /etc/rancher/k3s/k3s.yaml ~/.kube/config
+sed -i '1i export KUBECONFIG=$HOME/.kube/config' ~/.bashrc && export KUBECONFIG=$HOME/.kube/config
+kubectl get nodes                                            # Ready
+curl -s -o /dev/null -w '%{http_code}\n' http://172.17.0.1:8880   # 404: Traefik answers, no routes yet
 ```
 
-Edit `.env` (`nano .env`). Never commit it or copy it anywhere else:
+What the three files do: [`config.yaml`](../infra/k3s/config.yaml) turns off ServiceLB (it would take ports 80
+and 443 from Caddy), encrypts Secrets on disk and reserves memory; [`traefik-config.yaml`](../infra/k3s/traefik-config.yaml)
+gives Traefik hostPort 8880, trusts `X-Forwarded-For` from the pod network's gateway only (where Docker
+masquerades Caddy's requests) and gives Ingresses the address 127.0.0.1; the systemd drop-in starts k3s after
+Docker, through whose bridge Caddy reaches Traefik. A change to `traefik-config.yaml` is applied by copying it
+again: k3s upgrades Traefik by itself.
 
-| Variable | Value |
-| --- | --- |
-| `POSTGRES_PASSWORD` | output of `openssl rand -hex 24` |
-| `INVOICEGUARD_SEED_USER_EMAIL` | `demo@example.com` (shown on the login page) |
-| `INVOICEGUARD_SEED_USER_PASSWORD` | output of `openssl rand -hex 12` (shown on the login page on purpose; random so it is no password used anywhere else) |
-| `INVOICEGUARD_SEED_USER_NAME` | `Demo Reviewer` |
-| `INVOICEGUARD_SEED_APPROVER_EMAIL` | `approver@example.com` (shown on the login page; confirms overrides, ADR-016) |
-| `INVOICEGUARD_SEED_APPROVER_PASSWORD` | output of `openssl rand -hex 12` (shown on the login page, like the reviewer's) |
-| `INVOICEGUARD_SEED_APPROVER_NAME` | `Demo Approver` |
-| `INVOICEGUARD_APP_DB_PASSWORD` | output of `openssl rand -hex 24` (the api's restricted database role, ADR-022) |
-| `INVOICEGUARD_MCP_ERP_DB_PASSWORD` | output of `openssl rand -hex 24` (read-only database role of `mcp-erp`, ADR-017) |
-| `INVOICEGUARD_MCP_REGISTRY_DB_PASSWORD` | output of `openssl rand -hex 24` (read-only database role of `mcp-registry`) |
-| `INVOICEGUARD_MCP_HISTORY_DB_PASSWORD` | output of `openssl rand -hex 24` (read-only database role of `mcp-history`, R3-4b) |
-| `INVOICEGUARD_LLM_API_KEY` | optional: a separate Gemini key with a low quota set in Google AI Studio. Empty: plain PDFs wait |
-| `INVOICEGUARD_LLM_DAILY_BUDGET_USD` | optional; the prod override defaults to `0.50` |
-
-The other values keep their defaults. `INVOICEGUARD_DATABASE_URL` is only used outside Docker. Compose builds the
-database URLs: the one-shot `migrate` service logs in as the owner (`POSTGRES_*`) to run migrations, set the role
-passwords and reset the demo; the api logs in as `invoiceguard_app`, which cannot TRUNCATE, change the schema or
-touch the append-only logs beyond inserting (ADR-022).
+### 4.5 Argo CD and sealed-secrets (as deploy)
 
 ```sh
-make prod-up      # builds the images, starts db, validator, api, MCP servers and web, waits until healthy
-make demo-reset   # master data, booking history, rulebook, six sample invoices, the demo logins
+cd ~/invoiceguard
+infra/k3s/fetch.sh ~/platform        # Argo CD core, sealed-secrets, kubeseal: pinned, checked by SHA-256
+kubectl create namespace argocd
+kubectl apply -n argocd --server-side -f ~/platform/argocd-core-install.yaml
+kubectl apply -f infra/argocd/bootstrap/default-project.yaml
+kubectl -n argocd patch configmap argocd-cm --type merge --patch-file infra/argocd/bootstrap/argocd-cm-patch.yaml
+kubectl -n argocd patch configmap argocd-cmd-params-cm --type merge --patch-file infra/argocd/bootstrap/argocd-cmd-params-patch.yaml
+kubectl -n argocd scale deployment argocd-applicationset-controller --replicas 0
+kubectl -n argocd rollout restart deployment argocd-repo-server
+kubectl apply --server-side -f ~/platform/sealed-secrets-controller.yaml
+install -d ~/.local/bin && tar -xzf ~/platform/kubeseal.tar.gz -C ~/.local/bin kubeseal
 ```
 
-Open https://invoiceguard.ziadalghawi.com: the login page shows the demo accounts. If the certificate is missing,
-look at `cd /opt/edge && docker compose logs caddy` (usually DNS
-not pointing at the server yet, or port 80 closed in the firewall).
+The core install has no UI server and no `default` project, which the server would create; the bootstrap files
+add the project, a health check that lets the sync waves wait for each child Application, and a repo-server that
+renders one chart at a time (memory). The applicationset-controller is not used.
 
-**Nightly reset** (`crontab -e` as deploy):
+### 4.6 Secrets, the apps and the edge
 
-```cron
-0 3 * * * cd /opt/invoiceguard && make demo-reset >> /home/deploy/demo-reset.log 2>&1
-```
+1. **Secrets:** with the sealing key of the old cluster, apply it (section 3). Otherwise put the values into
+   `/opt/invoiceguard/.env` (mode 600; the `INVOICEGUARD_*` variables of [`.env.example`](../.env.example)),
+   delete the old `infra/argocd/apps/sealed-secret-*.yaml` in your clone, run
+   `infra/k3s/seal-secrets.sh /opt/invoiceguard/.env`, commit both files and merge: CI moves `demo` to that
+   commit. Back up the new sealing key (section 3).
+2. **The apps:** `kubectl apply -f infra/argocd/root.yaml`. Argo CD syncs in waves: the namespace, the
+   SealedSecrets, PostgreSQL (which creates the owner role, its database and the extensions on its first start),
+   then the app with its migration hook. Watch with `kubectl -n argocd get applications -w` until all three are
+   Synced and Healthy.
+3. **Data:** `kubectl -n invoiceguard create job reset-now --from=cronjob/invoiceguard-demo-reset` loads the
+   samples and the demo logins (or restore a dump: `pg_restore --data-only --disable-triggers` as `postgres` in
+   the PostgreSQL pod, leaving out `langgraph.checkpoint_migrations`, which the migrations fill).
+4. **Edge:** the site file [`infra/edge/sites/invoiceguard.caddy`](../infra/edge/sites/invoiceguard.caddy) and the
+   `extra_hosts` entry of [`infra/edge/compose.yml`](../infra/edge/compose.yml) are already in place from 4.3; on
+   a server whose `/opt/edge` already exists, add only those lines. Then `cd /opt/edge && docker compose up -d`.
+5. **Check:** https://invoiceguard.ziadalghawi.com shows the login page and `API: ok`; one failed login records
+   your own address (`kubectl -n invoiceguard exec statefulset/invoiceguard-postgres -- psql -U postgres -d
+   invoiceguard -c "select client_ip from login_failures"`), not `10.42.0.1`; after `sudo reboot` everything
+   comes back by itself.
 
-## 6. Update
+## 5. Test the charts locally on k3d
 
-From your own machine, after the change is merged to `main`:
-
-```sh
-make deploy       # ssh $DEPLOY_HOST "cd /opt/invoiceguard && git pull && make prod-up"
-```
-
-`DEPLOY_HOST` is set in your local `.env` (for example `deploy@<IP>`; it stays empty on the server). Without it,
-`make deploy` stops with a message and does nothing. `make prod-up` rebuilds changed images and recreates changed
-containers; the `migrate` service runs the migrations before the api starts. The same by hand:
-
-```sh
-ssh deploy@<IP>
-cd /opt/invoiceguard
-git pull
-make prod-up
-```
-
-A release that adds a required `.env` variable (for example the MCP role passwords in R2-5,
-`INVOICEGUARD_MCP_HISTORY_DB_PASSWORD` for `mcp-history` in R3-4b, or `INVOICEGUARD_APP_DB_PASSWORD` in R4-2) needs it on the server before `make prod-up`:
-Compose stops with `set ... in .env` otherwise. Compare with `.env.example` after `git pull`.
-
-The rulebook (`docs/rulebook`) is built into the api image and synced into the database by every `make demo-reset`
-(nightly), with its packaged vectors; after a rulebook change run `make demo-reset` once, or
-`make index` to sync it without touching the invoices.
-
-If `infra/edge/sites/invoiceguard.caddy` changed: copy it to `/opt/edge/sites/` and reload Caddy (above).
-
-Roll back with `git checkout <previous commit or tag> && make prod-up`. A migration is not undone that way:
-`docker compose ... run --rm migrate alembic downgrade -1` first (as the owner), if the new release added one.
-
-## 7. Operate
-
-| Task | Command (in `/opt/invoiceguard`) |
-| --- | --- |
-| Status | `cd infra && docker compose --env-file ../.env -f docker-compose.yml -f docker-compose.prod.yml ps` |
-| Logs | same, with `logs --tail 100 api` (or `web`, `validator`, `db`, `mcp-erp`, `mcp-registry`, `mcp-history`); Caddy: `cd /opt/edge && docker compose logs caddy` |
-| LLM cost today | `... exec db psql -U invoiceguard -c "select sum(cost_usd) from model_calls where at >= current_date"` |
-| Reset the demo now | `make demo-reset` (as the database owner, in a one-off `migrate` container) |
-| Stop | `make prod-down` (data stays in volumes; Caddy and other sites keep running) |
-| Disk | `df -h /` and `docker system df`; `docker image prune` after updates |
-
-Container logs rotate at 3 × 10 MB per container. Caddy writes no access log, because visitor IP addresses
-are personal data and the demo does not need them. There is no backup: the demo holds only sample data and is
-reset every night.
-
-## Kubernetes (Helm, R4-3)
-
-From R4-4 the demo runs on k3s on the same server, deployed by Argo CD
-([ADR-021](decisions/ADR-021-platform-k3s-argocd.md)). Until then it runs on Compose as described above. Two
-charts, installed in this order ([ADR-023](decisions/ADR-023-helm-chart-and-postgres.md)):
-
-1. [`infra/helm/invoiceguard-postgres`](../infra/helm/invoiceguard-postgres): PostgreSQL 16 with pgvector.
-   On its first start it creates the owner `invoiceguard_owner`, which is no superuser, its database and the
-   extensions.
-2. [`infra/helm/invoiceguard`](../infra/helm/invoiceguard): api, web, validator, the three MCP servers, the
-   migration hook (`pre-install`/`pre-upgrade`, PreSync in Argo CD) and the nightly demo-reset CronJob.
-   `image.tag` is the commit SHA of the GHCR images.
-
-The charts hold no secret values. Create the two secrets in the namespace first (sealed-secrets in R4-4). The
-passwords must be URL-safe, for example `openssl rand -hex 24`:
-
-| Secret | Keys |
-| --- | --- |
-| `invoiceguard-postgres` | `superuser-password`, `owner-password` |
-| `invoiceguard` | `app-db-password`, `mcp-erp-db-password`, `mcp-registry-db-password`, `mcp-history-db-password`, `seed-user-email`, `seed-user-password`; optional: `seed-approver-email`, `seed-approver-password`, `llm-api-key` | <!-- pragma: allowlist secret -->
-
-```sh
-helm install invoiceguard-postgres infra/helm/invoiceguard-postgres --namespace invoiceguard --wait
-helm install invoiceguard infra/helm/invoiceguard --namespace invoiceguard \
-  --set image.tag=<full commit SHA> --set ingress.host=invoiceguard.ziadalghawi.com --wait
-```
-
-Run the demo reset now: `kubectl -n invoiceguard create job reset-now --from=cronjob/invoiceguard-demo-reset`.
-
-**Local test on k3d.** This is what CI does (job `helm`): build the six images tagged
-`ghcr.io/ziad-alghawi/invoiceguard-<name>:<tag>`, then run:
+This is what CI does (job `helm`): build the six images tagged `ghcr.io/ziad-alghawi/invoiceguard-<name>:<tag>`,
+then run:
 
 ```sh
 k3d cluster create invoiceguard --image rancher/k3s:v1.36.6-k3s1 --port "8080:80@loadbalancer" --wait
@@ -239,15 +262,10 @@ k3d image import --cluster invoiceguard ghcr.io/ziad-alghawi/invoiceguard-{api,w
 .github/scripts/k3d-smoke-test.sh <tag> 8080
 ```
 
-The script needs `kubectl`, `helm`, `curl`, `jq` and `openssl`. It creates the secrets with random values,
-installs both charts with [`infra/helm/ci-values.yaml`](../infra/helm/ci-values.yaml) and checks the following:
-
-- the owner is no superuser;
-- the web page loads through Traefik, and a 12 MB body gets `413`;
-- the api answers `/health` and `/ready`;
-- the demo reset, run once from the CronJob, loads the samples with KoSIT passing, and its user can log in;
-- the api reaches mcp-erp, while the web pod and an unlabelled pod cannot;
-- an upgrade runs the migration hook again.
-
-Still open for R4-4 on the server: k3s's Traefik has to trust `X-Forwarded-For` from Caddy (`trustedIPs` on
-its entry point). Without it, the per-IP login limit sees every visitor as Caddy's address.
+The smoke test needs `kubectl`, `helm`, `curl`, `jq` and `openssl`. It creates the secrets with random values,
+installs both charts with [`infra/helm/ci-values.yaml`](../infra/helm/ci-values.yaml) and checks the owner role,
+the page through Traefik and the 413 limit, `/health` and `/ready`, the demo reset and a login, the
+NetworkPolicies and a second migration hook on upgrade. CI then checks the pinned platform files, dry-runs the
+manifests, lets Argo CD core bootstrap and render the Applications at the commit
+(`.github/scripts/k3d-argocd-test.sh`, which also needs `yq`), and starts k3s's Traefik with the server's
+settings (`.github/scripts/k3d-traefik-config-test.sh`).

@@ -1,7 +1,7 @@
 # ADR-014: R1 demo on one VPS with Docker Compose and Caddy
 
-- **Status:** Accepted; hosting partly superseded by [ADR-021](ADR-021-platform-k3s-argocd.md) (k3s, Argo CD) from R4-4,
-  on the same server (amendment below)
+- **Status:** Accepted; hosting superseded by [ADR-021](ADR-021-platform-k3s-argocd.md) and
+  [ADR-024](ADR-024-edge-and-cluster-bootstrap.md): k3s and Argo CD on the same server since R4-4 (2026-11-20)
 - **Date:** 2026-11-14 (updated 2026-11-18 with R2-7: upload page, demo upload rules)
 
 ## Context

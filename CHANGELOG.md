@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- The demo on k3s with Argo CD (R4-4, ADR-021, ADR-024):
+  - `infra/k3s/`: k3s settings for the 4 GB server (no ServiceLB, encrypted Secrets, kubelet memory
+    reservations), Traefik's hostPort 8880 with trusted forwarded headers from the pod network's gateway and
+    the Ingress address 127.0.0.1, a systemd drop-in that starts k3s after Docker, `fetch.sh` (pinned release
+    files checked by SHA-256) and `seal-secrets.sh`.
+  - `infra/argocd/`: the root Application on the git tag `demo`, sync waves (namespace, SealedSecrets,
+    PostgreSQL, app), the image tag from `$ARGOCD_APP_REVISION`; bootstrap files for the core install (the
+    `default` project, the child health check, one chart rendered at a time).
+  - CD: the CI job `demo-tag` moves `demo` to a `main` commit once every job has passed; Argo CD deploys it.
+  - CI (job `helm`): the pinned files' hashes, a dry run of the manifests, Argo CD core bootstrapping and
+    rendering the Applications at the commit, and k3s's Traefik started with the server's settings, on k3d.
+  - `docs/deploy.md` rewritten for the cluster: how a change reaches the demo, operating, secrets and the
+    sealing key, rollback by moving the tag, and the server set up from scratch.
 - Helm charts (R4-3, ADR-023):
   - `infra/helm/invoiceguard-postgres`: PostgreSQL 16 with pgvector, pinned by digest. On first start it
     creates the owner `invoiceguard_owner`, which is no superuser, its database and the extensions.
@@ -285,6 +298,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tax is still `blocked`). Found by the R3-2 eval; tests for the 01.04a shape and three wrong-math variants.
 
 ### Changed
+- The public demo runs on k3s on the same server since 2026-11-20; Caddy forwards to Traefik instead of a
+  Compose container. `make demo-reset` resets the local Compose stack (the demo resets by CronJob).
 - The web image no longer ships npm and corepack (the server needs only `node`); the validator's JRE base image
   moved to the current digest (apt CVE-2026-109518 fixed).
 - `INVOICEGUARD_EXTRACTION_CONFIDENCE_THRESHOLD` defaults to 0.9 (was 0.8): on the eval set at `low` it flags 5 of 9
@@ -300,3 +315,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The CI smoke test uploads a sample XRechnung, expects `202` and polls until the invoice is `ready`.
 - Processed invoices end in `ready` or `blocked` depending on the checks (before: `ready` once read).
 - Tests read an invoice after upload by polling until processing has finished, as the UI does.
+
+### Removed
+- The Compose deploy path of the demo: `infra/docker-compose.prod.yml`, `make prod-up`, `make prod-down`,
+  `make deploy` and `DEPLOY_HOST`; the demo deploys through Argo CD.

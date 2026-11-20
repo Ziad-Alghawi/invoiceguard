@@ -4,10 +4,14 @@
 #
 #   infra/k3s/seal-secrets.sh /opt/invoiceguard/.env
 #
-# The restricted roles' passwords, the demo logins and the optional model key come from the Compose
-# .env, so the login page shows the same accounts after the move; the PostgreSQL superuser and owner
-# get new random passwords. The output files in infra/argocd/apps/ are encrypted for this cluster's
-# key only and are safe to commit. No value is printed or passed on a command line.
+# The restricted roles' passwords, the demo logins and the optional model key come from the .env
+# (the server keeps it at /opt/invoiceguard/.env, mode 600, as the source of these values). The
+# migration hook sets the restricted roles' passwords on every deploy, so changing one here and
+# deploying is enough. The PostgreSQL superuser and owner get random passwords once: PostgreSQL
+# takes them only on an empty volume, so an existing sealed-secret-invoiceguard-postgres.yaml is
+# kept (changing those needs ALTER ROLE in the database first, then a new sealed file).
+# The output files in infra/argocd/apps/ are encrypted for this cluster's key only and are safe to
+# commit. No value is printed or passed on a command line.
 set -eu
 
 env_file=$1
@@ -26,10 +30,6 @@ umask 077
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-cat > "$work/postgres.env" <<EOF
-superuser-password=$(openssl rand -hex 24)
-owner-password=$(openssl rand -hex 24)
-EOF
 
 # One assignment per value: `set -e` stops at a failed assignment, not inside a heredoc.
 for pair in app-db-password:INVOICEGUARD_APP_DB_PASSWORD \
@@ -51,5 +51,12 @@ seal() {
     | kubeseal --format yaml > "$out/sealed-secret-$1.yaml"
   echo "wrote $out/sealed-secret-$1.yaml"
 }
-seal invoiceguard-postgres "$work/postgres.env"
+if [ -e "$out/sealed-secret-invoiceguard-postgres.yaml" ]; then
+  echo "kept $out/sealed-secret-invoiceguard-postgres.yaml (the database already uses its passwords)"
+else
+  superuser=$(openssl rand -hex 24)
+  owner=$(openssl rand -hex 24)
+  printf 'superuser-password=%s\nowner-password=%s\n' "$superuser" "$owner" > "$work/postgres.env"
+  seal invoiceguard-postgres "$work/postgres.env"
+fi
 seal invoiceguard "$work/app.env"

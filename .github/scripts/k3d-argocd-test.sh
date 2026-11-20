@@ -19,6 +19,7 @@ a patch configmap argocd-cm --type merge --patch-file infra/argocd/bootstrap/arg
 a patch configmap argocd-cmd-params-cm --type merge \
   --patch-file infra/argocd/bootstrap/argocd-cmd-params-patch.yaml
 a scale deployment argocd-applicationset-controller --replicas 0
+kubectl apply --filename infra/argocd/bootstrap/default-project.yaml
 a rollout restart deployment argocd-repo-server
 a rollout status deployment argocd-repo-server --timeout=180s
 a rollout status statefulset argocd-application-controller --timeout=180s
