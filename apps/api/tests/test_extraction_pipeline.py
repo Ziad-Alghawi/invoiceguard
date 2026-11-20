@@ -26,7 +26,7 @@ from invoiceguard_api import processing
 from invoiceguard_api.auth import SESSION_COOKIE
 from invoiceguard_api.extraction.extract import DOCUMENT_END, DOCUMENT_START, SYSTEM_PROMPT
 from invoiceguard_api.llm import FilePart, LLMError
-from invoiceguard_api.main import create_app
+from invoiceguard_api.main import create_app, make_extractor
 from invoiceguard_api.models import (
     AuditEvent,
     FieldSource,
@@ -297,6 +297,60 @@ def test_extraction_runs_once(
     assert len(llm.requests) == 1
     assert client.get(f"/invoices/{detail['id']}").json()["status"] == "ready"
     assert len(_calls(db_session, detail["id"])) == 1
+
+
+def _read_without_extractor(start_app: StartApp, pdf: bytes) -> tuple[TestClient, str]:
+    """A plain PDF read by an app without a model key: it waits in `awaiting_extraction`."""
+    client = start_app(None)
+    location = client.post(
+        "/invoices", files={"file": ("scan.pdf", pdf, "application/pdf")}
+    ).headers["location"]
+    detail = poll_until_done(client, location)
+    assert detail["status"] == "awaiting_extraction"
+    return client, detail["id"]
+
+
+@pytest.mark.usefixtures("seeded")
+def test_a_run_that_finds_the_invoice_already_read_still_extracts_it(
+    start_app: StartApp, samples: dict[str, bytes], settings: Settings, db_session: Session
+) -> None:
+    # The race behind issue #31: startup recovery reads an upload, releases the lock between
+    # reading and extracting, and the upload's own run takes it. That run's claim fails, because
+    # the invoice was already read, and it must go on to extraction: recovery only tries the
+    # lock, so it skips extraction while that run holds it.
+    client, invoice_id = _read_without_extractor(start_app, samples["text_pdf"])
+    llm = FakeLLMClient(reply_text())
+    state = client.app.state  # type: ignore[attr-defined]
+
+    processing.process_invoice(
+        state.session_factory,
+        state.storage,
+        state.validator,
+        make_extractor(settings, llm),
+        uuid.UUID(invoice_id),
+    )
+
+    assert client.get(f"/invoices/{invoice_id}").json()["status"] == "ready"
+    assert len(llm.requests) == 1
+
+
+@pytest.mark.usefixtures("seeded")
+def test_a_second_run_after_extraction_does_not_extract_again(
+    start_app: StartApp, samples: dict[str, bytes], settings: Settings, db_session: Session
+) -> None:
+    client, invoice_id = _read_without_extractor(start_app, samples["text_pdf"])
+    llm = FakeLLMClient(reply_text())
+    extractor = make_extractor(settings, llm)
+    state = client.app.state  # type: ignore[attr-defined]
+
+    for _ in range(2):
+        processing.process_invoice(
+            state.session_factory, state.storage, state.validator, extractor, uuid.UUID(invoice_id)
+        )
+
+    assert client.get(f"/invoices/{invoice_id}").json()["status"] == "ready"
+    assert len(llm.requests) == 1
+    assert len(_calls(db_session, invoice_id)) == 1
 
 
 def test_cost_stays_logged_when_a_later_step_fails(
