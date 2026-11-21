@@ -81,7 +81,8 @@ and the dashboard JSON provisioned from the repo. It reads Prometheus through
   - the api with metrics: 126 to 128 MiB, against 129 to 130 MiB for the `main` image under the same
     traffic, so no measurable cost.
 
-  The server's numbers are recorded in status.md after the first deploy.
+  On the server after the first deploy (2026-11-21): Prometheus at 30 Mi, and `available` at
+  1,245 MB against 1,320 MB before it (details in status.md).
 - **Counters restart at 0 with an api restart.** `rate()` and `increase()` handle that.
   - A series created by its first event cannot show that event in `increase()`. So the two
     cost-cap series start at 0.
