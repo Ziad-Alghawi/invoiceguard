@@ -502,17 +502,18 @@ jobs:
           kubectl create namespace argocd
           kubectl apply --dry-run=server --filename infra/k3s/traefik-config.yaml
           kubectl apply --dry-run=server --filename infra/argocd/root.yaml --filename infra/argocd/apps
-      # Argo CD core with the server's bootstrap files reads, renders and compares the Applications
-      # at this commit, without deploying (ADR-024): the core install has no default project, and
-      # a dry run cannot see that.
-      - name: Argo CD core bootstraps and renders the Applications at this commit
-        env:
-          REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: .github/scripts/k3d-argocd-test.sh "$RUNNER_TEMP/platform" "$REVISION"
-      # Last: the server's Traefik settings, merged into k3s's own Traefik chart as on the server;
-      # Traefik must start with them (a dry run cannot see a flag the chart builds wrongly).
+      # The server's Traefik settings, merged into k3s's own Traefik chart as on the server; Traefik
+      # must start with them (a dry run cannot see a flag the chart builds wrongly). k3d's load
+      # balancer no longer reaches Traefik afterwards, so no step after this one uses it.
       - name: Traefik starts with the server's settings (hostPort 8880, entrypoint address, ClusterIP)
         run: .github/scripts/k3d-traefik-config-test.sh
+      # Argo CD core with the server's bootstrap files, after Traefik has the server's settings
+      # (ADR-024): the root app is compared, the chart apps sync and must end Synced and Healthy,
+      # since the root app's sync waves wait for that health on the server.
+      - name: Argo CD core syncs the apps at this commit; every one ends Synced and Healthy
+        env:
+          REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: .github/scripts/k3d-argocd-test.sh "$RUNNER_TEMP/platform" "$REVISION" "$TAG"
       - name: Cluster state and logs
         if: failure()
         run: |

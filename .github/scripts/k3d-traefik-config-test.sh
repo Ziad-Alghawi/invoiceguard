@@ -4,8 +4,8 @@
 # HelmChartConfig into its bundled chart exactly as on the server, so a setting the chart turns
 # into a bad flag fails here, not on the server.
 #
-# Used by the CI job `helm` as its last step: the Service becomes ClusterIP, so k3d's load balancer
-# no longer reaches Traefik afterwards.
+# Used by the CI job `helm` before the Argo CD test: the Service becomes ClusterIP, so k3d's load
+# balancer no longer reaches Traefik afterwards.
 set -euo pipefail
 
 ks() { kubectl --namespace kube-system "$@"; }
