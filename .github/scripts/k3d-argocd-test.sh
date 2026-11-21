@@ -64,9 +64,10 @@ for app in invoiceguard-postgres invoiceguard invoiceguard-monitoring; do
     [ "$attempt" -lt 120 ] || {
       echo "$app is $sync and $health after 10 minutes; the root app's later waves would wait on it."
       echo "Its operation: $(field "$app" '{.status.operationState.phase}: {.status.operationState.message}')"
-      echo "Its resources that are not Healthy:"
-      field "$app" '{range .status.resources[*]}{.kind}/{.name}: {.health.status} {.health.message}{"\n"}{end}' \
-        | grep --invert-match ': Healthy' || true
+      # Argo CD 3 keeps each resource's health out of the Application's status, so show the
+      # resources whose health it derives: rollouts, and the Ingress address.
+      kubectl --namespace "$(field "$app" '{.spec.destination.namespace}')" \
+        get deployments,statefulsets,ingresses --selector "app.kubernetes.io/instance=$app"
       exit 1
     }
     sleep 5
