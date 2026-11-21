@@ -37,6 +37,25 @@ uv run --env-file ../../.env invoiceguard-eval run --set full --efforts low,medi
 
 Only send public or generated invoices to a model (ADR-010).
 
+## Model comparison
+
+`make eval-models` (or `uv run invoiceguard-eval models`) runs the app's PDF extraction with each model in
+`model_comparison.MODELS` on 12 PDFs: the 6 demo samples drawn as PDFs (`datasets/demo`), and the `small`
+set's 2 corpus and 4 generated PDFs. It replays the recordings and writes
+[`docs/evals/model-comparison.md`](../../docs/evals/model-comparison.md); the eval gate runs it with `--check`
+and fails when that file differs. The default model and why: ADR-026.
+
+To record it again (after a prompt change, or with other models), run a smoke test first, then the full set.
+One cap covers every model; before each call the run keeps the dearest call so far (at least $0.02) free, and
+it stops at once on a reply without a price:
+
+```bash
+uv run --env-file ../../.env invoiceguard-eval models --limit 1 --live --max-spend-usd 0.10 --out /tmp/smoke.md
+uv run --env-file ../../.env invoiceguard-eval models --live --max-spend-usd 0.50
+```
+
+The full run cost about $0.45 in November 2026, most of it the pro model.
+
 ## Datasets
 
 | Set | Files | Truth | Model |
@@ -44,6 +63,7 @@ Only send public or generated invoices to a model (ADR-010).
 | `kosit` | 72 XRechnung business cases (UBL and CII) from the KoSIT testsuite | the UBL and CII file of a case must agree | no |
 | `corpus` | 12 FeRD EN 16931 PDFs from the ZUGFeRD corpus, XML removed | the embedded XML, plus the overrides in `sources.json` | yes |
 | `generated` | 17 PDFs from `specs.py`: clean, variants, conflicting printed values, fraud | `datasets/generated/*.truth.json` | yes |
+| `demo` | the 6 demo samples (`invoiceguard_api/demo_invoices`) drawn as PDFs, for the model comparison | the demo XML; a term it leaves out is printed from the seed (`datasets/demo/*.truth.json`) | yes |
 | fraud set | the 10 generated specs with an expected decision, as UBL and as PDF | `Expected` in `specs.py` | PDF only |
 | attack set | 54 poisoned twins of generated specs (`attacks.py`), as UBL or PDF; 10 of them poison the booking history instead | the twin's truth and expected decision | PDF and agent |
 | bookings | a booking history of 159 lines (written to the api package) and 62 held-out lines (`bookings.py`) | the item's SKR03 account, set by hand | embeddings |

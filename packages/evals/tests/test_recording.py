@@ -136,11 +136,45 @@ def test_a_failed_call_is_not_recorded(tmp_path: Path) -> None:
     assert list(tmp_path.iterdir()) == []
 
 
-def test_an_unknown_price_is_recorded_as_unknown(tmp_path: Path) -> None:
-    unpriced = LLMReply(text="{}", input_tokens=1, output_tokens=1, cost_usd=None, latency_ms=1)
-    ask(RecordingClient(tmp_path, FakeModel(unpriced), Decimal(1)))
+def test_the_cap_keeps_the_dearest_call_in_reserve(tmp_path: Path) -> None:
+    """At $0.01 per call and a cap of $0.025, a third call could pass the cap: two are made."""
+    model = FakeModel()
+    client = RecordingClient(tmp_path, model, max_spend_usd=Decimal("0.025"))
+    ask(client, pdf=b"%PDF-1")
+    ask(client, pdf=b"%PDF-2")
 
+    with pytest.raises(SpendCapReached, match="keeping"):
+        ask(client, pdf=b"%PDF-3")
+    assert (model.calls, client.spent_usd) == (2, Decimal("0.02"))
+    assert client.largest_call_usd == Decimal("0.01")
+
+
+def test_the_minimum_reserve_holds_before_the_first_call(tmp_path: Path) -> None:
+    model = FakeModel()
+    client = RecordingClient(tmp_path, model, Decimal("0.05"), min_reserve_usd=Decimal("0.06"))
+
+    with pytest.raises(SpendCapReached):
+        ask(client)
+    assert model.calls == 0
+
+
+def test_an_unknown_price_is_recorded_and_stops_a_live_run(tmp_path: Path) -> None:
+    unpriced = LLMReply(text="{}", input_tokens=1, output_tokens=1, cost_usd=None, latency_ms=1)
+
+    with pytest.raises(SpendCapReached, match="no price"):
+        ask(RecordingClient(tmp_path, FakeModel(unpriced), Decimal(1)))
     assert ask(RecordingClient(tmp_path)).cost_usd is None
+
+
+def test_the_recording_days_are_kept_per_model(tmp_path: Path) -> None:
+    live = RecordingClient(tmp_path, FakeModel(), Decimal(1))
+    ask(live)
+    replay = RecordingClient(tmp_path)
+    ask(replay)
+
+    assert live.recorded_on == replay.recorded_on
+    (days,) = replay.recorded_on.values()
+    assert len(days) == 1
 
 
 def test_replay_can_count_a_missing_recording_as_a_failed_call(tmp_path: Path) -> None:

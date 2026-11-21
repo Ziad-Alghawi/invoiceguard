@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Model comparison (R4-6, ADR-026): `invoiceguard-eval models` and `make eval-models` run the app's PDF
+  extraction with `gemini-3.5-flash-lite`, `gemini-3.8-flash` and `gemini-3.1-pro-preview` on 12 PDFs (the 6
+  demo samples drawn as PDFs, new in `packages/evals/datasets/demo`, and 6 from the `small` set). The table
+  is in `docs/evals/model-comparison.md`: accuracy overall and per field, p50/p95 latency, cost per invoice.
+  The eval gate replays it with `--check`. `gemini-3.8-flash` stays the default.
 - Metrics (R4-5, ADR-025):
   - `GET /metrics` on the api (`prometheus-client`). It covers:
     - HTTP requests and latency by route template;
@@ -321,6 +326,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tax is still `blocked`). Found by the R3-2 eval; tests for the 01.04a shape and three wrong-math variants.
 
 ### Changed
+- The eval harness's live spend cap (R4-6): before each live call it keeps the dearest call so far (and at least
+  `min_reserve_usd`) free, so the next call cannot overshoot the cap; a live reply without a price is saved and
+  stops the run.
 - The public demo runs on k3s on the same server since 2026-11-20; Caddy forwards to Traefik instead of a
   Compose container. `make demo-reset` resets the local Compose stack (the demo resets by CronJob).
 - The web image no longer ships npm and corepack (the server needs only `node`); the validator's JRE base image

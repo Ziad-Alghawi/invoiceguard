@@ -1,0 +1,41 @@
+{
+ "syntax": "pdf",
+ "invoice_number": "BL-2026-1187",
+ "issue_date": "2026-11-09",
+ "type_code": "380",
+ "currency": "EUR",
+ "due_date": "2026-11-23",
+ "seller_name": "Beispiel Logistik AG",
+ "seller_vat_id": "DE999000025",
+ "buyer_name": "Beispielkunde Handels GmbH",
+ "buyer_vat_id": "DE999000068",
+ "payee_iban": "DE87123456780000000002",
+ "order_reference": "PO-2026-0004",
+ "line_total": "380.00",
+ "allowance_total": null,
+ "charge_total": null,
+ "net_total": "380.00",
+ "tax_total": "72.20",
+ "gross_total": "452.20",
+ "amount_due": "452.20",
+ "lines": [
+  {
+   "line_id": "1",
+   "item_name": "Expresszustellung Ersatzteile",
+   "quantity": "1",
+   "unit_code": "C62",
+   "net_price": "380.00",
+   "net_amount": "380.00",
+   "vat_rate": "19"
+  }
+ ],
+ "vat_breakdown": [
+  {
+   "category_code": "S",
+   "rate": "19",
+   "taxable_amount": "380.00",
+   "tax_amount": "72.20"
+  }
+ ],
+ "warnings": []
+}

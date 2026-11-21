@@ -18,17 +18,18 @@ from invoiceguard_evals.sources import (
     read_source,
     without_attachments,
 )
-from invoiceguard_evals.specs import ALL, Conflict, InvoiceSpec, truth
+from invoiceguard_evals.specs import ALL, Conflict, InvoiceSpec, demo_specs, truth
 from invoiceguard_evals.ubl import to_ubl
 
 GENERATED_DIR = PACKAGE_DIR / "datasets" / "generated"
+DEMO_DIR = PACKAGE_DIR / "datasets" / "demo"
 SetName = Literal["small", "full"]
 
 
 @dataclass(frozen=True)
 class ExtractionCase:
     case_id: str
-    dataset: Literal["corpus", "generated"]
+    dataset: Literal["corpus", "generated", "demo"]
     # What the model sees: a PDF without embedded XML.
     pdf: bytes
     truth: ParsedInvoice
@@ -56,6 +57,40 @@ def write_generated(directory: Path = GENERATED_DIR) -> int:
             (directory / name).write_bytes(content)
             written += 1
     return written
+
+
+def demo_files(spec: InvoiceSpec) -> dict[str, bytes]:
+    """A demo sample's PDF and its truth; its XML is the demo file itself."""
+    return {
+        f"{spec.case_id}.pdf": render(spec),
+        f"{spec.case_id}.truth.json": (truth(spec).model_dump_json(indent=1) + "\n").encode(),
+    }
+
+
+def write_demo(directory: Path = DEMO_DIR) -> int:
+    """Write the demo samples as PDFs (`invoiceguard-eval generate`); returns the file count."""
+    directory.mkdir(parents=True, exist_ok=True)
+    written = 0
+    for spec in demo_specs():
+        for name, content in demo_files(spec).items():
+            (directory / name).write_bytes(content)
+            written += 1
+    return written
+
+
+def demo_cases(directory: Path = DEMO_DIR) -> list[ExtractionCase]:
+    """The demo samples as PDFs, from the committed files."""
+    return [
+        ExtractionCase(
+            spec.case_id,
+            "demo",
+            (directory / f"{spec.case_id}.pdf").read_bytes(),
+            ParsedInvoice.model_validate_json(
+                (directory / f"{spec.case_id}.truth.json").read_text("utf-8")
+            ),
+        )
+        for spec in demo_specs()
+    ]
 
 
 def selected(tags: frozenset[str], which: SetName) -> bool:
