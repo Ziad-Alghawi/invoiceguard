@@ -121,6 +121,13 @@ ingress:
   # Traefik refuses larger requests with 413: the api's 10 MiB upload limit plus multipart overhead.
   maxRequestBodyBytes: 11534336
 
+# Prometheus (the invoiceguard-monitoring chart, ADR-025) scrapes GET /metrics on each api pod.
+metrics:
+  enabled: true
+  # The Prometheus pods' labels: the api's NetworkPolicy lets them in on port 8000.
+  prometheusPodLabels:
+    app.kubernetes.io/name: invoiceguard-monitoring
+
 networkPolicy:
   enabled: true
   # Who may reach the web pods: the ingress controller (k3s's Traefik).

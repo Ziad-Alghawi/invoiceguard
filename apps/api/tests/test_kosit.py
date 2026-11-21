@@ -11,9 +11,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
+from prometheus_client import CollectorRegistry
 
 from invoiceguard_api.checks import KositValidator
 from invoiceguard_api.checks.kosit import NOT_CONFIGURED
+from invoiceguard_api.metrics import make_registry
 
 REPORTS = Path(__file__).resolve().parent / "fixtures" / "kosit"
 VALIDATOR_URL_ENV = "INVOICEGUARD_TEST_VALIDATOR_URL"
@@ -42,6 +44,13 @@ def stub() -> Iterator[tuple[str, Reply]]:
             self.send_header("Content-Length", str(len(reply.body)))
             self.end_headers()
             self.wfile.write(reply.body)
+
+        def do_GET(self) -> None:
+            # The daemon's health endpoint, which the metrics check at each scrape.
+            reply.received.append((self.path, None, b""))
+            self.send_response(200 if self.path == "/server/health" else 404)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
 
         def log_message(self, format: str, *args: object) -> None:
             """Keep the test output quiet."""
@@ -142,6 +151,56 @@ def test_without_url_validation_is_not_configured() -> None:
     validation = KositValidator(None, 2).validate(b"<Invoice/>")
 
     assert (validation.outcome, validation.reason) == ("unavailable", NOT_CONFIGURED)
+
+
+# --- Metrics (R4-5, ADR-025) -------------------------------------------------------------------
+
+
+def _metric(registry: CollectorRegistry, name: str, **labels: str) -> float:
+    return registry.get_sample_value(name, labels) or 0.0
+
+
+def test_calls_are_counted_by_outcome(stub: tuple[str, Reply]) -> None:
+    url, reply = stub
+    registry = make_registry(url)
+    before_accepted = _metric(registry, "invoiceguard_validator_requests_total", outcome="accepted")
+    before_down = _metric(registry, "invoiceguard_validator_requests_total", outcome="unavailable")
+    before_seconds = _metric(
+        registry, "invoiceguard_validator_duration_seconds_count", outcome="accepted"
+    )
+
+    reply.body = _report("accepted.xml")
+    KositValidator(url, 2).validate(b"<Invoice/>")
+    reply.status, reply.body = 500, b""
+    KositValidator(url, 2).validate(b"<Invoice/>")
+    # Without a URL there is no call to count.
+    KositValidator(None, 2).validate(b"<Invoice/>")
+
+    assert _metric(registry, "invoiceguard_validator_requests_total", outcome="accepted") == (
+        before_accepted + 1
+    )
+    assert _metric(registry, "invoiceguard_validator_requests_total", outcome="unavailable") == (
+        before_down + 1
+    )
+    assert _metric(
+        registry, "invoiceguard_validator_duration_seconds_count", outcome="accepted"
+    ) == (before_seconds + 1)
+
+
+def test_validator_up_follows_the_health_endpoint(stub: tuple[str, Reply]) -> None:
+    url, reply = stub
+
+    assert _metric(make_registry(url), "invoiceguard_validator_up") == 1
+    assert ("/server/health", None, b"") in reply.received
+
+
+def test_validator_up_is_0_when_unreachable_or_not_configured() -> None:
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+
+    assert _metric(make_registry(f"http://127.0.0.1:{port}/"), "invoiceguard_validator_up") == 0
+    assert _metric(make_registry(None), "invoiceguard_validator_up") == 0
 
 
 # --- Against the real validator service (CI: the Compose service) ----------------------------

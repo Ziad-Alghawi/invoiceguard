@@ -18,6 +18,7 @@ flowchart LR
             api --> db[(PostgreSQL<br/>pgvector)]
             api --> validator[KoSIT validator]
             api --> mcp[MCP servers]
+            prometheus[Prometheus<br/>no Ingress] -- "/metrics" --> api
             argocd[Argo CD core] -. "follows the git tag demo" .-> gh[(GitHub)]
         end
     end
@@ -85,6 +86,30 @@ only sample data and is reset every night.
 largest parts are the k3s server process (about 900 MiB), the validator (about 430 MiB), Argo CD (about
 300 MiB) and the api (about 140 MiB). The kubelet keeps 900 MiB for the system and k3s (`system-reserved`,
 `kube-reserved`) and evicts a pod below 200 MiB available ([`infra/k3s/config.yaml`](../infra/k3s/config.yaml)).
+
+### Metrics
+
+Prometheus runs in the cluster ([`infra/helm/invoiceguard-monitoring`](../infra/helm/invoiceguard-monitoring),
+[ADR-025](decisions/ADR-025-metrics-prometheus-local-grafana.md)). It scrapes the api's `/metrics` every 30 s,
+keeps 7 days (at most 300 MB) and evaluates the alert rules. It has no Ingress and no public port; Grafana runs on
+your own machine.
+
+1. Open the tunnel from your machine (leave it running):
+
+   ```sh
+   ssh -L 9090:127.0.0.1:9090 deploy@<IP> \
+     'KUBECONFIG=$HOME/.kube/config kubectl -n invoiceguard port-forward svc/invoiceguard-monitoring 9090'
+   ```
+
+   Prometheus's own UI is then at http://localhost:9090: **Alerts** shows the four rules and whether one fires,
+   **Status → Targets** the scraped api pods.
+2. `make grafana`, then open http://localhost:3001: the dashboard **InvoiceGuard** (traffic, latency, invoices,
+   checks, decisions, security events, LLM calls and cost, agent runs, validator, firing alerts). It is
+   provisioned from [`infra/grafana/`](../infra/grafana); change the JSON in the repo, not in the UI.
+   `make grafana-down` stops it.
+
+There is no Alertmanager: an alert shows on the Alerts page and in the dashboard, and nobody is notified. The LLM
+panels stay at 0 on the demo, which has no model key.
 
 ## 3. Secrets
 
@@ -265,7 +290,10 @@ k3d image import --cluster invoiceguard ghcr.io/ziad-alghawi/invoiceguard-{api,w
 The smoke test needs `kubectl`, `helm`, `curl`, `jq` and `openssl`. It creates the secrets with random values,
 installs both charts with [`infra/helm/ci-values.yaml`](../infra/helm/ci-values.yaml) and checks the owner role,
 the page through Traefik and the 413 limit, `/health` and `/ready`, the demo reset and a login, the
-NetworkPolicies and a second migration hook on upgrade. CI then checks the pinned platform files, dry-runs the
+NetworkPolicies and a second migration hook on upgrade. It then installs the monitoring chart and checks that
+Prometheus scrapes the api, the validator is up, no alert fires and the web pod cannot reach Prometheus. Before
+the cluster starts, `.github/scripts/prometheus-check.sh` runs `promtool check config` on the rendered config and
+`promtool test rules`, which makes each alert fire. CI then checks the pinned platform files, dry-runs the
 manifests, lets Argo CD core bootstrap and render the Applications at the commit
 (`.github/scripts/k3d-argocd-test.sh`, which also needs `yq`), and starts k3s's Traefik with the server's
 settings (`.github/scripts/k3d-traefik-config-test.sh`).

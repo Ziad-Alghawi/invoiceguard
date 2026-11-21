@@ -23,7 +23,7 @@ SEED_VARS = INVOICEGUARD_SEED_USER_EMAIL INVOICEGUARD_SEED_USER_PASSWORD INVOICE
 export $(SEED_VARS)
 SEED_USER = exec $(foreach var,$(SEED_VARS),-e $(var)) api invoiceguard-seed-user
 
-.PHONY: dev down seed seed-user index check test e2e eval eval-gate demo-reset
+.PHONY: dev down seed seed-user index check test e2e eval eval-gate demo-reset grafana grafana-down
 
 dev: ## Build and start api + web + db + validator + MCP servers, wait until all are healthy
 ifeq ($(wildcard .env),)
@@ -49,6 +49,13 @@ demo-reset: ## Reset the local stack as the demo's nightly CronJob does: invoice
 	# public demo runs the same command as a Kubernetes CronJob (docs/deploy.md).
 	$(COMPOSE) run --rm -e INVOICEGUARD_DEMO_MODE=true migrate invoiceguard-demo-reset
 	$(COMPOSE) $(SEED_USER)
+
+grafana: ## Local Grafana on http://localhost:3001 for the demo's Prometheus; open the SSH tunnel first (docs/deploy.md)
+	cd infra/grafana && docker compose up --detach --wait
+	@echo "Grafana: http://localhost:3001 (dashboard InvoiceGuard; needs the tunnel to localhost:9090)"
+
+grafana-down: ## Stop the local Grafana
+	cd infra/grafana && docker compose down
 
 check: ## Lint, format check and type check (api + web)
 	$(API) uv run ruff check

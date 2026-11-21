@@ -39,6 +39,7 @@ from invoiceguard_api.models import (
 from invoiceguard_api.seed import SUPPLIERS
 from invoiceguard_api.settings import Settings
 from test_agent_loop import FINDING, FRAUD_IBAN, FakeTools, call_tools, finish
+from test_metrics import eventually, sample_of
 
 StartApp = Callable[..., TestClient]
 IT_SERVICE_CONTACT = "buchhaltung@demo-it-service.example"
@@ -277,6 +278,8 @@ def test_one_running_investigation_per_invoice(start_app: StartApp, engine: Engi
 def test_the_cost_cap_holds_across_runs(start_app: StartApp) -> None:
     llm = FakeLLMClient(*[call_tools(("get_supplier", "DE999000033"))] * 2)
     client = start_app(llm, FakeTools(), agent_cost_cap_usd=2 * COST_USD)
+    stopped = sample_of(client)
+    before = stopped("invoiceguard_agent_runs_total", status="stopped", reason="cost_cap")
     invoice_id = upload_fraud(client)["id"]
     first = investigation(client, invoice_id)["run"]
 
@@ -287,6 +290,11 @@ def test_the_cost_cap_holds_across_runs(start_app: StartApp) -> None:
     assert len(llm.requests) == 2
     assert (second["status"], second["stop_reason"], second["steps"]) == ("stopped", "cost_cap", [])
     assert second["id"] != first["id"]
+    # The metric behind the "cost cap reached" alert (ADR-025).
+    eventually(
+        lambda: stopped("invoiceguard_agent_runs_total", status="stopped", reason="cost_cap"),
+        before + 2,
+    )
 
 
 def test_the_daily_budget_stops_a_run_before_any_call(start_app: StartApp, engine: Engine) -> None:

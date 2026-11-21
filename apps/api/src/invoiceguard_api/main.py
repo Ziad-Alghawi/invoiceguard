@@ -30,6 +30,9 @@ from invoiceguard_api.investigations import router as investigations_router
 from invoiceguard_api.invoices import router as invoices_router
 from invoiceguard_api.llm import Embedder, LLMClient
 from invoiceguard_api.logging import configure_logging
+from invoiceguard_api.metrics import HttpMetricsMiddleware, make_registry
+from invoiceguard_api.metrics import router as metrics_router
+from invoiceguard_api.metrics_rows import count_committed_rows
 from invoiceguard_api.processing import recover_unfinished
 from invoiceguard_api.review import router as review_router
 from invoiceguard_api.security_events import router as security_events_router
@@ -131,11 +134,10 @@ def create_app(
     # The engine connects lazily, so creating the app does not need a running database.
     engine = make_engine(str(settings.database_url))
     session_factory = make_session_factory(engine)
+    count_committed_rows(session_factory)
     storage = FileStorage(settings.storage_dir)
-    validator = KositValidator(
-        None if settings.validator_url is None else str(settings.validator_url),
-        settings.validator_timeout_seconds,
-    )
+    validator_url = None if settings.validator_url is None else str(settings.validator_url)
+    validator = KositValidator(validator_url, settings.validator_timeout_seconds)
     llm_client = make_llm_client(settings, llm_client)
     extractor = make_extractor(settings, llm_client)
     embedder = make_embedder(settings, embedder)
@@ -169,16 +171,20 @@ def create_app(
     app.state.extractor = extractor
     app.state.agent = agent
     app.state.embedder = embedder
+    app.state.metrics_registry = make_registry(validator_url)
     app.add_middleware(
         ContentLengthLimitMiddleware,
         max_bytes=settings.max_upload_bytes + MULTIPART_OVERHEAD_BYTES,
     )
+    # Outside the body limit, so its 413s are counted too.
+    app.add_middleware(HttpMetricsMiddleware)
     # Added last, so it runs first: the client address (per-IP login limit) comes from
     # X-Forwarded-For only when a trusted proxy connected. uvicorn's own handling of the header
     # is off (--no-proxy-headers in the Dockerfile), so this is the only place that reads it.
     if settings.trusted_proxies:
         app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.trusted_proxies)
     app.include_router(health_router)
+    app.include_router(metrics_router)
     app.include_router(auth_router)
     app.include_router(invoices_router)
     app.include_router(review_router)

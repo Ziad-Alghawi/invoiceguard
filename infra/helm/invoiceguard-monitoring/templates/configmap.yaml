@@ -1,0 +1,30 @@
+# prometheus.yml and the alert rules (files/rules.yml, tested by CI with promtool). The pod restarts
+# when either changes (checksum annotation), so no reloader sidecar is needed.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "monitoring.fullname" . }}
+  labels:
+    {{- include "monitoring.labels" . | nindent 4 }}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: {{ .Values.scrapeInterval }}
+      evaluation_interval: {{ .Values.scrapeInterval }}
+    rule_files:
+      - /etc/prometheus/rules.yml
+    scrape_configs:
+      - job_name: prometheus
+        static_configs:
+          - targets: ["localhost:9090"]
+      # Every api pod: the headless Service's DNS name has one A record per ready pod.
+      - job_name: invoiceguard-api
+        metrics_path: /metrics
+        dns_sd_configs:
+          - names:
+              - {{ printf "%s.%s.svc.cluster.local" .Values.api.service .Release.Namespace }}
+            type: A
+            port: {{ .Values.api.port }}
+            refresh_interval: {{ .Values.scrapeInterval }}
+  rules.yml: |
+    {{- .Files.Get "files/rules.yml" | nindent 4 }}

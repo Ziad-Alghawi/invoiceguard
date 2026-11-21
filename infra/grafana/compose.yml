@@ -1,0 +1,27 @@
+# Grafana on the developer machine (ADR-025), not on the 4 GB demo server. It reads the demo's
+# Prometheus through an SSH tunnel to localhost:9090 (docs/deploy.md, "Metrics"):
+#   make grafana   then open http://localhost:3001
+# The datasource and the dashboard come from this folder; nothing is stored between runs.
+name: invoiceguard-grafana
+
+services:
+  grafana:
+    # Grafana 13.3.0, pinned by digest.
+    image: grafana/grafana:13.3.0@sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205
+    ports:
+      # Bound to the loopback address only: anonymous access is for this machine.
+      - "127.0.0.1:3001:3000"
+    environment:
+      # Anonymous viewers (the only anonymous role Grafana 13 supports) see the dashboard.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+    extra_hosts:
+      # The tunnel listens on the host's localhost:9090 (Docker Desktop provides this name; on
+      # Linux, host-gateway maps it).
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./provisioning:/etc/grafana/provisioning:ro
+      - ./dashboards:/var/lib/grafana/dashboards:ro

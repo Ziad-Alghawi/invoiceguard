@@ -1,0 +1,9 @@
+apiVersion: v2
+name: invoiceguard-monitoring
+description: >-
+  Prometheus for the InvoiceGuard demo (ADR-025): scrapes the api's /metrics, keeps 7 days and
+  evaluates the alert rules. Nothing is exposed; Grafana runs on the developer machine and reaches
+  Prometheus through kubectl port-forward over SSH.
+type: application
+version: 0.1.0
+appVersion: "3.16.0"

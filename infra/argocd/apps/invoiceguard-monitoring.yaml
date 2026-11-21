@@ -1,0 +1,24 @@
+# Prometheus (ADR-025), after the app: it scrapes the api through the app chart's headless Service,
+# and the app's NetworkPolicy lets it in. No Ingress; reached with kubectl port-forward over SSH.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: invoiceguard-monitoring
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Ziad-Alghawi/invoiceguard.git
+    targetRevision: demo
+    path: infra/helm/invoiceguard-monitoring
+    helm:
+      releaseName: invoiceguard-monitoring
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: invoiceguard
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

@@ -1,0 +1,47 @@
+# Alert rules for the InvoiceGuard demo (ADR-025). There is no Alertmanager: firing alerts show on
+# Prometheus's /alerts page and in the Grafana dashboard. tests/rules.test.yml makes each one fire
+# (CI: promtool test rules).
+groups:
+  - name: invoiceguard
+    rules:
+      # More than 5 % of requests end in a 5xx for 5 minutes, with at least 20 requests in the
+      # window: a single failed request at night is no outage.
+      - alert: InvoiceGuardHighErrorRate
+        expr: |
+          (
+            sum(rate(invoiceguard_http_requests_total{status=~"5.."}[10m]))
+              / sum(rate(invoiceguard_http_requests_total[10m]))
+          ) > 0.05
+          and sum(increase(invoiceguard_http_requests_total[10m])) >= 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: More than 5 % of api requests failed with a 5xx in the last 10 minutes.
+
+      # An exception agent run stopped at the per-invoice cost cap or the daily LLM budget (ADR-018).
+      # The api starts both series at 0, so the first stop is an increase.
+      - alert: InvoiceGuardCostCapReached
+        expr: sum(increase(invoiceguard_agent_runs_total{reason=~"cost_cap|daily_budget"}[1h])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: An agent run stopped at the cost cap or the daily LLM budget in the last hour.
+
+      # The api checks the validator's health endpoint at every scrape; down on every api pod.
+      - alert: InvoiceGuardValidatorDown
+        expr: max(invoiceguard_validator_up) == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: The KoSIT validator does not answer; invoices are processed without it.
+
+      # No api pod answers the scrape, or there is no api pod to scrape at all.
+      - alert: InvoiceGuardApiDown
+        expr: max(up{job="invoiceguard-api"}) == 0 or absent(up{job="invoiceguard-api"})
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Prometheus cannot scrape any api pod.

@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Metrics (R4-5, ADR-025):
+  - `GET /metrics` on the api (`prometheus-client`). It covers:
+    - HTTP requests and latency by route template;
+    - invoices processed by outcome, check results, review decisions and security events;
+    - LLM calls, cost, tokens and latency, and exception agent runs by status and stop reason;
+    - KoSIT calls by outcome, and `invoiceguard_validator_up` from the validator's health endpoint.
+
+    The business counters count committed rows only, and no label holds invoice data.
+  - `infra/helm/invoiceguard-monitoring`: Prometheus v3.16.0 pinned by digest. It scrapes every 30 s and
+    keeps 7 days (300 MB cap), with `GOMEMLIMIT` and a 192 Mi limit. It finds every api pod through a new
+    headless Service. It has no Ingress, and a NetworkPolicy lets nothing in. Argo CD deploys it after the
+    app (sync wave 3).
+  - Alert rules: 5xx share, cost cap or daily budget reached, validator down, api not scraped. There is
+    no Alertmanager.
+  - `infra/grafana/` and `make grafana`: a local Grafana with the provisioned **InvoiceGuard** dashboard,
+    reading the demo's Prometheus through an SSH tunnel.
+  - CI (job `helm`): `promtool check config` and `promtool test rules` (each alert fires in a unit test);
+    on k3d, Prometheus scrapes the api and the web pod cannot reach it. The Argo CD test renders the new
+    Application.
 - The demo on k3s with Argo CD (R4-4, ADR-021, ADR-024):
   - `infra/k3s/`: k3s settings for the 4 GB server (no ServiceLB, encrypted Secrets, kubelet memory
     reservations), Traefik's hostPort 8880 with trusted forwarded headers from the pod network's gateway and

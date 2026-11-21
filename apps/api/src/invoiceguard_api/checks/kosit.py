@@ -7,11 +7,13 @@ processing goes on, because the other checks do not depend on it.
 """
 
 import logging
+import time
 import urllib.error
 import urllib.request
 from http import HTTPStatus
 from typing import Literal
 
+from invoiceguard_api import metrics
 from invoiceguard_api.checks.model import (
     CheckContext,
     CheckResult,
@@ -46,8 +48,15 @@ class KositValidator:
     def validate(self, xml: bytes) -> Validation:
         if self.url is None:
             return Validation(outcome="unavailable", reason=NOT_CONFIGURED)
+        started = time.perf_counter()
+        validation = self._request(self.url, xml)
+        metrics.VALIDATOR_REQUESTS.labels(validation.outcome).inc()
+        metrics.VALIDATOR_DURATION.labels(validation.outcome).observe(time.perf_counter() - started)
+        return validation
+
+    def _request(self, url: str, xml: bytes) -> Validation:
         request = urllib.request.Request(
-            self.url, data=xml, method="POST", headers={"Content-Type": "application/xml"}
+            url, data=xml, method="POST", headers={"Content-Type": "application/xml"}
         )
         try:
             # The URL comes from our settings (an http(s) URL), never from the invoice.

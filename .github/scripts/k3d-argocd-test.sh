@@ -26,11 +26,11 @@ a rollout status statefulset argocd-application-controller --timeout=180s
 
 echo "--- The Applications at $revision, without sync: Argo CD reads, renders and compares"
 for file in infra/argocd/root.yaml infra/argocd/apps/invoiceguard-postgres.yaml \
-  infra/argocd/apps/invoiceguard.yaml; do
+  infra/argocd/apps/invoiceguard.yaml infra/argocd/apps/invoiceguard-monitoring.yaml; do
   yq ".spec.source.targetRevision = \"$revision\" | del(.spec.syncPolicy)" "$file" \
     | kubectl apply --filename -
 done
-for app in root invoiceguard-postgres invoiceguard; do
+for app in root invoiceguard-postgres invoiceguard invoiceguard-monitoring; do
   for attempt in $(seq 1 60); do
     conditions=$(a get application "$app" --output jsonpath='{.status.conditions[*].message}')
     [ -z "$conditions" ] || { echo "$app: $conditions"; exit 1; }
@@ -56,7 +56,9 @@ expect() {
   done
 }
 expect root Namespace/invoiceguard SealedSecret/invoiceguard SealedSecret/invoiceguard-postgres \
-  Application/invoiceguard-postgres Application/invoiceguard
+  Application/invoiceguard-postgres Application/invoiceguard Application/invoiceguard-monitoring
 expect invoiceguard-postgres StatefulSet/invoiceguard-postgres Service/invoiceguard-postgres
 expect invoiceguard Deployment/invoiceguard-api Deployment/invoiceguard-web Ingress/invoiceguard \
   CronJob/invoiceguard-demo-reset
+expect invoiceguard-monitoring Deployment/invoiceguard-monitoring ConfigMap/invoiceguard-monitoring \
+  NetworkPolicy/invoiceguard-monitoring
