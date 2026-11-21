@@ -1,7 +1,8 @@
 """DATEV-style booking file ("Buchungsstapel", EXTF format 700, version 13), see ADR-013.
 
-Pure formatting, no database: the export endpoint (exports.py) turns approved invoices into
-`Booking`s and writes them with `build_csv`. This follows DATEV's public format description; it
+Pure functions, no database: the export endpoint (exports.py) turns approved invoices into
+`Booking` rows (one per account and VAT rate with `split_by_account`, else one per invoice) and
+writes them with `build_csv`. This follows DATEV's public format description; it
 is not a certified DATEV interface, and the result must be checked by the tax advisor's import.
 
 Format rules applied here:
@@ -15,6 +16,7 @@ Format rules applied here:
 """
 
 import re
+from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -130,18 +132,51 @@ COLUMNS: tuple[str, ...] = (
 
 @dataclass(frozen=True)
 class Booking:
-    """One approved invoice as one booking row."""
+    """One booking row: a whole invoice, or its lines with one account and VAT rate."""
 
-    # The gross total (BT-112) as on the invoice.
+    # The gross amount of the row; the invoice's gross total (BT-112) when it has one row.
     gross_total: Decimal
+    # Gegenkonto: the account the reviewer chose for the lines, or the configured expense account.
+    account: str
     # A credit note reverses the direction of the booking.
     credit_note: bool
     currency: str
     document_date: date
     invoice_number: str
     seller_name: str
-    # None when the invoice has no single VAT rate with a configured key (ADR-013).
+    # None when the row has no single VAT rate with a configured key (ADR-013).
     tax_key: str | None
+
+
+@dataclass(frozen=True)
+class Line:
+    """One invoice line as the split needs it."""
+
+    account: str
+    # BT-131, net of line allowances and charges.
+    net_amount: Decimal
+    # BT-152 in percent; None for a line without a rate (for example exempt).
+    vat_rate: Decimal | None
+
+
+@dataclass(frozen=True)
+class Totals:
+    """The document totals the split must add up to."""
+
+    net_total: Decimal  # BT-109
+    tax_total: Decimal  # BT-110, zero when the invoice states none
+    gross_total: Decimal  # BT-112
+    # BT-107 or BT-108 not zero: a document allowance or charge belongs to no single line.
+    allowances_or_charges: bool
+
+
+@dataclass(frozen=True)
+class Part:
+    """The gross amount of an invoice's lines with one account and one VAT rate."""
+
+    account: str
+    vat_rate: Decimal | None
+    gross: Decimal
 
 
 @dataclass(frozen=True)
@@ -159,7 +194,6 @@ class Batch:
     description: str
     chart_of_accounts: str
     creditor_account: str
-    expense_account: str
 
 
 def fiscal_year_start(day: date, start_month: int) -> date:
@@ -168,10 +202,50 @@ def fiscal_year_start(day: date, start_month: int) -> date:
     return date(year, start_month, 1)
 
 
+def cents(value: Decimal) -> Decimal:
+    return value.quantize(CENT, rounding=ROUND_HALF_UP)
+
+
+def split_by_account(lines: Sequence[Line], totals: Totals) -> list[Part] | None:
+    """One part per (account, VAT rate), or None when the parts would not add up to the invoice.
+
+    The tax is computed per rate on the sum of its lines, as EN 16931 computes BT-117, so a rate
+    split over several accounts adds up exactly: the rounding cent goes to its largest part. The
+    split is used only when the line nets equal BT-109 with no document allowance or charge, the
+    taxes equal BT-110 and the gross amounts equal BT-112; otherwise the invoice keeps one row.
+    """
+    if not lines or totals.allowances_or_charges:
+        return None
+    nets: dict[Decimal | None, dict[str, Decimal]] = defaultdict(lambda: defaultdict(Decimal))
+    for line in lines:
+        nets[line.vat_rate][line.account] += line.net_amount
+    parts: list[Part] = []
+    tax_total = Decimal(0)
+    for rate, by_account in nets.items():
+        net = sum(by_account.values(), Decimal(0))
+        share = rate / 100 if rate is not None else Decimal(0)
+        tax = cents(net * share)
+        tax_total += tax
+        factor = 1 + share
+        gross = {account: cents(value * factor) for account, value in by_account.items()}
+        largest = max(sorted(gross), key=lambda account: abs(gross[account]))
+        gross[largest] += net + tax - sum(gross.values(), Decimal(0))
+        parts.extend(Part(account, rate, value) for account, value in gross.items())
+    line_net = sum((line.net_amount for line in lines), Decimal(0))
+    gross_total = sum((part.gross for part in parts), Decimal(0))
+    if (line_net, tax_total, gross_total) != (
+        totals.net_total,
+        totals.tax_total,
+        totals.gross_total,
+    ):
+        return None
+    # The rows of an account together, rates ascending, a line without a rate last.
+    return sorted(parts, key=lambda part: (part.account, part.vat_rate is None, part.vat_rate or 0))
+
+
 def amount(value: Decimal) -> str:
     """1234.5 -> "1234,50": two decimals (half up), decimal comma, no sign, no grouping."""
-    rounded = abs(value).quantize(CENT, rounding=ROUND_HALF_UP)
-    return f"{rounded:f}".replace(".", ",")
+    return f"{cents(abs(value)):f}".replace(".", ",")
 
 
 def text(value: str, max_length: int | None = None) -> str:
@@ -202,7 +276,8 @@ def timestamp(moment: datetime) -> str:
 
 def direction(booking: Booking) -> str:
     """The supplier's creditor account is credited for an invoice and debited for a credit
-    note; a negative total turns the direction around once more."""
+    note; a negative amount (a negative total, or a row of discount lines) turns the direction
+    around once more."""
     reversed_ = booking.credit_note != (booking.gross_total < 0)
     return DEBIT if reversed_ else CREDIT
 
@@ -249,7 +324,7 @@ def booking_row(booking: Booking, batch: Batch) -> list[str]:
         "Soll/Haben-Kennzeichen": text(direction(booking)),
         "WKZ Umsatz": text(booking.currency),
         "Konto": batch.creditor_account,
-        "Gegenkonto (ohne BU-Schlüssel)": batch.expense_account,
+        "Gegenkonto (ohne BU-Schlüssel)": booking.account,
         "BU-Schlüssel": text(booking.tax_key or ""),
         "Belegdatum": day_month(booking.document_date),
         "Belegfeld 1": document_field(booking.invoice_number),

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- DATEV export per chosen account (issue #24, ADR-013 amended): an invoice approved with accounts per line gets one
+  booking row per (account, VAT rate), with the chosen account as Gegenkonto, the BU key of the rate and the
+  gross amount from the line net amounts. The tax is computed per rate (as BT-117) and the rounding cent of a
+  rate split over several accounts goes to its largest row. The split is used only when there is no document
+  allowance or charge and the rows match BT-109, BT-110 and BT-112; otherwise the invoice keeps one row (the
+  single chosen account, else `INVOICEGUARD_DATEV_EXPENSE_ACCOUNT`) and is counted as `without_account_split` in
+  the response, the audit event and the web app's message. Invoices approved without accounts are unchanged.
+
 ### Added
 - Model comparison (R4-6, ADR-026): `invoiceguard-eval models` and `make eval-models` run the app's PDF
   extraction with `gemini-3.5-flash-lite`, `gemini-3.8-flash` and `gemini-3.1-pro-preview` on 12 PDFs (the 6

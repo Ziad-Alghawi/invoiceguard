@@ -1,4 +1,5 @@
-"""DATEV-style export endpoints (ADR-013): login, no double export, fiscal years, audit."""
+"""DATEV-style export endpoints (ADR-013): login, no double export, fiscal years, audit, rows per
+chosen account and VAT rate (issue #24)."""
 
 import hashlib
 import threading
@@ -17,6 +18,8 @@ from invoiceguard_api.auth import SESSION_COOKIE
 from invoiceguard_api.main import create_app
 from invoiceguard_api.models import (
     AuditEvent,
+    Booking,
+    BookingSource,
     DatevExport,
     FieldSource,
     Invoice,
@@ -37,8 +40,12 @@ def add_invoice(
     rates: tuple[str | None, ...] = ("19",),
     status: InvoiceStatus = InvoiceStatus.APPROVED,
     gross: str = "119.00",
+    nets: tuple[str, ...] = (),
+    totals: dict[str, str] | None = None,
+    accounts: tuple[str, ...] = (),
 ) -> str:
-    """An invoice row with the fields an export reads, without processing."""
+    """An invoice row with the fields an export reads, without processing: line net amounts
+    (BT-131) and document totals when given, and the accounts a reviewer chose per line."""
     sha256 = hashlib.sha256(number.encode()).hexdigest()
     document = {
         "BT-1": number,
@@ -47,6 +54,7 @@ def add_invoice(
         "BT-5": "EUR",
         "BT-27": "Müller Bürobedarf GmbH",
         "BT-112": gross,
+        **(totals or {}),
     }
     with Session(engine) as session:
         invoice = Invoice(
@@ -67,6 +75,7 @@ def add_invoice(
             fields.append(("BT-126", line_no, str(line_no)))
             if rate is not None:
                 fields.append(("BT-152", line_no, rate))
+        fields.extend(("BT-131", line_no, net) for line_no, net in enumerate(nets, 1))
         session.add_all(
             InvoiceField(
                 invoice_id=invoice.id,
@@ -76,6 +85,18 @@ def add_invoice(
                 source=FieldSource.XML,
             )
             for code, line_no, value in fields
+        )
+        session.add_all(
+            Booking(
+                source=BookingSource.INVOICE,
+                invoice_id=invoice.id,
+                line_no=line_no,
+                text=f"position {line_no}",
+                text_sha256=hashlib.sha256(f"position {line_no}".encode()).hexdigest(),
+                account=account,
+                searchable=True,
+            )
+            for line_no, account in enumerate(accounts, 1)
         )
         session.commit()
         return str(invoice.id)
@@ -348,3 +369,159 @@ def test_an_invoice_taken_by_a_parallel_export_is_not_exported_again(
     racer.join(timeout=10)
 
     assert results == [409]
+
+
+def test_chosen_accounts_are_one_row_each(
+    client: TestClient,
+    finished: FinishedInvoice,
+    samples: dict[str, bytes],
+    seeded: None,
+    db_session: Session,
+) -> None:
+    """The sample's notebooks (3,747.00) and setup (570.00) at 19 %, booked to two accounts."""
+    upload = client.post(
+        "/invoices", files={"file": ("r.xml", samples["ubl_xrechnung"], "text/xml")}
+    )
+    invoice_id = finished(upload.headers["location"])["id"]
+    chosen = [{"line_no": 1, "account": "0410"}, {"line_no": 2, "account": "4806"}]
+    approved = client.post(f"/invoices/{invoice_id}/approve", json={"bookings": chosen})
+    assert approved.status_code == 200, approved.text
+
+    body, csv = export(client)
+
+    assert (body["invoice_count"], body["without_tax_key"], body["without_account_split"]) == (
+        1,
+        0,
+        0,
+    )
+    assert [row[:11] for row in booking_rows(csv)] == [
+        ["4458,93", '"H"', '"EUR"', "", "", "", "70000", "0410", '"9"', "0511", '"2026-IT-0815"'],
+        ["678,30", '"H"', '"EUR"', "", "", "", "70000", "4806", '"9"', "0511", '"2026-IT-0815"'],
+    ]
+    created = db_session.scalars(
+        select(AuditEvent).where(AuditEvent.action == "datev_export.created")
+    ).one()
+    assert created.details["without_account_split"] == 0
+
+
+MIXED = {"BT-109": "183.33", "BT-110": "28.83"}
+
+
+def test_rows_per_account_and_vat_rate(client: TestClient, engine: Engine) -> None:
+    add_invoice(
+        engine,
+        "M-1",
+        rates=("19", "7", "19"),
+        gross="212.16",
+        nets=("100.00", "50.00", "33.33"),
+        totals=MIXED,
+        accounts=("4930", "4930", "4806"),
+    )
+
+    body, csv = export(client)
+
+    assert body["without_tax_key"] == 0
+    assert [(row[0], row[7], row[8]) for row in booking_rows(csv)] == [
+        ("39,66", "4806", '"9"'),
+        ("53,50", "4930", '"8"'),
+        ("119,00", "4930", '"9"'),
+    ]
+
+
+def test_a_credit_note_reverses_every_row(client: TestClient, engine: Engine) -> None:
+    invoice_id = add_invoice(
+        engine,
+        "GS-1",
+        rates=("19", "7", "19"),
+        gross="212.16",
+        nets=("100.00", "50.00", "33.33"),
+        totals=MIXED,
+        accounts=("4930", "4930", "4806"),
+    )
+    with Session(engine) as session:
+        session.execute(
+            update(InvoiceField)
+            .where(InvoiceField.invoice_id == uuid.UUID(invoice_id), InvoiceField.code == "BT-3")
+            .values(value="381")
+        )
+        session.commit()
+
+    _, csv = export(client)
+
+    assert [row[1] for row in booking_rows(csv)] == ['"S"', '"S"', '"S"']
+
+
+def test_a_line_without_a_rate_is_a_row_without_a_tax_key(
+    client: TestClient, engine: Engine
+) -> None:
+    add_invoice(
+        engine,
+        "E-1",
+        rates=("19", None),
+        gross="134.00",
+        nets=("100.00", "15.00"),
+        totals={"BT-109": "115.00", "BT-110": "19.00"},
+        accounts=("4930", "4970"),
+    )
+
+    body, csv = export(client)
+
+    assert (body["without_tax_key"], body["without_account_split"]) == (1, 0)
+    assert [(row[0], row[7], row[8]) for row in booking_rows(csv)] == [
+        ("119,00", "4930", '"9"'),
+        ("15,00", "4970", '""'),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("accounts", "gegenkonto"),
+    [(("0410", "4806"), "4900"), (("0410", "0410"), "0410")],
+    ids=["two-accounts", "one-account"],
+)
+def test_lines_that_do_not_add_up_keep_one_row(
+    client: TestClient,
+    engine: Engine,
+    db_session: Session,
+    accounts: tuple[str, ...],
+    gegenkonto: str,
+) -> None:
+    """A document allowance (BT-107) belongs to no line: one row on the gross total, on the
+    chosen account when there is only one, and counted for the advisor."""
+    add_invoice(
+        engine,
+        "A-1",
+        rates=("19", "19"),
+        gross="5018.23",
+        nets=("3747.00", "570.00"),
+        totals={"BT-107": "100.00", "BT-109": "4217.00", "BT-110": "801.23"},
+        accounts=accounts,
+    )
+
+    body, csv = export(client)
+
+    assert (body["without_tax_key"], body["without_account_split"]) == (0, 1)
+    [row] = booking_rows(csv)
+    assert (row[0], row[7], row[8]) == ("5018,23", gegenkonto, '"9"')
+    created = db_session.scalars(
+        select(AuditEvent).where(AuditEvent.action == "datev_export.created")
+    ).one()
+    assert created.details["without_account_split"] == 1
+
+
+def test_without_chosen_accounts_the_invoice_keeps_one_row(
+    client: TestClient, engine: Engine
+) -> None:
+    add_invoice(
+        engine,
+        "N-1",
+        rates=("19", "7", "19"),
+        gross="212.16",
+        nets=("100.00", "50.00", "33.33"),
+        totals=MIXED,
+    )
+
+    body, csv = export(client)
+
+    assert (body["without_tax_key"], body["without_account_split"]) == (1, 0)
+    [row] = booking_rows(csv)
+    assert (row[0], row[7], row[8]) == ("212,16", "4900", '""')
