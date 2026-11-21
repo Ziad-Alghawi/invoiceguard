@@ -1,6 +1,6 @@
 # ADR-013: DATEV-style booking export (EXTF Buchungsstapel), one row per invoice
 
-- **Status:** Accepted
+- **Status:** Accepted, amended 2026-11-21 (issue #24)
 - **Date:** 2026-11-14
 
 ## Context
@@ -96,3 +96,32 @@ download.
 - Invoice numbers with characters outside the allowed set are changed (`RE 2026.1` becomes `RE-2026-1`), which the
   advisor sees when matching open items; the original stays in InvoiceGuard.
 - Files are stored in the database (a few hundred bytes per invoice). Exports are final: nothing undoes one.
+
+## Amendment (2026-11-21, issue #24): one row per chosen account and VAT rate
+
+Since R3-4 (ADR-020) reviewers choose an SKR03 account per line when approving; the export now uses them.
+
+- An invoice with chosen accounts gets **one booking row per (account, VAT rate)**: Gegenkonto is the chosen
+  account, the BU key comes from the rate (`INVOICEGUARD_DATEV_TAX_KEYS`), Umsatz is the row's gross amount. Rows of
+  one account are together, rates ascending, lines without a rate last. Soll/Haben is set per row, so a row of
+  negative (discount) lines is booked the other way round.
+- **Amounts from the lines, checked against the totals.** The net per row is the sum of its lines' net amounts
+  (BT-131). The tax is computed per rate on the sum of that rate's lines, as EN 16931 computes BT-117, so the
+  tax per rate matches the invoice's VAT breakdown; when one rate is split over several accounts, the rounding cent
+  goes to the largest row of that rate (on a tie, the first account). The split is used only when there is no
+  document allowance or charge (BT-107, BT-108), the line nets equal BT-109, the taxes equal BT-110 and the rows
+  add up to BT-112. BG-23 does not need to be stored: these checks catch every case where the lines and the
+  breakdown would disagree.
+- **Otherwise one row, as before**: on the chosen account when every line has the same one, else on
+  `INVOICEGUARD_DATEV_EXPENSE_ACCOUNT`. These invoices are counted as `without_account_split` in the export
+  response, the `datev_export.created` audit event and the web app's message, and the advisor splits them in DATEV.
+  Invoices approved without accounts keep the single row and are not counted.
+- `without_tax_key` still counts invoices: those with at least one row without a BU key.
+
+This replaces the first alternative above ("a booking row per VAT rate ... later, with BG-23"): computing from
+the lines works once the result is checked against the document totals, and an invoice that fails the check
+falls back instead of being booked wrongly.
+
+Consequences: DATEV computes the tax from each row's gross amount and BU key, so a rate split over several
+accounts can differ from BT-117 by a cent in DATEV; the advisor sees it on import. Document allowances and charges
+are not spread over the accounts. Still no creditor numbers per supplier, cost centre or exchange rate.

@@ -5,6 +5,8 @@ export type DatevExport = {
   invoiceCount: number;
   /** Exported without a BU key: the tax advisor sets the tax in DATEV. */
   withoutTaxKey: number;
+  /** Booked to several accounts, but exported as one row: the lines do not add up to the totals. */
+  withoutAccountSplit: number;
   /** Approved invoices from a later fiscal year, for the next export. */
   remaining: number;
 };
@@ -26,6 +28,11 @@ export function exportSummary(result: DatevExport): string[] {
   if (result.withoutTaxKey > 0) {
     lines.push(
       `${invoices(result.withoutTaxKey)} without a tax key (several or unknown VAT rates): set the tax in DATEV.`,
+    );
+  }
+  if (result.withoutAccountSplit > 0) {
+    lines.push(
+      `${invoices(result.withoutAccountSplit)} as one row (lines do not add up to the totals, for example a document discount): split by account in DATEV.`,
     );
   }
   if (result.remaining > 0) {

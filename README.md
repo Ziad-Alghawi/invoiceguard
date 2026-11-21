@@ -54,7 +54,8 @@ mechanism, not real separation of duties.
   accounts booked for similar lines before (Gemini embeddings in pgvector, a trigram text match without a key),
   with the bookings it rests on. The reviewer picks the account per line when approving; only approved invoices
   enter the index, never one flagged for prompt injection. 98 % top-1 on a held-out set ([results](docs/results.md)).
-- **DATEV-style export:** approved invoices as an `EXTF` Buchungsstapel CSV, each invoice exported once.
+- **DATEV-style export:** approved invoices as an `EXTF` Buchungsstapel CSV, one row per chosen account and VAT
+  rate, each invoice exported once.
 - **Built like production:** typed Python and TypeScript, 99 % API test coverage, Playwright E2E test, CI on
   every PR, Docker Compose, deployed behind Caddy with HTTPS.
 
@@ -143,9 +144,11 @@ the user's session. The public demo runs this stack on one VPS with Docker Compo
    key) the "Investigate" button shows a recorded real run for the sample invoices, labelled as recorded.
 5. **Export** approved invoices to accounting with **Export to DATEV** on the queue
    ([ADR-013](docs/decisions/ADR-013-datev-style-export.md)): a DATEV-style booking file ("Buchungsstapel", `EXTF`
-   format 700/13, Windows-1252, `;`, decimal comma) with one row per invoice: gross amount, creditor and expense
-   account, BU tax key, document date, invoice number (Belegfeld 1) and supplier name. Accounts, advisor and client
-   number and the tax keys are settings (`INVOICEGUARD_DATEV_*` in `.env`). An invoice goes into one file only; the
+   format 700/13, Windows-1252, `;`, decimal comma) with one row per account and VAT rate the reviewer chose
+   (one row per invoice without chosen accounts, or when the lines do not add up to the totals): gross amount,
+   creditor and expense account, BU tax key, document date, invoice number (Belegfeld 1) and supplier name.
+   Accounts, advisor and client number and the tax keys are settings (`INVOICEGUARD_DATEV_*` in `.env`), the
+   expense account for invoices without chosen accounts. An invoice goes into one file only; the
    file is stored and can be downloaded again, and every export and download is audited. This is **not a certified
    DATEV interface**: it follows DATEV's public format description and needs a check by the tax advisor's first
    import.
@@ -313,11 +316,11 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
 - Upload: one file at a time on the upload page. The public demo accepts XRechnung XML and ZUGFeRD / Factur-X PDFs
   with embedded XML only (no visitor's PDF goes to a model), at most 30 uploads per hour per shared demo
   account, and the nightly reset deletes every upload.
-- DATEV export: not certified and not yet imported into a real DATEV installation. One row per invoice, so invoices
-  with several VAT rates (or lines without a rate) get no tax key and the advisor sets the tax; one collective
-  creditor and one expense account for all invoices: the accounts reviewers choose per line are stored but not
-  exported yet ([#24](https://github.com/Ziad-Alghawi/invoiceguard/issues/24)); no exchange rate for non-EUR
-  invoices; invoice numbers lose characters DATEV does not allow in Belegfeld 1 (they become `-`).
+- DATEV export: not certified and not yet imported into a real DATEV installation. Rows per chosen account and
+  VAT rate need lines that add up to the totals: an invoice with a document allowance or charge stays one row and
+  the advisor splits it; invoices approved without accounts are one row, so several VAT rates there (or lines
+  without a rate) get no tax key; one collective creditor for all invoices; no exchange rate for non-EUR invoices;
+  invoice numbers lose characters DATEV does not allow in Belegfeld 1 (they become `-`).
 
 ## Deutsch
 

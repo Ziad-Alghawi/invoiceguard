@@ -100,9 +100,9 @@ class Settings(BaseSettings):
     # Konto: the creditor (supplier) account. One collective creditor until suppliers get their
     # own creditor numbers.
     datev_creditor_account: str = Field(default="70000", pattern=r"^\d{5,9}$")
-    # Gegenkonto: the expense account, not an automatic tax account (the BU key adds the tax).
-    # SKR03 4900 "Sonstige betriebliche Aufwendungen". The accounts reviewers choose per line
-    # (ADR-020) are not exported yet.
+    # Gegenkonto when the reviewer chose no accounts (ADR-020), or chose several and the lines do
+    # not add up to the totals (ADR-013): the expense account, not an automatic tax account (the
+    # BU key adds the tax). SKR03 4900 "Sonstige betriebliche Aufwendungen".
     datev_expense_account: str = Field(default="4900", pattern=r"^\d{4,8}$")
     # Input VAT rate -> BU key (SKR03: 9 = 19 % Vorsteuer, 8 = 7 % Vorsteuer). Set as JSON in
     # the environment, for example {"19": "9", "7": "8"}.

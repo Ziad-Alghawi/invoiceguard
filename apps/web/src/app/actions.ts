@@ -159,6 +159,7 @@ type ExportCreated = {
   id: string;
   invoice_count: number;
   without_tax_key: number;
+  without_account_split: number;
   remaining: number;
 };
 
@@ -175,6 +176,7 @@ export async function exportDatev(): Promise<ExportState> {
       id: created.id,
       invoiceCount: created.invoice_count,
       withoutTaxKey: created.without_tax_key,
+      withoutAccountSplit: created.without_account_split,
       remaining: created.remaining,
     },
   };

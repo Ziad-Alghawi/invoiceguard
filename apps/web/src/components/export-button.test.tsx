@@ -21,7 +21,13 @@ describe("ExportButton", () => {
     const startDownload = vi.fn<(href: string) => void>();
     const exportDatev = exported({
       error: null,
-      export: { id: "e1", invoiceCount: 2, withoutTaxKey: 0, remaining: 0 },
+      export: {
+        id: "e1",
+        invoiceCount: 2,
+        withoutTaxKey: 0,
+        withoutAccountSplit: 0,
+        remaining: 0,
+      },
     });
     render(
       <ExportButton exportDatev={exportDatev} startDownload={startDownload} />,
