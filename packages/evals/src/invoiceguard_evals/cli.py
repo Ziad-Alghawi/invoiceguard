@@ -3,7 +3,8 @@ history, run the evals, write `docs/results.md` (ADR-019), and write the api's p
 booking history and demo lines (ADR-020), rulebook sections (R3-4b).
 
 Replay is the default: every model reply comes from `recordings/`, free and offline. `--live`
-calls the model for requests without a recording, up to `--max-spend-usd`.
+calls the model for requests without a recording, up to `--max-spend-usd`. `models` compares
+extraction models (R4-6, ADR-026) and writes `docs/evals/model-comparison.md`.
 """
 
 import argparse
@@ -38,6 +39,7 @@ from invoiceguard_evals import (
     decisions,
     evaluate,
     gate,
+    model_comparison,
     report,
     rulebook_eval,
 )
@@ -51,6 +53,7 @@ RECORDINGS_DIR = PACKAGE_DIR / "recordings"
 BASELINES_DIR = PACKAGE_DIR / "baselines"
 REPORTS_DIR = PACKAGE_DIR / "reports"
 RESULTS = PACKAGE_DIR.parents[1] / "docs" / "results.md"
+COMPARISON = PACKAGE_DIR.parents[1] / "docs" / "evals" / "model-comparison.md"
 PARTS = ("parser", "extraction", "decisions", "attacks", "bookings", "rulebook")
 DEFAULT_MODEL = cast(str, Settings.model_fields["extraction_model"].default)
 DEFAULT_EFFORT = cast(ReasoningEffort, Settings.model_fields["extraction_reasoning_effort"].default)
@@ -76,6 +79,13 @@ def _parts(value: str) -> list[str]:
     if unknown:
         raise argparse.ArgumentTypeError(f"unknown part(s): {', '.join(sorted(unknown))}")
     return parts
+
+
+def _models(value: str) -> list[str]:
+    models = [model.strip() for model in value.split(",") if model.strip()]
+    if not models:
+        raise argparse.ArgumentTypeError("name at least one model")
+    return models
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -105,6 +115,17 @@ def _parser() -> argparse.ArgumentParser:
         help="replay: count a missing recording as a failed call (calls that failed live)",
     )
     run.add_argument("--out", type=Path, help="report path (default: reports/latest-<set>.json)")
+    models = commands.add_parser(
+        "models", help="compare extraction models on the demo and small set (R4-6, ADR-026)"
+    )
+    models.add_argument("--models", type=_models, default=list(model_comparison.MODELS))
+    models.add_argument("--limit", type=int, help="only the first N invoices (a smoke run)")
+    models.add_argument("--live", action="store_true", help="call the model for missing replies")
+    models.add_argument("--max-spend-usd", type=Decimal, default=Decimal(0))
+    models.add_argument("--out", type=Path, default=COMPARISON)
+    models.add_argument(
+        "--check", action="store_true", help="replay and fail when --out differs (CI)"
+    )
     check = commands.add_parser("gate", help="compare a report with its baseline (the CI gate)")
     check.add_argument("report", type=Path)
     check.add_argument("--baseline", type=Path, help="default: baselines/<set>.json")
@@ -345,6 +366,37 @@ def run(args: argparse.Namespace) -> Path:
     return out
 
 
+def run_models(args: argparse.Namespace) -> None:
+    if args.check and args.live:
+        sys.exit("--check replays only; drop --live.")
+    client = RecordingClient(
+        RECORDINGS_DIR,
+        _live_client() if args.live else None,
+        args.max_spend_usd,
+        min_reserve_usd=model_comparison.MIN_RESERVE_USD,
+    )
+    cases = [
+        *datasets.demo_cases(),
+        *datasets.corpus_cases(load_manifest(), "small"),
+        *datasets.generated_cases("small"),
+    ][: args.limit]
+    results = model_comparison.compare(cases, client, args.models, DEFAULT_EFFORT, THRESHOLD)
+    for result in results:
+        cost = sum((r.cost_usd for r in result.runs), Decimal(0))
+        print(f"{result.model}: {len(result.runs)} of {result.planned} invoices, ${cost}")
+    print(f"{client.live_calls} live call(s), ${client.spent_usd} spent; "
+          f"{client.replayed} replayed")  # fmt: skip
+    markdown = model_comparison.render(results, client.recorded_on, DEFAULT_EFFORT, THRESHOLD)
+    if args.check:
+        if not args.out.exists() or args.out.read_text("utf-8") != markdown:
+            sys.exit(f"{args.out} differs from the replay; run `make eval-models` and commit it.")
+        print(f"{args.out} matches the replay.")
+        return
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(markdown, "utf-8", newline="\n")
+    print(f"wrote {args.out}")
+
+
 def run_gate(args: argparse.Namespace) -> None:
     current = gate.gate_metrics(json.loads(args.report.read_text("utf-8")), args.effort)
     baseline_path = args.baseline or BASELINES_DIR / f"{current['set']}.json"
@@ -371,6 +423,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         print(f"downloaded {fetch(load_manifest())} file(s); every cached file matches its pin")
     elif args.command == "generate":
         print(f"wrote {datasets.write_generated()} files to {datasets.GENERATED_DIR}")
+        print(f"wrote {datasets.write_demo()} files to {datasets.DEMO_DIR}")
         print(f"wrote {bookings.write_history()} booking lines to {bookings.HISTORY_PATH}")
     elif args.command == "vectors":
         client = RecordingClient(
@@ -383,6 +436,8 @@ def main(argv: Sequence[str] | None = None) -> None:
               f"${client.spent_usd} spent")  # fmt: skip
     elif args.command == "run":
         print(f"report: {run(args)}")
+    elif args.command == "models":
+        run_models(args)
     elif args.command == "gate":
         run_gate(args)
     else:

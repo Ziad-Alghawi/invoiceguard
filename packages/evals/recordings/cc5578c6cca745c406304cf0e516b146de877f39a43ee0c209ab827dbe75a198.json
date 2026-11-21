@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-21T21:28:23+00:00",
+ "request": {
+  "model": "gemini/gemini-3.8-flash",
+  "reasoning_effort": "low",
+  "run": 1,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "ed7f723de9fc0bc0c257de806bc32a84567abefdb868fc44af7ed5d9dfc9df70"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\"invoice_number\": {\"value\": \"BL-2026-1187\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Rechnungsnummer BL-2026-1187\"}}, \"issue_date\": {\"value\": \"2026-11-09\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Rechnungsdatum 09.11.2026\"}}, \"type_code\": {\"value\": \"380\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Rechnung Nr. BL-2026-1187\"}}, \"currency\": {\"value\": \"EUR\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Rechnungsbetrag 452,20 €\"}}, \"due_date\": {\"value\": \"2026-11-23\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Zahlbar ohne Abzug bis 23.11.2026.\"}}, \"seller_name\": {\"value\": \"Beispiel Logistik AG\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Beispiel Logistik AG\\nHafenweg 12, 20457 Hamburg\"}}, \"seller_vat_id\": {\"value\": \"DE999000025\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"USt-IdNr.: DE999000025\"}}, \"buyer_name\": {\"value\": \"Beispielkunde Handels GmbH\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Beispielkunde Handels GmbH\\nKreditorenbuchhaltung\"}}, \"buyer_vat_id\": {\"value\": \"DE999000068\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Ihre USt-IdNr. DE999000068\"}}, \"payee_iban\": {\"value\": \"DE87123456780000000002\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"IBAN DE87 1234 5678 0000 0000 02\"}}, \"order_reference\": {\"value\": \"PO-2026-0004\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Bestellnummer PO-2026-0004\"}}, \"line_total\": {\"value\": \"380.00\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Summe Positionen 380,00 €\"}}, \"allowance_total\": {\"value\": null, \"confidence\": 1.0, \"evidence\": null}, \"charge_total\": {\"value\": null, \"confidence\": 1.0, \"evidence\": null}, \"net_total\": {\"value\": \"380.00\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Summe Positionen 380,00 €\"}}, \"tax_total\": {\"value\": \"72.20\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"zzgl. USt 19 % auf 380,00 72,20 €\"}}, \"gross_total\": {\"value\": \"452.20\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Rechnungsbetrag 452,20 €\"}}, \"amount_due\": {\"value\": \"452.20\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"Rechnungsbetrag 452,20 €\"}}, \"lines\": [{\"line_id\": \"1\", \"item_name\": \"Expresszustellung Ersatzteile\", \"quantity\": \"1\", \"unit_code\": \"C62\", \"net_price\": \"380.00\", \"net_amount\": \"380.00\", \"vat_rate\": \"19\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"1 Expresszustellung Ersatzteile 1 Stk 380,00 19 % 380,00\"}}], \"vat_breakdown\": [{\"category_code\": \"S\", \"rate\": \"19\", \"taxable_amount\": \"380.00\", \"tax_amount\": \"72.20\", \"confidence\": 1.0, \"evidence\": {\"page\": 1, \"snippet\": \"zzgl. USt 19 % auf 380,00 72,20 €\"}}]}",
+  "input_tokens": 951,
+  "output_tokens": 1182,
+  "cost_usd": "0.005146",
+  "latency_ms": 8579
+ }
+}

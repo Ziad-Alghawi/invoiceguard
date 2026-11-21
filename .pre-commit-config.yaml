@@ -34,7 +34,7 @@ repos:
       - id: detect-secrets
         args: [--baseline, .secrets.baseline]
         # Lock files, and eval data that is hashes by design: SHA-256 pins, recorded replies keyed by
-        # hash, generated invoices with fictitious IBANs (ADR-019), packaged embedding vectors in
+        # hash, generated invoices and demo PDFs with fictitious IBANs (ADR-019, ADR-026), packaged embedding vectors in
         # base64, keyed by text or by section hash (ADR-020), and SealedSecrets: ciphertext only the
         # demo cluster's key decrypts (ADR-021). All code stays scanned.
-        exclude: (^|/)(uv\.lock|pnpm-lock\.yaml)$|^packages/evals/(sources\.json|datasets/generated/|recordings/|reports/)|^apps/api/src/invoiceguard_api/(booking|rulebook)/vectors\.json$|^infra/argocd/apps/sealed-secret-[^/]+\.yaml$
+        exclude: (^|/)(uv\.lock|pnpm-lock\.yaml)$|^packages/evals/(sources\.json|datasets/(generated|demo)/|recordings/|reports/)|^apps/api/src/invoiceguard_api/(booking|rulebook)/vectors\.json$|^infra/argocd/apps/sealed-secret-[^/]+\.yaml$

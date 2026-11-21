@@ -30,3 +30,4 @@ New ADRs start from the [template](ADR-000-template.md).
 | [ADR-023](ADR-023-helm-chart-and-postgres.md) | Helm chart, a separate PostgreSQL chart and a non-superuser owner | Accepted |
 | [ADR-024](ADR-024-edge-and-cluster-bootstrap.md) | Edge to cluster and cluster bootstrap on the demo server | Accepted |
 | [ADR-025](ADR-025-metrics-prometheus-local-grafana.md) | Metrics with one small Prometheus on the demo, Grafana on the developer machine | Accepted |
+| [ADR-026](ADR-026-default-extraction-model.md) | gemini-3.8-flash stays the default extraction model | Accepted |

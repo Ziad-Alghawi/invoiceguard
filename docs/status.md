@@ -1,6 +1,6 @@
 # Status
 
-**Current milestone:** R4 — Platform (R4-1 to R4-5 done; R4-6 next)
+**Current milestone:** R4 — Platform (R4-1 to R4-5 done; R4-6 in review)
 **Last updated:** 2026-11-21
 
 ## Done
@@ -369,9 +369,21 @@
       the server's settings, and waits until each is Synced and Healthy. With the Traefik settings from
       before #33 it failed on the app's Ingress; the root app is only compared (its SealedSecrets open only
       with the server's key).
-  - R4-6: model comparison: Gemini vs Mistral (EU, free tier) vs one small Ollama model on the development
-    machine, through the eval harness on the small set. Done when: the table is in `docs/results.md` with
-    accuracy, cost and p50/p95 latency, within the LLM budget. First to drop if R4 runs late
+  - R4-6: model comparison (done, ADR-026; in review):
+    - Scope changed before the work started: three Gemini models on one key instead of Gemini vs Mistral
+      (EU) vs Ollama, because of the budget (about €1 to €2 of Gemini credit, a hard stop at $0.50) and the
+      4 GB server (no room for a local model next to the app). Mistral and Ollama stay the next step if
+      EU-hosted inference becomes a requirement.
+    - `invoiceguard-eval models` / `make eval-models`: the app's `PdfExtractor` with each model on 12 PDFs:
+      the 6 demo samples drawn as PDFs (`packages/evals/datasets/demo`, truth from the demo XML, checked by
+      a test) and the `small` set's 2 corpus and 4 generated PDFs. Table with field, document and line
+      accuracy, accuracy per field, p50/p95 latency and cost per invoice in `docs/evals/model-comparison.md`.
+      The eval gate replays it with `--check`.
+    - The recording client's cap now keeps the dearest call so far (at least $0.02 here) free before each
+      live call, and a live reply without a price stops the run.
+    - Result (2026-11-21): flash-lite 100 % fields, 99.4 % line terms, p50 4.4 s, $0.0050; 3.8-flash
+      100 % / 100 %, 8.6 s, $0.0053; 3.1-pro-preview 99.5 % / 100 %, 11.5 s, $0.0249. gemini-3.8-flash stays
+      the default. Spent $0.389 ($0.040 smoke, $0.348 full run).
   - Cut from R4: self-hosted Langfuse and the trace ID in the UI (`model_calls` covers cost and latency), n8n,
     paid EU endpoints and large Ollama models, the full kube-prometheus-stack
 - Before 2026-12-19: upgrade litellm 1.108.1 → 1.110.1 (ADR-004 checks: release age, price table, replay of the

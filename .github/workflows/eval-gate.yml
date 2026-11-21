@@ -3,7 +3,8 @@
 # It fails when field accuracy or booking top-1 (ADR-020) drops more than 2 points, rulebook hit@3
 # drops at all, any attack succeeds, or cost per invoice rises more than 25 % against
 # packages/evals/baselines/<set>.json; a changed prompt or schema fails replay until its live run
-# is recorded and committed.
+# is recorded and committed. It also replays the model comparison (R4-6, ADR-026) and fails when
+# docs/evals/model-comparison.md differs from what its recordings give.
 name: Eval gate
 
 on:
@@ -31,6 +32,9 @@ on:
       - apps/mcp-registry/src/**
       - apps/mcp-history/src/**
       - packages/evals/**
+      # The model comparison's table and the demo samples it renders as PDFs (R4-6)
+      - docs/evals/**
+      - apps/api/src/invoiceguard_api/demo_invoices/**
       - .github/workflows/eval-gate.yml
   schedule:
     - cron: "30 2 * * *"
@@ -98,6 +102,8 @@ jobs:
           cache-dependency-glob: packages/evals/uv.lock
       - run: uv sync --locked
       - run: uv run invoiceguard-eval fetch
+      - name: Model comparison matches its recordings (R4-6)
+        run: uv run invoiceguard-eval models --check
       - run: uv run invoiceguard-eval run --set "$EVAL_SET" --out "reports/latest-$EVAL_SET.json"
       - run: uv run invoiceguard-eval gate "reports/latest-$EVAL_SET.json"
       - name: Upload the report

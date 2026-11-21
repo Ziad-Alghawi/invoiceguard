@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-21T21:16:40+00:00",
+ "request": {
+  "model": "gemini/gemini-3.5-flash-lite",
+  "reasoning_effort": "low",
+  "run": 1,
+  "schema_name": "invoice_extraction",
+  "schema_sha256": "c562a4dee5647f59a2626ea4b30b08678b2bfbde99597235342a316b8d6c5cc0",
+  "system_sha256": "a89570374de9d86afd2fc560ca2442ee55303c6c718be2fe5b18e7e159fb9fa9",
+  "user": [
+   {
+    "text": "<<<UNTRUSTED_DOCUMENT>>>"
+   },
+   {
+    "file": "application/pdf",
+    "sha256": "2c082f6ef7a0294425b161b946159ba33d1f7efb074919b80980c741201b2c49"
+   },
+   {
+    "text": "<<<END_UNTRUSTED_DOCUMENT>>>"
+   }
+  ]
+ },
+ "reply": {
+  "text": "{\n  \"invoice_number\": {\n    \"value\": \"2026-IT-0815\",\n    \"confidence\": 1,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsnummer 2026-IT-0815\"\n    }\n  },\n  \"issue_date\": {\n    \"value\": \"2026-11-05\",\n    \"confidence\": 1,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsdatum 05.11.2026\"\n    }\n  },\n  \"type_code\": {\n    \"value\": \"380\",\n    \"confidence\": 1,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnung Nr. 2026-IT-0815\"\n    }\n  },\n  \"currency\": {\n    \"value\": \"EUR\",\n    \"confidence\": 1,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Einzelpreis € USt Betrag €\"\n    }\n  },\n  \"due_date\": {\n    \"value\": \"2026-11-19\",\n    \"confidence\": 1,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Zahlbar ohne Abzug bis 19.11.2026.\"\n    }\n  },\n  \"seller_name\": {\n    \"value\": \"Demo IT-Service GmbH\",\n    \"confidence\": 1,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Demo IT-Service GmbH\"\n    }\n  },\n  \"seller_vat_id\": {\n    \"value\": \"DE999000033\",\n    \"confidence\": 1,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"USt-IdNr.: DE999000033\"\n    }\n  },\n  \"buyer_name\": {\n    \"value\": \"Beispielkunde Handels GmbH\",\n    \"confidence\": 1,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Beispielkunde Handels GmbH\"\n    }\n  },\n  \"buyer_vat_id\": {\n    \"value\": \"DE999000068\",\n    \"confidence\": 1,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Ihre USt-IdNr. DE999000068\"\n    }\n  },\n  \"payee_iban\": {\n    \"value\": \"DE60123456780000000003\",\n    \"confidence\": 1,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"IBAN: DE60 1234 5678 0000 0000 03\"\n    }\n  },\n  \"order_reference\": {\n    \"value\": \"PO-2026-0005\",\n    \"confidence\": 1,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Bestellnummer PO-2026-0005\"\n    }\n  },\n  \"line_total\": {\n    \"value\": \"4317.00\",\n    \"confidence\": 1,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Summe Positionen 4.317,00 €\"\n    }\n  },\n  \"allowance_total\": {\n    \"value\": null,\n    \"confidence\": 1,\n    \"evidence\": null\n  },\n  \"charge_total\": {\n    \"value\": null,\n    \"confidence\": 1,\n    \"evidence\": null\n  },\n  \"net_total\": {\n    \"value\": \"4317.00\",\n    \"confidence\": 1,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Summe Positionen 4.317,00 €\"\n    }\n  },\n  \"tax_total\": {\n    \"value\": \"820.23\",\n    \"confidence\": 1,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"zzgl. USt 19 % auf 4.317,00 820,23 €\"\n    }\n  },\n  \"gross_total\": {\n    \"value\": \"5137.23\",\n    \"confidence\": 1,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsbetrag 5.137,23 €\"\n    }\n  },\n  \"amount_due\": {\n    \"value\": \"5137.23\",\n    \"confidence\": 1,\n    \"evidence\": {\n      \"page\": 1,\n      \"snippet\": \"Rechnungsbetrag 5.137,23 €\"\n    }\n  },\n  \"lines\": [\n    {\n      \"line_id\": \"1\",\n      \"item_name\": \"Notebook 14 Zoll, 32 GB RAM\",\n      \"quantity\": \"3\",\n      \"unit_code\": \"C62\",\n      \"net_price\": \"1249.00\",\n      \"net_amount\": \"3747.00\",\n      \"vat_rate\": \"19\",\n      \"confidence\": 1,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"1 Notebook 14 Zoll, 32 GB RAM 3 Stk 1.249,00 19 % 3.747,00\"\n      }\n    },\n    {\n      \"line_id\": \"2\",\n      \"item_name\": \"Einrichtung und Inbetriebnahme\",\n      \"quantity\": \"6\",\n      \"unit_code\": \"HUR\",\n      \"net_price\": \"95.00\",\n      \"net_amount\": \"570.00\",\n      \"vat_rate\": \"19\",\n      \"confidence\": 1,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"2 Einrichtung und Inbetriebnahme 6 Std 95,00 19 % 570,00\"\n      }\n    }\n  ],\n  \"vat_breakdown\": [\n    {\n      \"category_code\": \"S\",\n      \"rate\": \"19\",\n      \"taxable_amount\": \"4317.00\",\n      \"tax_amount\": \"820.23\",\n      \"confidence\": 1,\n      \"evidence\": {\n        \"page\": 1,\n        \"snippet\": \"zzgl. USt 19 % auf 4.317,00 820,23 €\"\n      }\n    }\n  ]\n}",
+  "input_tokens": 951,
+  "output_tokens": 1697,
+  "cost_usd": "0.004528",
+  "latency_ms": 4687
+ }
+}

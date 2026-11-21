@@ -180,7 +180,20 @@ The sets are small and generated or public; the numbers show the mechanisms work
 
 ## Model comparison
 
-_Coming in R4._
+The app's PDF extraction with three Gemini models on 12 PDFs (the 6 demo samples drawn as PDFs, plus 6
+from the eval set), one run each at reasoning effort `low`, recorded on 2026-11-21. Full table:
+[docs/evals/model-comparison.md](docs/evals/model-comparison.md); rerun it from the recordings with
+`make eval-models`.
+
+| Model | Fields | Line terms | p50 / p95 s | Cost / invoice |
+| --- | --- | --- | --- | --- |
+| `gemini-3.5-flash-lite` | 100.0 % | 99.4 % | 4.4 / 7.9 | $0.0050 |
+| `gemini-3.8-flash` (default) | 100.0 % | 100.0 % | 8.6 / 15.0 | $0.0053 |
+| `gemini-3.1-pro-preview` | 99.5 % | 100.0 % | 11.5 / 20.0 | $0.0249 |
+
+The default stays (ADR-026): flash-lite is faster but not cheaper on these invoices and made one confident
+error, and pro costs almost five times as much without being more accurate. Twelve invoices are few: this
+shows that no model is clearly better, not a ranking.
 
 ## Run locally
 

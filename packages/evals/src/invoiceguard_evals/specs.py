@@ -10,7 +10,9 @@ from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
 
-from invoiceguard_api.parsing import ParsedInvoice
+from invoiceguard_api.demo import sample_invoices
+from invoiceguard_api.filetype import source_type_for
+from invoiceguard_api.parsing import ParsedInvoice, invoice_xml, read_invoice_xml
 from invoiceguard_api.seed import ORDERS, SUPPLIERS, OrderSeed, SupplierSeed
 
 CENT = Decimal("0.01")
@@ -390,3 +392,57 @@ FRAUD = (
 
 # In processing order: f04 must come after g01, whose number it repeats.
 ALL = (*CLEAN, *VARIANTS, *CONFLICTS, *FRAUD)
+
+
+# The demo samples (R4-6): their terms in the generator's layouts, so the model sees them as PDFs.
+DEMO_LOOKS: tuple[tuple[Layout, Font], ...] = (
+    ("classic", "Helvetica"),
+    ("band", "Times-Roman"),
+    ("compact", "Courier"),
+)
+
+
+def demo_spec(case_id: str, invoice: ParsedInvoice, look: int) -> InvoiceSpec:
+    """A demo sample as a spec. Its seller comes from the seed by VAT ID; a term the XML leaves
+    out that the PDF must print (the IBAN, the buyer's VAT ID) comes from the seed, so the truth
+    is always what the PDF states. The delivery date is not scored."""
+    if invoice.seller_vat_id is None:
+        raise ValueError(f"{case_id}: a demo sample needs the seller's VAT ID")
+    seed = _supplier(invoice.seller_vat_id)
+    layout, font = DEMO_LOOKS[look % len(DEMO_LOOKS)]
+    lines = []
+    for line in invoice.lines:
+        if line.vat_rate is None:
+            raise ValueError(f"{case_id}: line {line.line_id} has no VAT rate")
+        lines.append(
+            Line(line.item_name, line.quantity, line.unit_code, line.net_price, line.vat_rate)
+        )
+    return InvoiceSpec(
+        case_id=case_id,
+        seller=_seed_party(seed),
+        iban=invoice.payee_iban or seed.iban,
+        number=invoice.invoice_number,
+        issue_date=invoice.issue_date,
+        delivery_date=invoice.issue_date - timedelta(days=3),
+        due_date=invoice.due_date,
+        order_reference=invoice.order_reference,
+        lines=tuple(lines),
+        layout=layout,
+        font=font,
+        tags=frozenset({"demo"}),
+    )
+
+
+def demo_sample(name: str, content: bytes) -> ParsedInvoice:
+    source_type = source_type_for(name, content)
+    if source_type is None:
+        raise ValueError(f"Demo sample {name} is not an XML or PDF invoice")
+    return read_invoice_xml(invoice_xml(content, source_type))
+
+
+def demo_specs() -> tuple[InvoiceSpec, ...]:
+    """One spec per demo sample, `d01_<name>` for `01_<name>.xml`."""
+    return tuple(
+        demo_spec(f"d{name.rsplit('.', 1)[0]}", demo_sample(name, content), look)
+        for look, (name, content) in enumerate(sample_invoices())
+    )

@@ -9,6 +9,11 @@ Database IDs are the one exception: the agent's case file and tool results carry
 supplier's ID in the IBAN check's evidence) that are new in every freshly created eval database,
 so the key replaces each UUID with a placeholder. The reply was given for the same data.
 
+The spend cap is checked before every live call: the call is not made when the spend so far plus
+the dearest call seen (at least `min_reserve_usd`) could pass the cap, so one more call cannot
+overshoot it. A live reply without a price is saved and then stops the run, because the cap
+cannot count it.
+
 Embeddings (ADR-020) are recorded per text, keyed by model, dimensions, task and the text, so a
 text embedded once replays in any batch. A live batch's tokens and cost are split evenly over
 its texts.
@@ -18,7 +23,7 @@ import hashlib
 import json
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -109,9 +114,27 @@ class RecordingClient:
     # Replay only: answer a missing recording like a failed call. A live call that failed
     # (quota, timeout) is never recorded, so this reproduces a live run's report exactly.
     missing_as_failure: bool = False
+    # Kept free before each live call; the dearest call so far counts when it is larger.
+    min_reserve_usd: Decimal = Decimal(0)
     spent_usd: Decimal = Decimal(0)
+    largest_call_usd: Decimal = Decimal(0)
     live_calls: int = 0
     replayed: int = 0
+    # The days the replies were recorded on, per model (replayed or live).
+    recorded_on: dict[str, set[str]] = field(default_factory=dict)
+
+    def _check_cap(self) -> None:
+        reserve = max(self.largest_call_usd, self.min_reserve_usd)
+        if self.spent_usd >= self.max_spend_usd or self.spent_usd + reserve > self.max_spend_usd:
+            raise SpendCapReached(
+                f"Spent ${self.spent_usd} of the ${self.max_spend_usd} cap (keeping ${reserve} "
+                "for the next call); stopping."
+            )
+
+    def _spend(self, cost_usd: Decimal) -> None:
+        self.live_calls += 1
+        self.spent_usd += cost_usd
+        self.largest_call_usd = max(self.largest_call_usd, cost_usd)
 
     def structured(
         self,
@@ -135,7 +158,9 @@ class RecordingClient:
         path = self.directory / f"{request_key(description)}.json"
         if path.exists():
             self.replayed += 1
-            return _load(path)
+            record = json.loads(path.read_text("utf-8"))
+            self.recorded_on.setdefault(model, set()).add(record["recorded_at"][:10])
+            return _reply(record["reply"])
         if self.live is None and self.missing_as_failure:
             raise LLMError("No recorded reply: the live call failed or was never made.", 0)
         if self.live is None:
@@ -143,10 +168,7 @@ class RecordingClient:
                 f"No recorded reply for {model} at reasoning effort {reasoning_effort} "
                 f"(run {self.run}); the prompt, schema or file changed. Run with --live."
             )
-        if self.spent_usd >= self.max_spend_usd:
-            raise SpendCapReached(
-                f"Spent ${self.spent_usd} of the ${self.max_spend_usd} cap; stopping."
-            )
+        self._check_cap()
         # A failed call raises LLMError here and is never recorded.
         reply = self.live.structured(
             model=model,
@@ -156,9 +178,13 @@ class RecordingClient:
             schema=schema,
             reasoning_effort=reasoning_effort,
         )
-        self.live_calls += 1
-        self.spent_usd += reply.cost_usd or Decimal(0)
-        _save(path, description, reply)
+        self._spend(reply.cost_usd or Decimal(0))
+        recorded_at = _save(path, description, reply)
+        self.recorded_on.setdefault(model, set()).add(recorded_at[:10])
+        if reply.cost_usd is None:
+            raise SpendCapReached(
+                f"{model} returned no price, so the cap cannot count its calls; stopping."
+            )
         return reply
 
     def embed(
@@ -199,15 +225,11 @@ class RecordingClient:
         paths: list[Path],
     ) -> None:
         assert self.live is not None
-        if self.spent_usd >= self.max_spend_usd:
-            raise SpendCapReached(
-                f"Spent ${self.spent_usd} of the ${self.max_spend_usd} cap; stopping."
-            )
+        self._check_cap()
         reply = self.live.embed(model=model, texts=texts, dimensions=dimensions, task=task)
         if reply.cost_usd is None or len(reply.vectors) != len(texts):
             raise LLMError("The embedding reply has no price or the wrong number of vectors.", 0)
-        self.live_calls += 1
-        self.spent_usd += reply.cost_usd
+        self._spend(reply.cost_usd)
         share = (reply.cost_usd / len(texts)).quantize(SHARE_SCALE)
         recorded_at = datetime.now(UTC).isoformat(timespec="seconds")
         for text, path, vector in zip(texts, paths, reply.vectors, strict=True):
@@ -231,9 +253,11 @@ def _write(path: Path, record: dict[str, Any]) -> None:
     path.write_text(json.dumps(record, indent=1, ensure_ascii=False) + "\n", "utf-8", newline="\n")
 
 
-def _save(path: Path, description: dict[str, Any], reply: LLMReply) -> None:
+def _save(path: Path, description: dict[str, Any], reply: LLMReply) -> str:
+    """Write the recording; returns its `recorded_at`."""
+    recorded_at = datetime.now(UTC).isoformat(timespec="seconds")
     record = {
-        "recorded_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "recorded_at": recorded_at,
         "request": description,
         "reply": {
             "text": reply.text,
@@ -244,10 +268,10 @@ def _save(path: Path, description: dict[str, Any], reply: LLMReply) -> None:
         },
     }
     _write(path, record)
+    return recorded_at
 
 
-def _load(path: Path) -> LLMReply:
-    reply = json.loads(path.read_text("utf-8"))["reply"]
+def _reply(reply: dict[str, Any]) -> LLMReply:
     return LLMReply(
         text=reply["text"],
         input_tokens=reply["input_tokens"],

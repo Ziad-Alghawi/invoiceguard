@@ -23,7 +23,7 @@ SEED_VARS = INVOICEGUARD_SEED_USER_EMAIL INVOICEGUARD_SEED_USER_PASSWORD INVOICE
 export $(SEED_VARS)
 SEED_USER = exec $(foreach var,$(SEED_VARS),-e $(var)) api invoiceguard-seed-user
 
-.PHONY: dev down seed seed-user index check test e2e eval eval-gate demo-reset grafana grafana-down
+.PHONY: dev down seed seed-user index check test e2e eval eval-gate eval-models demo-reset grafana grafana-down
 
 dev: ## Build and start api + web + db + validator + MCP servers, wait until all are healthy
 ifeq ($(wildcard .env),)
@@ -85,3 +85,7 @@ eval-gate: ## The CI eval gate locally: replay the small set, compare with basel
 	$(EVALS) uv run invoiceguard-eval fetch
 	$(EVALS) uv run invoiceguard-eval run --set small
 	$(EVALS) uv run invoiceguard-eval gate reports/latest-small.json
+
+eval-models: ## Model comparison (R4-6, ADR-026) from the recorded replies: writes docs/evals/model-comparison.md, free and offline
+	$(EVALS) uv run invoiceguard-eval fetch
+	$(EVALS) uv run invoiceguard-eval models
