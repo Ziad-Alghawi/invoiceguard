@@ -1,0 +1,95 @@
+# promtool unit tests for files/rules.yml (CI job `helm`):
+#   promtool test rules infra/helm/invoiceguard-monitoring/tests/rules.test.yml
+# Each alert fires on made-up series, and stays quiet where it should.
+rule_files:
+  - ../files/rules.yml
+
+evaluation_interval: 30s
+
+tests:
+  # 60 requests per minute, 10 of them 5xx (17 %): fires once the 5 minutes of `for` have passed.
+  - interval: 1m
+    input_series:
+      - series: 'invoiceguard_http_requests_total{method="GET", route="/invoices", status="200"}'
+        values: "0+50x30"
+      - series: 'invoiceguard_http_requests_total{method="GET", route="/invoices", status="500"}'
+        values: "0+10x30"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: InvoiceGuardHighErrorRate
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: InvoiceGuardHighErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: More than 5 % of api requests failed with a 5xx in the last 10 minutes.
+
+  # The same share of errors at night, with 1 request a minute: under 20 requests, no alert.
+  - interval: 1m
+    input_series:
+      - series: 'invoiceguard_http_requests_total{method="GET", route="/invoices", status="200"}'
+        values: "0+0.8x30"
+      - series: 'invoiceguard_http_requests_total{method="GET", route="/invoices", status="500"}'
+        values: "0+0.2x30"
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: InvoiceGuardHighErrorRate
+        exp_alerts: []
+
+  # One run stops at the cost cap at minute 5: the alert fires at once and clears after an hour.
+  - interval: 1m
+    input_series:
+      - series: 'invoiceguard_agent_runs_total{status="stopped", reason="cost_cap"}'
+        values: "0x4 1x80"
+      - series: 'invoiceguard_agent_runs_total{status="completed", reason="none"}'
+        values: "0+1x84"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: InvoiceGuardCostCapReached
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: InvoiceGuardCostCapReached
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: An agent run stopped at the cost cap or the daily LLM budget in the last hour.
+      - eval_time: 80m
+        alertname: InvoiceGuardCostCapReached
+        exp_alerts: []
+
+  # The validator stops answering at minute 10: the alert fires 5 minutes later.
+  - interval: 1m
+    input_series:
+      - series: 'invoiceguard_validator_up{instance="10.42.0.20:8000", job="invoiceguard-api"}'
+        values: "1x9 0x20"
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: InvoiceGuardValidatorDown
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: InvoiceGuardValidatorDown
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: The KoSIT validator does not answer; invoices are processed without it.
+
+  # The api pod's scrape fails from minute 10.
+  - interval: 1m
+    input_series:
+      - series: 'up{instance="10.42.0.20:8000", job="invoiceguard-api"}'
+        values: "1x9 0x20"
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: InvoiceGuardApiDown
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: InvoiceGuardApiDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: Prometheus cannot scrape any api pod.

@@ -443,15 +443,20 @@ jobs:
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v4.3.1
-      - name: Lint and render both charts; without an image tag the chart refuses to render
+      - name: Lint and render the three charts; without an image tag the app chart refuses to render
         run: |
           helm lint --strict infra/helm/invoiceguard-postgres
           helm lint --strict infra/helm/invoiceguard --set image.tag="$TAG"
+          helm lint --strict infra/helm/invoiceguard-monitoring
           helm template invoiceguard-postgres infra/helm/invoiceguard-postgres > /dev/null
           helm template invoiceguard infra/helm/invoiceguard --set image.tag="$TAG" > /dev/null
+          helm template invoiceguard-monitoring infra/helm/invoiceguard-monitoring > /dev/null
           if helm template invoiceguard infra/helm/invoiceguard > /dev/null 2>&1; then
             echo "::error::the chart rendered without image.tag"; exit 1
           fi
+      # ADR-025: the rendered Prometheus config is valid, and each alert fires in its unit test.
+      - name: promtool checks the Prometheus config and tests the alert rules
+        run: .github/scripts/prometheus-check.sh
       - name: Install k3d (pinned version, checked against its SHA-256)
         run: |
           curl --fail --silent --show-error --location --output k3d \
@@ -475,7 +480,7 @@ jobs:
           k3d image import --cluster invoiceguard \
             $(for image in api web mcp-erp mcp-registry mcp-history validator; do
               echo "ghcr.io/ziad-alghawi/invoiceguard-$image:$TAG"; done)
-      - name: Install both charts; owner, ingress, 413, health, demo reset, login, NetworkPolicies, upgrade
+      - name: Install the charts; owner, ingress, 413, health, demo reset, login, NetworkPolicies, upgrade, Prometheus
         run: .github/scripts/k3d-smoke-test.sh "$TAG" 8080
       # The server's platform files at their pinned hashes (ADR-024); their CRDs let the API server
       # check the Argo CD Applications, the SealedSecrets and the Traefik settings (dry run).

@@ -62,7 +62,7 @@ The demo server runs one k3s node ([ADR-021](../docs/decisions/ADR-021-platform-
   that starts k3s after Docker, `fetch.sh` (Argo CD core, the sealed-secrets controller and kubeseal at
   pinned versions, checked by SHA-256) and `seal-secrets.sh`.
 - [`argocd/`](argocd): the root Application (app-of-apps) and, in [`argocd/apps/`](argocd/apps), the
-  namespace, the SealedSecrets and the two chart Applications in sync waves (PostgreSQL first). Argo CD
+  namespace, the SealedSecrets and the three chart Applications in sync waves (PostgreSQL first, monitoring last). Argo CD
   follows the git tag `demo`, which CI moves after a `main` commit's images are in GHCR.
   [`argocd/bootstrap/`](argocd/bootstrap) holds what the core install lacks: the `default` project, a health
   check for child Applications and a repo-server that renders one chart at a time.
@@ -70,6 +70,17 @@ The demo server runs one k3s node ([ADR-021](../docs/decisions/ADR-021-platform-
 CI (job `helm`) checks the pinned hashes, dry-runs these manifests, lets Argo CD core bootstrap and render the
 Applications at the commit, and starts k3s's Traefik with the server's settings, all on k3d. The steps on the
 server are in [`docs/deploy.md`](../docs/deploy.md) ([ADR-024](../docs/decisions/ADR-024-edge-and-cluster-bootstrap.md)).
+
+## Metrics (R4-5)
+[ADR-025](../docs/decisions/ADR-025-metrics-prometheus-local-grafana.md):
+
+- [`helm/invoiceguard-monitoring`](helm/invoiceguard-monitoring): Prometheus alone. It scrapes the api's
+  `/metrics` (every api pod, through the app chart's headless Service), keeps 7 days and evaluates the alert
+  rules in [`files/rules.yml`](helm/invoiceguard-monitoring/files/rules.yml), whose promtool unit tests are in
+  [`tests/`](helm/invoiceguard-monitoring/tests). It has no Ingress.
+- [`grafana/`](grafana): Grafana for the developer machine (`make grafana`, http://localhost:3001), with the
+  Prometheus datasource and the **InvoiceGuard** dashboard provisioned. It reads the demo's Prometheus through
+  an SSH tunnel ([`docs/deploy.md`](../docs/deploy.md#metrics)).
 
 ## The server's edge
 [`edge/`](edge) is the server's shared reverse proxy, not part of this project's stack: one Caddy with ports

@@ -6,6 +6,7 @@
 #    0  the two SealedSecrets (Healthy once the controller has unsealed them)
 #    1  the invoiceguard-postgres Application (Healthy once PostgreSQL is ready)
 #    2  the invoiceguard Application (its migration hook runs as PreSync)
+#    3  the invoiceguard-monitoring Application (Prometheus, ADR-025)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

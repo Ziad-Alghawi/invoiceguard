@@ -43,7 +43,8 @@ spec:
           protocol: TCP
     - {{- toYaml $dns | nindent 6 }}
 ---
-# The api: reached by the web server only. Outgoing traffic stays open: it calls the model APIs.
+# The api: reached by the web server and, for /metrics, by Prometheus (ADR-025). Outgoing traffic
+# stays open: it calls the model APIs.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -60,6 +61,11 @@ spec:
         - podSelector:
             matchLabels:
               {{- include "invoiceguard.selectorLabels" (dict "ctx" . "component" "web") | nindent 14 }}
+        {{- if .Values.metrics.enabled }}
+        - podSelector:
+            matchLabels:
+              {{- toYaml .Values.metrics.prometheusPodLabels | nindent 14 }}
+        {{- end }}
       ports:
         - port: 8000
           protocol: TCP

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Installs the two Helm charts on the current cluster and smoke-tests them (R4-3, ADR-023).
+# Installs the three Helm charts on the current cluster and smoke-tests them (R4-3, ADR-023;
+# monitoring R4-5, ADR-025).
 # Used by the CI job `helm` on k3d; runs locally against any k3d cluster too.
 #
 # Usage: .github/scripts/k3d-smoke-test.sh <image tag> <ingress port>
@@ -11,6 +12,7 @@ tag=$1
 ingress="http://localhost:$2"
 ns=invoiceguard
 api_port=18000
+prometheus_port=19090
 work=$(mktemp -d)
 
 kubectl create namespace "$ns"
@@ -104,6 +106,33 @@ k wait --for=jsonpath='{.status.phase}'=Failed pod/netpol-probe --timeout=60s
 
 echo "--- An upgrade runs the migration hook again"
 helm upgrade invoiceguard infra/helm/invoiceguard --namespace "$ns" --reuse-values --wait --timeout 10m
+
+echo "--- Prometheus (ADR-025): scrapes every api pod through the headless Service"
+helm install invoiceguard-monitoring infra/helm/invoiceguard-monitoring --namespace "$ns" \
+  --wait --timeout 5m
+k port-forward service/invoiceguard-monitoring "$prometheus_port:9090" > /dev/null &
+prometheus_forward=$!
+trap 'kill $forward $prometheus_forward; rm -rf "$work"' EXIT
+query() {
+  curl --fail --silent --show-error --get "http://localhost:$prometheus_port/api/v1/query" \
+    --data-urlencode "query=$1" | jq -r '.data.result[0].value[1] // empty'
+}
+# The first scrape comes within one interval (30 s) of the start.
+for attempt in $(seq 1 30); do
+  [ "$(query 'up{job="invoiceguard-api"}' 2>/dev/null)" = 1 ] && break
+  [ "$attempt" -lt 30 ] || { echo "Prometheus never scraped the api"; exit 1; }
+  sleep 3
+done
+# The logins and invoice reads above, counted by route template.
+test "$(query 'sum(invoiceguard_http_requests_total{route="/auth/login",status="200"})')" -ge 1
+test "$(query 'invoiceguard_validator_up')" = 1
+test "$(query 'count(ALERTS{alertstate="firing"}) or vector(0)')" = 0
+
+echo "--- NetworkPolicy: the web pod cannot reach Prometheus"
+if k exec deployment/invoiceguard-web -- node -e \
+  "fetch('http://invoiceguard-monitoring:9090/-/ready', {signal: AbortSignal.timeout(5000)}).then(() => process.exit(0), () => process.exit(1))"; then
+  echo "::error::web reached Prometheus"; exit 1
+fi
 
 echo "--- Memory per pod (requests and limits in values.yaml)"
 k top pods || true

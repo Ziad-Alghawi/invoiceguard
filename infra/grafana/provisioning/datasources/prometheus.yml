@@ -1,0 +1,13 @@
+# The demo's Prometheus through the SSH tunnel on the host (docs/deploy.md, "Metrics").
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://host.docker.internal:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      # The scrape interval of the invoiceguard-monitoring chart.
+      timeInterval: 30s
