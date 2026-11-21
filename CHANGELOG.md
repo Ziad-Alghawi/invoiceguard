@@ -25,8 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `infra/grafana/` and `make grafana`: a local Grafana with the provisioned **InvoiceGuard** dashboard,
     reading the demo's Prometheus through an SSH tunnel.
   - CI (job `helm`): `promtool check config` and `promtool test rules` (each alert fires in a unit test);
-    on k3d, Prometheus scrapes the api and the web pod cannot reach it. The Argo CD test renders the new
-    Application.
+    on k3d, Prometheus scrapes the api and the web pod cannot reach it.
+  - CI (job `helm`): the Argo CD test now syncs the three chart Applications with the job's images, after
+    Traefik has the server's settings, and fails unless each ends Synced and Healthy. The root app's sync
+    waves wait for that health, so an app stuck Progressing would hold back the ones after it.
+  - Verified on the demo: Prometheus at 30 Mi, `available` 1,245 MB (gate 1.0 GB), live metrics in the
+    local Grafana.
 - The demo on k3s with Argo CD (R4-4, ADR-021, ADR-024):
   - `infra/k3s/`: k3s settings for the 4 GB server (no ServiceLB, encrypted Secrets, kubelet memory
     reservations), Traefik's hostPort 8880 with trusted forwarded headers from the pod network's gateway and

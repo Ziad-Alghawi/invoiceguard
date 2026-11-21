@@ -1,6 +1,6 @@
 # Status
 
-**Current milestone:** R4 — Platform (R4-1 to R4-4 done; R4-5 in review)
+**Current milestone:** R4 — Platform (R4-1 to R4-5 done; R4-6 next)
 **Last updated:** 2026-11-21
 
 ## Done
@@ -335,7 +335,7 @@
       against (no default project; `hostIP` as the listen address).
     - Until 2026-11-23 the Compose volumes stay on the server as the fallback; then they are deleted (after
       asking).
-  - R4-5: metrics (in review; ADR-025):
+  - R4-5: metrics (done, #34 and a follow-up for the server check; ADR-025):
     - `GET /metrics` on the api (`prometheus-client`): HTTP requests and latency by route template;
       invoices processed, check results, decisions and security events (committed rows only); LLM calls,
       cost, tokens and latency; agent runs; KoSIT calls and `invoiceguard_validator_up`. No invoice data in
@@ -354,9 +354,21 @@
       - [x] RAM measured on k3d first: Prometheus 31 to 37 MiB working set (94 MiB RSS), 901 series; the
         api 126 to 128 MiB, against 129 to 130 MiB for `main` (no measurable cost); Grafana showed the
         k3d data through a loopback-only port-forward;
-      - [ ] the PR is open with CI green;
-      - [ ] after the merge: the metrics and the dashboard show live demo traffic, and `available` stays
-        above 1.0 GB on the server (before and after recorded here).
+      - [x] the PR is open with CI green (#34, merged as `3210d6a`);
+      - [x] after the merge, on the server (2026-11-21, 18:26 UTC):
+        - all four Applications Synced and Healthy at `3210d6a`;
+        - Prometheus 30 Mi, `available` 1,245 MB against 1,320 MB before the deploy (gate: 1.0 GB), swap
+          96 MB against 89 MB;
+        - the api and the validator `up`, 145 `invoiceguard_*` series, demo traffic counted by route
+          template, all four rules healthy and none firing;
+        - the local Grafana showed the dashboard with the live data through the SSH tunnel.
+    - On the deploy, the root app held back wave 3: the app stayed Progressing because its Ingress had no
+      address. The server still had the Traefik settings from before #33, a platform file outside Argo CD
+      that is copied by hand (docs/deploy.md). Copying it fixed the address, and the waves went on.
+    - CI (job `helm`) now syncs the three chart Applications on k3d with the job's images, after Traefik has
+      the server's settings, and waits until each is Synced and Healthy. With the Traefik settings from
+      before #33 it failed on the app's Ingress; the root app is only compared (its SealedSecrets open only
+      with the server's key).
   - R4-6: model comparison: Gemini vs Mistral (EU, free tier) vs one small Ollama model on the development
     machine, through the eval harness on the small set. Done when: the table is in `docs/results.md` with
     accuracy, cost and p50/p95 latency, within the LLM budget. First to drop if R4 runs late
