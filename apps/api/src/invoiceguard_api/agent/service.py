@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from invoiceguard_api.agent.loop import EmbeddingUse, ExceptionAgent, Outcome, StepRecord
 from invoiceguard_api.checks.injection import CHECK_TYPE as INJECTION_CHECK
 from invoiceguard_api.checks.supplier import normalise_vat_id
+from invoiceguard_api.metrics import AGENT_RUNS
 from invoiceguard_api.models import (
     AgentRun,
     AgentRunSource,
@@ -324,6 +325,7 @@ def run_investigation(
         logger.exception("Agent run %s for invoice %s failed", run_id, invoice_id)
         outcome = Outcome(AgentRunStatus.FAILED, "internal_error", INTERNAL_ERROR)
     _finish(session_factory, run_id, outcome, round((time.perf_counter() - started) * 1000))
+    AGENT_RUNS.labels(outcome.status.value, outcome.stop_reason or "none").inc()
     logger.info(
         "Agent run %s for invoice %s: %s %s",
         run_id,
