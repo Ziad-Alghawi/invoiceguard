@@ -1,14 +1,9 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ExportButton } from "@/components/export-button";
 import type { ExportState } from "@/lib/exports";
+import { renderWithIntl } from "@/test/intl";
 
 afterEach(cleanup);
 
@@ -29,7 +24,7 @@ describe("ExportButton", () => {
         remaining: 0,
       },
     });
-    render(
+    renderWithIntl(
       <ExportButton exportDatev={exportDatev} startDownload={startDownload} />,
     );
 
@@ -53,7 +48,7 @@ describe("ExportButton", () => {
       error: "No approved invoices are waiting for export.",
       export: null,
     });
-    render(
+    renderWithIntl(
       <ExportButton exportDatev={exportDatev} startDownload={startDownload} />,
     );
 

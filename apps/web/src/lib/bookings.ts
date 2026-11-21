@@ -66,19 +66,39 @@ export function bookingsFromForm(formData: FormData): BookingChoice[] {
   return choices.sort((a, b) => a.line_no - b.line_no);
 }
 
-/** "Suggested 0410 (92 %, by meaning) from MB-2025-0003, Muster GmbH" for the reviewer. */
-export function suggestionNote(line: LineBooking): string {
+/** The values of the "Suggested 0410 … (92 %, by meaning) from MB-2025-0003, Muster GmbH" note. */
+export type SuggestionNote = {
+  account: string;
+  name: string;
+  share: number;
+  method: LineBooking["method"];
+  sources: string;
+};
+
+/**
+ * What the reviewer reads about a line's suggestion, or null without one. `imported` names a
+ * source from imported history, which has no invoice number.
+ */
+export function suggestionNote(
+  line: LineBooking,
+  imported: string,
+): SuggestionNote | null {
   const top = line.suggestions[0];
   if (top === undefined) {
-    return "No suggestion: no booked line to compare with.";
+    return null;
   }
-  const how = line.method === "vector" ? "by meaning" : "by text match";
   const sources = top.sources
     .map((source) =>
-      [source.invoice_number ?? "imported", source.supplier_name]
+      [source.invoice_number ?? imported, source.supplier_name]
         .filter(Boolean)
         .join(", "),
     )
     .join("; ");
-  return `Suggested ${top.account} ${top.name} (${Math.round(top.share * 100)} %, ${how}) from ${sources}.`;
+  return {
+    account: top.account,
+    name: top.name,
+    share: Math.round(top.share * 100),
+    method: line.method,
+    sources,
+  };
 }

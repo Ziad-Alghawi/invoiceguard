@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- German UI (R5, ADR-027): every page of the web app in German and English with next-intl 4.15.1. German is the
+  default; a DE | EN switch in the header and on the login page keeps the choice in a cookie, and the paths stay the
+  same. Statuses, check types, roles, audit actions, security event types and field names have labels in both
+  languages; dates follow the language (Europe/Berlin time). Texts from the API stay English. A test fails when
+  the two message files differ in keys or a message does not format, another when a code in the API's source has
+  no label, `tsc` fails on an unknown key, and ESLint fails on text written into JSX. The Playwright tests run in
+  German, and a new one switches to English and back. A translated not-found page.
+
 ### Changed
 - DATEV export per chosen account (issue #24, ADR-013 amended): an invoice approved with accounts per line gets one
   booking row per (account, VAT rate), with the chosen account as Gegenkonto, the BU key of the rate and the

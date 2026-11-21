@@ -3,7 +3,9 @@
 import { refresh } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
+import { isLocale, LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE } from "@/i18n/config";
 import { apiFetch, apiPostAnonymous, errorMessage } from "@/lib/api";
 import { type BookingChoice, bookingsFromForm } from "@/lib/bookings";
 import type { ExportState } from "@/lib/exports";
@@ -30,7 +32,7 @@ export async function login(
   // Not trimmed: spaces can be part of a password.
   const password = raw(formData, "password");
   if (!email || !password) {
-    return { error: "Enter your email and password." };
+    return { error: (await getTranslations("Errors"))("loginMissing") };
   }
   const response = await apiPostAnonymous("/auth/login", { email, password });
   if (!response.ok) {
@@ -38,7 +40,7 @@ export async function login(
   }
   const session = parseSessionCookie(response.headers.getSetCookie());
   if (session === null) {
-    return { error: "The API did not start a session." };
+    return { error: (await getTranslations("Errors"))("noSession") };
   }
   (await cookies()).set(SESSION_COOKIE, session.token, {
     httpOnly: true,
@@ -59,6 +61,20 @@ export async function logout(): Promise<void> {
   redirect("/login");
 }
 
+/** The language switch (ADR-027): keeps the choice in a cookie and renders the page again. */
+export async function setLocale(formData: FormData): Promise<void> {
+  const locale = formData.get("locale");
+  if (!isLocale(locale)) {
+    return;
+  }
+  (await cookies()).set(LOCALE_COOKIE, locale, {
+    sameSite: "lax",
+    path: "/",
+    maxAge: LOCALE_COOKIE_MAX_AGE,
+  });
+  refresh();
+}
+
 type DecisionPath =
   | "approve"
   | "reject"
@@ -73,7 +89,7 @@ async function decide(
   body: Record<string, string | BookingChoice[]>,
 ): Promise<ActionState> {
   if (!isInvoiceId(invoiceId)) {
-    return { error: "Unknown invoice." };
+    return { error: (await getTranslations("Errors"))("unknownInvoice") };
   }
   const response = await apiFetch(`/invoices/${invoiceId}/${path}`, {
     method: "POST",
@@ -81,7 +97,7 @@ async function decide(
     body: JSON.stringify(body),
   });
   if (response.status === 422) {
-    return { error: "Enter a reason and choose an account for every line." };
+    return { error: (await getTranslations("Errors"))("reasonAndAccounts") };
   }
   if (!response.ok) {
     return { error: await errorMessage(response) };
@@ -114,7 +130,7 @@ export async function requestOverride(
   formData: FormData,
 ): Promise<ActionState> {
   if (formData.get("confirm") !== "on") {
-    return { error: "Confirm that you checked the failed checks." };
+    return { error: (await getTranslations("Errors"))("confirmChecked") };
   }
   return decide(invoiceId, "override", {
     reason: text(formData, "override_reason"),
@@ -188,7 +204,7 @@ export async function exportDatev(): Promise<ExportState> {
  */
 export async function investigate(invoiceId: string): Promise<ActionState> {
   if (!isInvoiceId(invoiceId)) {
-    return { error: "Unknown invoice." };
+    return { error: (await getTranslations("Errors"))("unknownInvoice") };
   }
   const response = await apiFetch(`/invoices/${invoiceId}/investigate`, {
     method: "POST",
@@ -207,7 +223,11 @@ export type StatusState =
 /** The invoice's current status, for the upload page while processing runs (ADR-007). */
 export async function invoiceStatus(invoiceId: string): Promise<StatusState> {
   if (!isInvoiceId(invoiceId)) {
-    return { status: null, reason: null, error: "Unknown invoice." };
+    return {
+      status: null,
+      reason: null,
+      error: (await getTranslations("Errors"))("unknownInvoice"),
+    };
   }
   const response = await apiFetch(`/invoices/${invoiceId}`);
   if (!response.ok) {

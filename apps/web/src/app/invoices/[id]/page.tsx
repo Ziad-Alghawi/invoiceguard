@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 
 import {
@@ -70,6 +72,8 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
     notFound();
   }
   const [invoice, history, user, investigation, bookings] = await load(id);
+  const t = await getTranslations("Invoice");
+  const locale = await getLocale();
   const requestedBy = overrideRequester(history);
   const failedChecks = invoice.checks
     .filter((check) => check.status === "failed")
@@ -93,42 +97,55 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
           {invoice.status_reason && (
             <p className="text-sm">{invoice.status_reason}</p>
           )}
-          <p className="text-sm text-muted-foreground">
-            {invoice.source_type.toUpperCase()} · received{" "}
-            {formatDateTime(invoice.created_at)} ·{" "}
+          <p className="flex flex-wrap gap-x-1 text-sm text-muted-foreground">
+            <span>
+              {t("received", {
+                source: invoice.source_type.toUpperCase(),
+                date: formatDateTime(invoice.created_at, locale),
+              })}
+            </span>
+            <span aria-hidden="true">·</span>
             <a
               href={`/invoices/${invoice.id}/file`}
               className="underline underline-offset-4"
             >
-              Download original
+              {t("download")}
             </a>
-            {invoice.llm_calls > 0 &&
-              ` · ${invoice.llm_calls} LLM call(s), $${invoice.llm_cost_usd}`}
+            {invoice.llm_calls > 0 && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>
+                  {t("llmCalls", {
+                    count: invoice.llm_calls,
+                    cost: invoice.llm_cost_usd,
+                  })}
+                </span>
+              </>
+            )}
           </p>
         </div>
-        <Section title="Checks">
+        <Section title={t("checks")}>
           <CheckList checks={invoice.checks} />
         </Section>
         {showInvestigation && (
-          <Section title="Investigation">
+          <Section title={t("investigation")}>
             <InvestigationPanel
               investigation={investigation}
               investigate={investigate.bind(null, invoice.id)}
             />
           </Section>
         )}
-        <Section title="Extracted fields">
+        <Section title={t("fields")}>
           {lowConfidence.length > 0 && (
             <p className="text-sm text-amber-800">
-              {lowConfidence.length} field(s) with low confidence are
-              highlighted: compare them with the original.
+              {t("lowConfidence", { count: lowConfidence.length })}
             </p>
           )}
           <FieldsTable fields={invoice.fields} />
         </Section>
       </div>
       <aside className="flex flex-col gap-6">
-        <Section title="Decision">
+        <Section title={t("decision")}>
           <DecisionPanel
             status={invoice.status}
             failedChecks={failedChecks}
@@ -147,7 +164,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
             }}
           />
         </Section>
-        <Section title="History">
+        <Section title={t("history")}>
           <AuditHistory events={history} />
         </Section>
       </aside>
@@ -156,13 +173,16 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
 }
 
 export default function InvoicePage({ params }: PageProps<"/invoices/[id]">) {
+  const common = useTranslations("Common");
   return (
     <main className="flex flex-col gap-4">
       <Link href="/invoices" className="text-sm underline underline-offset-4">
-        ← Queue
+        {common("backToQueue")}
       </Link>
       <Suspense
-        fallback={<p className="text-sm text-muted-foreground">Loading…</p>}
+        fallback={
+          <p className="text-sm text-muted-foreground">{common("loading")}</p>
+        }
       >
         <Detail params={params} />
       </Suspense>

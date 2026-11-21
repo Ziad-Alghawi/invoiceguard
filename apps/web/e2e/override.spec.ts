@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import {
   apiAs,
   approverLogin,
+  history,
   invoiceXml,
   logIn,
   reviewerLogin,
@@ -39,42 +40,51 @@ test("a reviewer requests an override and a second person approves it", async ({
 }) => {
   // The reviewer: a blocked invoice cannot be approved directly, only an override requested.
   await logIn(page, reviewer);
-  await expect(page.getByText("· reviewer")).toBeVisible();
+  await expect(page.getByText("· Prüfer")).toBeVisible();
   await page.getByRole("link", { name: fraud.file }).click();
   await expect(
-    page.getByText(/Blocked by failed checks: iban\./),
+    page.getByText(/Gesperrt durch fehlgeschlagene Prüfungen: IBAN\./),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Approve", exact: true }),
+    page.getByRole("button", { name: "Freigeben", exact: true }),
   ).toHaveCount(0);
   const reason = "IBAN change confirmed by phone with the supplier.";
-  await page.getByLabel("Override reason").fill(reason);
+  await page.getByLabel("Begründung der Ausnahme").fill(reason);
   await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "Request override" }).click();
+  await page
+    .getByRole("button", { name: "Ausnahmefreigabe beantragen" })
+    .click();
   await expect(
-    page.getByText(`Override requested by ${reviewer.email}`),
+    page.getByText(`Ausnahmefreigabe beantragt von ${reviewer.email}`),
   ).toBeVisible();
   await expect(
     page.getByText(
-      "Only a user with the approver role can confirm or decline it.",
+      "Nur ein Benutzer mit der Rolle Freigeber kann sie bestätigen oder ablehnen.",
     ),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Confirm override" }),
+    page.getByRole("button", { name: "Ausnahme bestätigen" }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Log out" }).click();
+  await page.getByRole("button", { name: "Abmelden" }).click();
 
   // The approver: a different person confirms, with a reason of their own.
   await logIn(page, approver);
-  await expect(page.getByText("· approver")).toBeVisible();
+  await expect(page.getByText("· Freigeber")).toBeVisible();
   await page.getByRole("link", { name: fraud.file }).click();
   const note = "Checked the call notes and the new bank letter.";
-  await page.getByLabel("Approver reason").fill(note);
-  await page.getByRole("button", { name: "Confirm override" }).click();
+  await page.getByLabel("Begründung des Freigebers").fill(note);
+  await page.getByRole("button", { name: "Ausnahme bestätigen" }).click();
   await expect(
-    page.getByText("No decision possible while the invoice is approved."),
+    page.getByText(
+      "Keine Entscheidung möglich, solange die Rechnung freigegeben ist.",
+    ),
   ).toBeVisible();
-  await expect(page.getByText("invoice.override_requested")).toBeVisible();
-  await expect(page.getByText("invoice.override_confirmed")).toBeVisible();
+  // The audit history (exact: the paragraph above also says "beantragt von").
+  await expect(
+    history(page).getByText("Ausnahmefreigabe beantragt", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    history(page).getByText("Ausnahmefreigabe bestätigt", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText(note).last()).toBeVisible();
 });

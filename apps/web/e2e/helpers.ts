@@ -88,13 +88,21 @@ export async function upload(
   return status;
 }
 
-/** Logs in through the web form and waits for the queue. */
+/**
+ * Logs in through the web form and waits for the queue. The tests use the German UI, the
+ * default (ADR-027); language.spec.ts covers the switch to English.
+ */
 export async function logIn(page: Page, login: Login) {
   await page.goto("/login");
-  await page.getByLabel("Email").fill(login.email);
-  await page.getByLabel("Password").fill(login.password);
-  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByLabel("E-Mail").fill(login.email);
+  await page.getByLabel("Passwort").fill(login.password);
+  await page.getByRole("button", { name: "Anmelden" }).click();
   await expect(
-    page.getByRole("heading", { name: "Invoice queue" }),
+    page.getByRole("heading", { name: "Rechnungseingang" }),
   ).toBeVisible();
+}
+
+/** The invoice page's sidebar with the decision and the audit history. */
+export function history(page: Page) {
+  return page.getByRole("complementary");
 }

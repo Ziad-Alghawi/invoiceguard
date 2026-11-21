@@ -54,28 +54,30 @@ test("a blocked invoice gets a finding and a German email draft", async ({
   await logIn(page, reviewerLogin());
   await page.getByRole("link", { name: changedIban.file }).click();
   await expect(
-    page.getByRole("heading", { name: "Investigation" }),
+    page.getByRole("heading", { name: "Untersuchung" }),
   ).toBeVisible();
   if (mode === "recorded") {
-    await page.getByRole("button", { name: "Investigate" }).click();
-    await expect(page.getByText(/recorded run from/)).toBeVisible();
+    await page.getByRole("button", { name: "Untersuchen" }).click();
+    await expect(page.getByText(/aufgezeichneter Lauf vom/)).toBeVisible();
   }
 
-  await expect(page.getByRole("heading", { name: "Finding" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Befund" })).toBeVisible({
     timeout: AGENT_TIMEOUT_MS,
   });
   await expect(page.getByText(/IBAN/).first()).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: /Email draft to the supplier/ }),
+    page.getByRole("heading", { name: /E-Mail-Entwurf an den Lieferanten/ }),
   ).toBeVisible();
   // To the address in the supplier master data, not the one on the invoice.
   await expect(
-    page.getByText("To: buchhaltung@demo-it-service.example"),
+    page.getByText("An: buchhaltung@demo-it-service.example"),
   ).toBeVisible();
   await expect(page.getByText(/Mit freundlichen Grüßen/)).toBeVisible();
   // The agent proposes; the invoice is still blocked and waits for people.
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
     changedIban.file,
   );
-  await expect(page.locator("main").getByText("blocked").first()).toBeVisible();
+  await expect(
+    page.locator("main").getByText("gesperrt").first(),
+  ).toBeVisible();
 });

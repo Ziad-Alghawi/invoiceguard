@@ -16,15 +16,15 @@ describe("checkFile", () => {
   });
 
   it("refuses other types, empty and too large files", () => {
-    expect(checkFile({ name: "rechnung.docx", size: 10 })).toMatch(
-      /\.xml or \.pdf/,
-    );
-    expect(checkFile({ name: "rechnung.xml", size: 0 })).toBe(
-      "The file is empty.",
-    );
+    expect(checkFile({ name: "rechnung.docx", size: 10 })).toEqual({
+      key: "wrongType",
+    });
+    expect(checkFile({ name: "rechnung.xml", size: 0 })).toEqual({
+      key: "empty",
+    });
     expect(
       checkFile({ name: "rechnung.pdf", size: MAX_UPLOAD_BYTES + 1 }),
-    ).toBe("The file is larger than 10 MB.");
+    ).toEqual({ key: "tooLarge", values: { mb: 10 } });
   });
 });
 
@@ -42,46 +42,68 @@ describe("uploadOutcome", () => {
     };
     expect(uploadOutcome({ status: 409, body })).toEqual({
       kind: "error",
-      message: "This file was already uploaded.",
+      detail: null,
+      problem: { key: "duplicate" },
       existingId: "old",
     });
   });
 
   it.each([
-    [413, "File is larger than 10485760 bytes."],
+    [413, "tooLargeApi", "File is larger than 10485760 bytes."],
     [
       415,
+      "unsupported",
       "Upload an XML or PDF invoice; the file extension must match its content.",
     ],
-    [422, "This PDF has no embedded e-invoice XML."],
-    [429, "Upload limit reached: 30 files per hour. Try again later."],
-  ])("shows the API's message for %i", (status, detail) => {
+    [
+      429,
+      "tooMany",
+      "Upload limit reached: 30 files per hour. Try again later.",
+    ],
+  ])("keeps the API's message for %i", (status, key, detail) => {
     expect(uploadOutcome({ status, body: { detail } })).toEqual({
       kind: "error",
-      message: detail,
+      detail,
+      problem: { key },
+      existingId: null,
+    });
+  });
+
+  it("keeps the API's message for other errors, with the status as fallback", () => {
+    const detail = "This PDF has no embedded e-invoice XML.";
+    expect(uploadOutcome({ status: 422, body: { detail } })).toEqual({
+      kind: "error",
+      detail,
+      problem: { key: "failed", values: { status: 422 } },
       existingId: null,
     });
   });
 
   it("has its own message when the API sends no detail", () => {
     expect(uploadOutcome({ status: 413, body: null })).toMatchObject({
-      message: "The file is too large.",
+      detail: null,
+      problem: { key: "tooLargeApi" },
     });
     expect(uploadOutcome({ status: 401, body: null })).toMatchObject({
-      message: "Your session has ended. Log in again.",
+      detail: null,
+      problem: { key: "session" },
     });
     expect(uploadOutcome({ status: 502, body: null })).toMatchObject({
-      message: "The upload failed (502).",
+      detail: null,
+      problem: { key: "failed", values: { status: 502 } },
+    });
+    expect(uploadOutcome({ status: 202, body: {} })).toMatchObject({
+      problem: { key: "noInvoice" },
     });
   });
 });
 
 describe("statusSummary", () => {
   it("explains the status after processing", () => {
-    expect(statusSummary("ready")).toMatch(/ready for review/);
-    expect(statusSummary("blocked")).toMatch(/blocked/);
-    expect(statusSummary("override_requested")).toBe(
-      "The invoice is override requested.",
-    );
+    expect(statusSummary("ready")).toBe("ready");
+    expect(statusSummary("blocked")).toBe("blocked");
+    expect(statusSummary("awaiting_extraction")).toBe("awaitingExtraction");
+    expect(statusSummary("failed")).toBe("failed");
+    expect(statusSummary("override_requested")).toBe("other");
   });
 });

@@ -2,7 +2,14 @@ import { readFile } from "node:fs/promises";
 
 import { type APIRequestContext, expect, test } from "@playwright/test";
 
-import { apiAs, invoiceXml, logIn, reviewerLogin, upload } from "./helpers";
+import {
+  apiAs,
+  history,
+  invoiceXml,
+  logIn,
+  reviewerLogin,
+  upload,
+} from "./helpers";
 
 /**
  * The core story in the browser: log in, reject the changed-IBAN invoice, approve a clean one
@@ -60,26 +67,32 @@ test("reject the fraud invoice, approve a clean one, export it to DATEV", async 
   // The changed IBAN blocks the invoice; the reviewer rejects it with a reason.
   await page.getByRole("link", { name: fraud.file }).click();
   await expect(
-    page.getByText(/Blocked by failed checks: iban\./),
+    page.getByText(/Gesperrt durch fehlgeschlagene Prüfungen: IBAN\./),
   ).toBeVisible();
   const reason = "IBAN is not the supplier's verified account.";
-  await page.getByLabel("Reject reason").fill(reason);
-  await page.getByRole("button", { name: "Reject" }).click();
+  await page.getByLabel("Grund der Ablehnung").fill(reason);
+  await page.getByRole("button", { name: "Ablehnen" }).click();
   await expect(
-    page.getByText("No decision possible while the invoice is rejected."),
+    page.getByText(
+      "Keine Entscheidung möglich, solange die Rechnung abgelehnt ist.",
+    ),
   ).toBeVisible();
-  await expect(page.getByText("invoice.rejected")).toBeVisible();
+  await expect(
+    history(page).getByText("Abgelehnt", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText(reason).last()).toBeVisible();
 
   // The clean invoice passed every check and is approved without an override.
-  await page.getByRole("link", { name: "← Queue" }).click();
+  await page.getByRole("link", { name: "← Rechnungseingang" }).click();
   await page.getByRole("link", { name: clean.file }).click();
   // One SKR03 account per line (ADR-020), preselected with the suggestion; the reviewer decides.
   await page.getByLabel(/^1\. Notebook/).selectOption("0410");
   await page.getByLabel(/^2\. Einrichtung/).selectOption("4806");
-  await page.getByRole("button", { name: "Approve", exact: true }).click();
+  await page.getByRole("button", { name: "Freigeben", exact: true }).click();
   await expect(
-    page.getByText("No decision possible while the invoice is approved."),
+    page.getByText(
+      "Keine Entscheidung möglich, solange die Rechnung freigegeben ist.",
+    ),
   ).toBeVisible();
   const api = await apiAs(login);
   const invoiceId = new URL(page.url()).pathname.split("/").at(-1);
@@ -91,11 +104,11 @@ test("reject the fraud invoice, approve a clean one, export it to DATEV", async 
   await api.dispose();
 
   // Export: the booking file downloads and holds the approved invoice, not the rejected one.
-  await page.getByRole("link", { name: "← Queue" }).click();
+  await page.getByRole("link", { name: "← Rechnungseingang" }).click();
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export to DATEV" }).click();
+  await page.getByRole("button", { name: "Nach DATEV exportieren" }).click();
   await expect(page.getByRole("status")).toHaveText(
-    /^Exported 1 invoice to DATEV\.Download again$/,
+    /^1 Rechnung nach DATEV exportiert\.Erneut herunterladen$/,
   );
   const file = await download;
   expect(file.suggestedFilename()).toMatch(

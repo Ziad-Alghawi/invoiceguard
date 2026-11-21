@@ -1,8 +1,9 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { SecurityEventsTable } from "@/components/security-events-table";
 import { describeEvent, type SecurityEvent } from "@/lib/security";
+import { renderWithIntl } from "@/test/intl";
 
 afterEach(cleanup);
 
@@ -30,10 +31,14 @@ describe("describeEvent", () => {
       describeEvent(
         event("login_failed", { reason: "unknown_email", email: "x@y.z" }),
       ),
-    ).toBe("Failed login (unknown_email): x@y.z");
-    expect(describeEvent(event("login_failed", { reason: "locked" }))).toBe(
-      "Failed login (locked)",
-    );
+    ).toEqual({
+      key: "loginFailedEmail",
+      values: { reason: "unknown_email", email: "x@y.z" },
+    });
+    expect(describeEvent(event("login_failed", { reason: "locked" }))).toEqual({
+      key: "loginFailed",
+      values: { reason: "locked" },
+    });
     expect(
       describeEvent(
         event("forbidden", {
@@ -43,9 +48,15 @@ describe("describeEvent", () => {
           required_role: "approver",
         }),
       ),
-    ).toBe(
-      "POST /invoices/1/override/confirm needs the approver role (user is reviewer)",
-    );
+    ).toEqual({
+      key: "forbidden",
+      values: {
+        method: "POST",
+        path: "/invoices/1/override/confirm",
+        required: "approver",
+        role: "reviewer",
+      },
+    });
     expect(
       describeEvent(
         event("injection_suspected", {
@@ -57,16 +68,20 @@ describe("describeEvent", () => {
           ],
         }),
       ),
-    ).toBe(
-      "Prompt injection suspected in the invoice text: ignore_instructions, concealment",
-    );
-    expect(describeEvent(event("something_new", {}))).toBe("something_new");
+    ).toEqual({
+      key: "injection",
+      values: { rules: "ignore_instructions, concealment" },
+    });
+    expect(
+      describeEvent(event("login_rate_limited", { email: "x@y.z" })),
+    ).toEqual({ key: "loginRateLimited", values: { email: "x@y.z" } });
+    expect(describeEvent(event("something_new", {}))).toBeNull();
   });
 });
 
 describe("SecurityEventsTable", () => {
   it("lists events with severity, user and a link to the invoice", () => {
-    render(
+    renderWithIntl(
       <SecurityEventsTable
         events={[
           event(
@@ -95,7 +110,7 @@ describe("SecurityEventsTable", () => {
   });
 
   it("renders attacker text as text, not markup", () => {
-    const { container } = render(
+    const { container } = renderWithIntl(
       <SecurityEventsTable
         events={[
           event("login_failed", {
@@ -110,8 +125,35 @@ describe("SecurityEventsTable", () => {
     expect(container.textContent).toContain("<img src=x onerror=alert(1)>");
   });
 
+  it("shows labels in German and an unknown type as the API sent it", () => {
+    renderWithIntl(
+      <SecurityEventsTable
+        events={[
+          event("forbidden", {
+            method: "POST",
+            path: "/invoices/1/override/confirm",
+            role: "reviewer",
+            required_role: "approver",
+          }),
+          event("something_new", {}, { id: 2, severity: "medium" }),
+        ]}
+      />,
+      { locale: "de" },
+    );
+
+    expect(screen.getByText("Rollenprüfung verweigert")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "POST /invoices/1/override/confirm erfordert die Rolle approver (Benutzer hat reviewer)",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("niedrig")).toBeTruthy();
+    expect(screen.getByText("something_new")).toBeTruthy();
+    expect(screen.getByText("mittel")).toBeTruthy();
+  });
+
   it("says so when there is nothing yet", () => {
-    render(<SecurityEventsTable events={[]} />);
+    renderWithIntl(<SecurityEventsTable events={[]} />);
     expect(screen.getByText("No security events yet.")).toBeTruthy();
   });
 });

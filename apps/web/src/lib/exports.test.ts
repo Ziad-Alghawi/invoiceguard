@@ -12,9 +12,9 @@ const RESULT = {
 
 describe("exportSummary", () => {
   it("says how many invoices were exported", () => {
-    expect(exportSummary(RESULT)).toEqual(["Exported 1 invoice to DATEV."]);
+    expect(exportSummary(RESULT)).toEqual([{ key: "exported", count: 1 }]);
     expect(exportSummary({ ...RESULT, invoiceCount: 3 })).toEqual([
-      "Exported 3 invoices to DATEV.",
+      { key: "exported", count: 3 },
     ]);
   });
 
@@ -28,10 +28,10 @@ describe("exportSummary", () => {
         remaining: 2,
       }),
     ).toEqual([
-      "Exported 4 invoices to DATEV.",
-      "1 invoice without a tax key (several or unknown VAT rates): set the tax in DATEV.",
-      "3 invoices as one row (lines do not add up to the totals, for example a document discount): split by account in DATEV.",
-      "2 invoices from a later fiscal year still waiting: export again.",
+      { key: "exported", count: 4 },
+      { key: "withoutTaxKey", count: 1 },
+      { key: "withoutAccountSplit", count: 3 },
+      { key: "remaining", count: 2 },
     ]);
   });
 });

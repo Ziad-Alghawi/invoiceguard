@@ -18,27 +18,24 @@ export function exportFileHref(id: string): string {
   return `/exports/datev/${id}/file`;
 }
 
-function invoices(count: number): string {
-  return count === 1 ? "1 invoice" : `${count} invoices`;
-}
+/** One line of the summary: a message key in "Export" and its invoice count. */
+export type ExportLine = {
+  key: "exported" | "withoutTaxKey" | "withoutAccountSplit" | "remaining";
+  count: number;
+};
 
 /** "Exported 2 invoices to DATEV." plus what the reviewer still has to do. */
-export function exportSummary(result: DatevExport): string[] {
-  const lines = [`Exported ${invoices(result.invoiceCount)} to DATEV.`];
-  if (result.withoutTaxKey > 0) {
-    lines.push(
-      `${invoices(result.withoutTaxKey)} without a tax key (several or unknown VAT rates): set the tax in DATEV.`,
-    );
-  }
-  if (result.withoutAccountSplit > 0) {
-    lines.push(
-      `${invoices(result.withoutAccountSplit)} as one row (lines do not add up to the totals, for example a document discount): split by account in DATEV.`,
-    );
-  }
-  if (result.remaining > 0) {
-    lines.push(
-      `${invoices(result.remaining)} from a later fiscal year still waiting: export again.`,
-    );
+export function exportSummary(result: DatevExport): ExportLine[] {
+  const lines: ExportLine[] = [{ key: "exported", count: result.invoiceCount }];
+  const followUps = [
+    { key: "withoutTaxKey", count: result.withoutTaxKey },
+    { key: "withoutAccountSplit", count: result.withoutAccountSplit },
+    { key: "remaining", count: result.remaining },
+  ] as const;
+  for (const line of followUps) {
+    if (line.count > 0) {
+      lines.push(line);
+    }
   }
   return lines;
 }

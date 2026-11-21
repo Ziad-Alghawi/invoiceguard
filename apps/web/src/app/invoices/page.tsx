@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 
 import { exportDatev } from "@/app/actions";
@@ -25,6 +27,8 @@ function queueHref(filter: QueueFilter, page = 1): string {
 }
 
 async function Queue({ searchParams }: { searchParams: SearchParams }) {
+  const t = await getTranslations("Queue");
+  const locale = await getLocale();
   const params = await searchParams;
   const filter = isQueueFilter(params.filter) ? params.filter : "review";
   const page = Math.max(
@@ -51,35 +55,35 @@ async function Queue({ searchParams }: { searchParams: SearchParams }) {
 
   return (
     <>
-      <nav aria-label="Queue filter" className="flex flex-wrap gap-2">
-        {Object.entries(QUEUE_FILTERS).map(([key, { label }]) => (
+      <nav aria-label={t("filterLabel")} className="flex flex-wrap gap-2">
+        {(Object.keys(QUEUE_FILTERS) as QueueFilter[]).map((key) => (
           <Link
             key={key}
-            href={queueHref(key as QueueFilter)}
+            href={queueHref(key)}
             aria-current={key === filter ? "page" : undefined}
             className={cn(
               "rounded-md border px-3 py-1 text-sm",
               key === filter && "bg-primary text-primary-foreground",
             )}
           >
-            {label}
+            {t(`filters.${key}`)}
           </Link>
         ))}
       </nav>
       {invoices.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No invoices here.</p>
+        <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-muted-foreground">
               <th scope="col" className="py-2 font-medium">
-                File
+                {t("file")}
               </th>
               <th scope="col" className="py-2 font-medium">
-                Status
+                {t("status")}
               </th>
               <th scope="col" className="py-2 font-medium">
-                Received
+                {t("received")}
               </th>
             </tr>
           </thead>
@@ -103,7 +107,7 @@ async function Queue({ searchParams }: { searchParams: SearchParams }) {
                   <StatusBadge status={invoice.status} />
                 </td>
                 <td className="py-2 whitespace-nowrap">
-                  {formatDateTime(invoice.created_at)}
+                  {formatDateTime(invoice.created_at, locale)}
                 </td>
               </tr>
             ))}
@@ -111,20 +115,18 @@ async function Queue({ searchParams }: { searchParams: SearchParams }) {
         </table>
       )}
       <nav
-        aria-label="Pages"
+        aria-label={t("pagesLabel")}
         className="flex items-center gap-4 text-sm text-muted-foreground"
       >
         {page > 1 && (
           <Link href={queueHref(filter, page - 1)} className="underline">
-            Previous
+            {t("previous")}
           </Link>
         )}
-        <span>
-          Page {page} of {pages} · {total} invoices
-        </span>
+        <span>{t("pageInfo", { page, pages, total })}</span>
         {page < pages && (
           <Link href={queueHref(filter, page + 1)} className="underline">
-            Next
+            {t("next")}
           </Link>
         )}
       </nav>
@@ -133,14 +135,18 @@ async function Queue({ searchParams }: { searchParams: SearchParams }) {
 }
 
 export default function QueuePage({ searchParams }: PageProps<"/invoices">) {
+  const t = useTranslations("Queue");
+  const common = useTranslations("Common");
   return (
     <main className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <h1 className="text-xl font-semibold">Invoice queue</h1>
+        <h1 className="text-xl font-semibold">{t("title")}</h1>
         <ExportButton exportDatev={exportDatev} />
       </div>
       <Suspense
-        fallback={<p className="text-sm text-muted-foreground">Loading…</p>}
+        fallback={
+          <p className="text-sm text-muted-foreground">{common("loading")}</p>
+        }
       >
         <Queue searchParams={searchParams} />
       </Suspense>

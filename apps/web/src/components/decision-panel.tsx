@@ -1,8 +1,10 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 
 import type { ActionState } from "@/app/actions";
+import { useCheckTypeLabel } from "@/components/check-list";
 import {
   accountField,
   type Bookings,
@@ -15,6 +17,7 @@ import {
   canReopen,
   canRequestOverride,
   type InvoiceStatus,
+  type OverrideBlocker,
 } from "@/lib/invoices";
 
 type Action = (state: ActionState, formData: FormData) => Promise<ActionState>;
@@ -32,7 +35,7 @@ export type OverrideRequest = {
   /** Email of the user who requested it. */
   requestedBy: string | null;
   /** Why this user cannot confirm or decline it; null when they can. */
-  blocker: string | null;
+  blocker: OverrideBlocker | null;
 };
 
 const INITIAL: ActionState = { error: null };
@@ -72,35 +75,37 @@ function ReasonField({ label, name }: { label: string; name: string }) {
  * suggestion: the person approving chooses, and the choice is stored with the decision.
  */
 function AccountFields({ bookings }: { bookings: Bookings }) {
+  const t = useTranslations("Decision");
   if (bookings.lines.length === 0) {
     return null;
   }
   return (
     <fieldset className="flex flex-col gap-3">
-      <legend className="mb-1 text-sm font-medium">
-        Account per line (SKR03)
-      </legend>
-      {bookings.lines.map((line) => (
-        <label key={line.line_no} className="flex flex-col gap-1 text-sm">
-          <span>
-            {line.line_no}. {line.text}
-          </span>
-          <select
-            name={accountField(line.line_no)}
-            defaultValue={preselected(line, bookings.default_account)}
-            className={SELECT}
-          >
-            {bookings.accounts.map((account) => (
-              <option key={account.number} value={account.number}>
-                {account.number} {account.name}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs text-muted-foreground">
-            {suggestionNote(line)}
-          </span>
-        </label>
-      ))}
+      <legend className="mb-1 text-sm font-medium">{t("accounts")}</legend>
+      {bookings.lines.map((line) => {
+        const note = suggestionNote(line, t("imported"));
+        return (
+          <label key={line.line_no} className="flex flex-col gap-1 text-sm">
+            <span>
+              {t("accountLine", { line: line.line_no, text: line.text })}
+            </span>
+            <select
+              name={accountField(line.line_no)}
+              defaultValue={preselected(line, bookings.default_account)}
+              className={SELECT}
+            >
+              {bookings.accounts.map((account) => (
+                <option key={account.number} value={account.number}>
+                  {t("account", { number: account.number, name: account.name })}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs text-muted-foreground">
+              {note === null ? t("noSuggestion") : t("suggested", note)}
+            </span>
+          </label>
+        );
+      })}
     </fieldset>
   );
 }
@@ -124,6 +129,10 @@ export function DecisionPanel({
   bookings: Bookings;
   actions: DecisionActions;
 }) {
+  const t = useTranslations("Decision");
+  const statuses = useTranslations("Codes.invoiceStatus");
+  const checkType = useCheckTypeLabel();
+  const checks = failedChecks.map(checkType).join(", ");
   const [approveState, approveAction, approving] = useActionState(
     actions.approve,
     INITIAL,
@@ -161,21 +170,18 @@ export function DecisionPanel({
     return (
       <div className="flex flex-col gap-2">
         <p className="text-sm text-muted-foreground">
-          No decision possible while the invoice is {status.replace("_", " ")}.
+          {t("noDecision", { status: statuses(status) })}
         </p>
         {canReopen(status) && (
           <form
             action={reopenAction}
-            aria-label="Reopen"
+            aria-label={t("reopenForm")}
             className="flex flex-col gap-2"
           >
-            <p className="text-sm">
-              Rejected by mistake? Reopen it: the checks run again on the
-              current master data, and it waits for review.
-            </p>
-            <ReasonField label="Reopen reason" name="reopen_reason" />
+            <p className="text-sm">{t("reopenIntro")}</p>
+            <ReasonField label={t("reopenReason")} name="reopen_reason" />
             <button type="submit" disabled={busy} className={OUTLINE}>
-              Reopen
+              {t("reopen")}
             </button>
             <ErrorText state={reopenState} />
           </form>
@@ -189,12 +195,12 @@ export function DecisionPanel({
       {canApprove(status) && (
         <form
           action={approveAction}
-          aria-label="Approve"
+          aria-label={t("approve")}
           className="flex flex-col gap-3"
         >
           <AccountFields bookings={bookings} />
           <button type="submit" disabled={busy} className={PRIMARY}>
-            Approve
+            {t("approve")}
           </button>
           <ErrorText state={approveState} />
         </form>
@@ -202,21 +208,19 @@ export function DecisionPanel({
       {canRequestOverride(status) && (
         <form
           action={requestAction}
-          aria-label="Request override"
+          aria-label={t("requestForm")}
           className="flex flex-col gap-2"
         >
           <p className="text-sm text-destructive">
-            Blocked by failed checks: {failedChecks.join(", ")}. Approving it
-            needs an override: your reason, then a confirmation by a second
-            person with the approver role.
+            {t("blockedBy", { checks })}
           </p>
-          <ReasonField label="Override reason" name="override_reason" />
+          <ReasonField label={t("overrideReason")} name="override_reason" />
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="confirm" required />I checked the
-            failed checks and ask to approve anyway.
+            <input type="checkbox" name="confirm" required />
+            {t("confirmChecked")}
           </label>
           <button type="submit" disabled={busy} className={DANGER}>
-            Request override
+            {t("requestOverride")}
           </button>
           <ErrorText state={requestState} />
         </form>
@@ -224,14 +228,15 @@ export function DecisionPanel({
       {overrideRequested && (
         <div className="flex flex-col gap-2">
           <p className="text-sm">
-            Override requested by {override.requestedBy ?? "another user"} for
-            the failed checks: {failedChecks.join(", ")}. It waits for a second
-            person with the approver role.
+            {t("overrideRequested", {
+              requester: override.requestedBy ?? t("anotherUser"),
+              checks,
+            })}
           </p>
           {override.blocker === null ? (
-            <form aria-label="Decide override" className="flex flex-col gap-2">
+            <form aria-label={t("decideForm")} className="flex flex-col gap-2">
               <AccountFields bookings={bookings} />
-              <ReasonField label="Approver reason" name="approver_reason" />
+              <ReasonField label={t("approverReason")} name="approver_reason" />
               <div className="flex flex-wrap gap-2">
                 <button
                   type="submit"
@@ -239,7 +244,7 @@ export function DecisionPanel({
                   disabled={busy}
                   className={DANGER}
                 >
-                  Confirm override
+                  {t("confirmOverride")}
                 </button>
                 <button
                   type="submit"
@@ -247,26 +252,32 @@ export function DecisionPanel({
                   disabled={busy}
                   className={OUTLINE}
                 >
-                  Decline override
+                  {t("declineOverride")}
                 </button>
               </div>
               <ErrorText state={confirmState} />
               <ErrorText state={declineState} />
             </form>
           ) : (
-            <p className="text-sm text-muted-foreground">{override.blocker}</p>
+            <p className="text-sm text-muted-foreground">
+              {t(
+                override.blocker === "role"
+                  ? "blockerRole"
+                  : "blockerRequester",
+              )}
+            </p>
           )}
         </div>
       )}
       {canReject(status) && (
         <form
           action={rejectAction}
-          aria-label="Reject"
+          aria-label={t("rejectForm")}
           className="flex flex-col gap-2"
         >
-          <ReasonField label="Reject reason" name="reason" />
+          <ReasonField label={t("rejectReason")} name="reason" />
           <button type="submit" disabled={busy} className={OUTLINE}>
-            Reject
+            {t("reject")}
           </button>
           <ErrorText state={rejectState} />
         </form>

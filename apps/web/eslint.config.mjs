@@ -7,6 +7,21 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   prettier,
+  {
+    // UI text comes from messages/*.json (next-intl); text written into JSX fails the lint.
+    files: ["src/**/*.tsx"],
+    ignores: ["src/**/*.test.tsx"],
+    rules: {
+      "react/jsx-no-literals": [
+        "error",
+        {
+          noStrings: true,
+          ignoreProps: true,
+          allowedStrings: ["InvoiceGuard", "·"],
+        },
+      ],
+    },
+  },
   globalIgnores([
     ".next/**",
     "out/**",

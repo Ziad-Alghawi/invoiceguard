@@ -7,7 +7,7 @@ import {
   canReopen,
   canRequestOverride,
   confidencePercent,
-  fieldLabel,
+  formatDateTime,
   isInvoiceId,
   isQueueFilter,
   overrideBlocker,
@@ -15,11 +15,11 @@ import {
   type User,
 } from "@/lib/invoices";
 
-describe("fieldLabel", () => {
-  it("turns API field names into labels", () => {
-    expect(fieldLabel("payee_iban")).toBe("Payee IBAN");
-    expect(fieldLabel("seller_vat_id")).toBe("Seller VAT ID");
-    expect(fieldLabel("gross_total")).toBe("Gross Total");
+describe("formatDateTime", () => {
+  it("formats in the UI language and the company's time zone", () => {
+    const iso = "2026-11-21T09:05:00Z";
+    expect(formatDateTime(iso, "de")).toBe("21.11.2026, 10:05");
+    expect(formatDateTime(iso, "en")).toBe("Nov 21, 2026, 10:05 AM");
   });
 });
 
@@ -87,12 +87,10 @@ describe("four eyes", () => {
 
   it("lets only an approver who did not request it decide", () => {
     expect(overrideBlocker(approver, "anna@example.com")).toBeNull();
-    expect(overrideBlocker(approver, "paul@example.com")).toMatch(
-      /different approver/,
-    );
+    expect(overrideBlocker(approver, "paul@example.com")).toBe("requester");
     expect(
       overrideBlocker({ ...approver, role: "reviewer" }, "anna@example.com"),
-    ).toMatch(/approver role/);
+    ).toBe("role");
   });
 });
 

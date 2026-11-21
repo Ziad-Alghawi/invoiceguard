@@ -1,15 +1,10 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { StatusState } from "@/app/actions";
 import { UploadForm } from "@/components/upload-form";
 import type { UploadResponse } from "@/lib/upload";
+import { renderWithIntl } from "@/test/intl";
 
 afterEach(cleanup);
 
@@ -47,7 +42,9 @@ describe("UploadForm", () => {
         reason: "Failed checks: iban.",
         error: null,
       });
-    render(<UploadForm send={send} getStatus={getStatus} pollIntervalMs={1} />);
+    renderWithIntl(
+      <UploadForm send={send} getStatus={getStatus} pollIntervalMs={1} />,
+    );
 
     choose("rechnung.xml");
     submit();
@@ -66,7 +63,7 @@ describe("UploadForm", () => {
 
   it("refuses a wrong file type without sending it", async () => {
     const send = vi.fn<Send>();
-    render(<UploadForm send={send} getStatus={vi.fn()} />);
+    renderWithIntl(<UploadForm send={send} getStatus={vi.fn()} />);
 
     choose("rechnung.docx");
     submit();
@@ -78,7 +75,7 @@ describe("UploadForm", () => {
   });
 
   it("asks for a file when none is chosen", async () => {
-    render(<UploadForm send={vi.fn<Send>()} getStatus={vi.fn()} />);
+    renderWithIntl(<UploadForm send={vi.fn<Send>()} getStatus={vi.fn()} />);
 
     submit();
 
@@ -93,7 +90,7 @@ describe("UploadForm", () => {
       .fn<Send>()
       .mockResolvedValue({ status: 422, body: { detail } });
     const getStatus = vi.fn();
-    render(<UploadForm send={send} getStatus={getStatus} />);
+    renderWithIntl(<UploadForm send={send} getStatus={getStatus} />);
 
     choose("scan.pdf", "%PDF-1.7");
     submit();
@@ -107,7 +104,7 @@ describe("UploadForm", () => {
       status: 409,
       body: { detail: { message: "x", invoice_id: "old-1" } },
     });
-    render(<UploadForm send={send} getStatus={vi.fn()} />);
+    renderWithIntl(<UploadForm send={send} getStatus={vi.fn()} />);
 
     choose("rechnung.xml");
     submit();
@@ -125,7 +122,7 @@ describe("UploadForm", () => {
     const send = vi
       .fn<Send>()
       .mockRejectedValue(new Error("The upload was interrupted."));
-    render(<UploadForm send={send} getStatus={vi.fn()} />);
+    renderWithIntl(<UploadForm send={send} getStatus={vi.fn()} />);
 
     choose("rechnung.xml");
     submit();
