@@ -216,7 +216,7 @@ There is no sign-up: to add another user, change the `INVOICEGUARD_SEED_USER_*` 
 `approver`) and run `make seed-user` again; a rerun also resets a password or role. Five wrong passwords in a row
 lock an account for 15 minutes; `make seed-user` unlocks it.
 
-Open http://localhost:3000: the page shows `API: ok`. The API needs a login, so log in with curl and keep the
+Open http://localhost:3000: the page shows `API: erreichbar` (`API: ok` after switching to English). The API needs a login, so log in with curl and keep the
 session cookie, then upload e-invoices (XML or PDF):
 
 ```sh

@@ -195,7 +195,8 @@ jobs:
           curl --fail --silent --show-error http://localhost:8000/health | grep '"status":"ok"'
       - name: Web page shows API ok
         run: |
-          curl --fail --silent --show-error http://localhost:3000 | grep -E 'API: (<!-- -->)?ok'
+          # The rendered status, not the message catalogue that the page also carries (ADR-027).
+          curl --fail --silent --show-error http://localhost:3000 | grep -E 'API: (<!-- -->)?erreichbar</p>'
       - name: API /ready reaches the database
         run: |
           curl --fail --silent --show-error http://localhost:8000/ready | grep '"status":"ready"'
@@ -251,7 +252,7 @@ jobs:
           curl --fail --silent --show-error --cookie cookies.txt http://localhost:8000/auth/me | jq .
       - name: Web login page renders
         run: |
-          curl --fail --silent --show-error http://localhost:3000/login | grep -q 'Log in'
+          curl --fail --silent --show-error http://localhost:3000/login | grep -q '>Anmelden</button>'
       - name: KoSIT tests against the validator service
         working-directory: apps/api
         env:
