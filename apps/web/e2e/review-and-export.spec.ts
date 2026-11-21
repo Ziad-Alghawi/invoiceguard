@@ -103,21 +103,24 @@ test("reject the fraud invoice, approve a clean one, export it to DATEV", async 
   );
   const csv = (await readFile(await file.path())).toString("latin1");
   expect(csv.startsWith('"EXTF";700;21;"Buchungsstapel";13;')).toBe(true);
-  const row = csv
+  // One row per chosen account (issue #24): notebooks 3,747.00 and setup 570.00, both at 19 %.
+  const rows = csv
     .split("\r\n")
-    .find((line) => line.includes(`"${clean.number}"`));
-  expect(row?.split(";").slice(0, 11)).toEqual([
-    "5137,23",
+    .filter((line) => line.includes(`"${clean.number}"`))
+    .map((line) => line.split(";").slice(0, 11));
+  const booking = (gross: string, account: string) => [
+    gross,
     '"H"',
     '"EUR"',
     "",
     "",
     "",
     "70000",
-    "4900",
+    account,
     '"9"',
     "0511",
     `"${clean.number}"`,
-  ]);
+  ];
+  expect(rows).toEqual([booking("4458,93", "0410"), booking("678,30", "4806")]);
   expect(csv).not.toContain(fraud.number);
 });
