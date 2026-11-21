@@ -46,7 +46,7 @@ echo "root: compared ($sync) at $(a get application root --output jsonpath='{.st
 
 echo "--- The chart apps at $revision, synced with this job's images"
 deploy() {
-  yq ".spec.source.targetRevision = \"$revision\" $2" "infra/argocd/apps/$1.yaml" \
+  yq ".spec.source.targetRevision = \"$revision\" ${2:-}" "infra/argocd/apps/$1.yaml" \
     | kubectl apply --filename -
 }
 deploy invoiceguard-postgres
