@@ -33,15 +33,6 @@ spec:
         # TLS ends at Caddy.
         expose:
           default: false
-    providers:
-      kubernetesIngress:
-        # Traefik writes an address into each Ingress's status; by default its own Service's
-        # load-balancer address, which a ClusterIP Service does not have. Without one, Argo CD
-        # keeps the app Progressing. The traffic comes from Caddy on this host, so 127.0.0.1.
-        publishedService:
-          enabled: false
-        ingressEndpoint:
-          ip: 127.0.0.1
     # One node and a hostPort: a second Traefik pod could never bind the port, so the old pod
     # stops before the new one starts (a few seconds without ingress on a Traefik upgrade).
     updateStrategy:
