@@ -29,3 +29,4 @@ New ADRs start from the [template](ADR-000-template.md).
 | [ADR-022](ADR-022-database-roles-and-migrate-step.md) | A restricted database role for the api, migrations as a separate step | Accepted, amended by ADR-023 |
 | [ADR-023](ADR-023-helm-chart-and-postgres.md) | Helm chart, a separate PostgreSQL chart and a non-superuser owner | Accepted |
 | [ADR-024](ADR-024-edge-and-cluster-bootstrap.md) | Edge to cluster and cluster bootstrap on the demo server | Accepted |
+| [ADR-025](ADR-025-metrics-prometheus-local-grafana.md) | Metrics with one small Prometheus on the demo, Grafana on the developer machine | Accepted |
