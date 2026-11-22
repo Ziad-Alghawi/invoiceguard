@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-22
+
+The first release: everything from R0 to R5. Newest entries first in each section.
+
 ### Added
+- Docs for the release (R5): README with an English pass, a full German section, the architecture diagram as an
+  image (`docs/architecture.mmd`, rendered to `docs/images/architecture.svg`), German screenshots, an OWASP
+  Agentic mapping, results, limitations and the roadmap after R4; `SECURITY.md`, `CONTRIBUTING.md`,
+  `docs/interview-notes.md` and `docs/demo-script.md` (the 90-second demo video).
 - German UI (R5, ADR-027): every page of the web app in German and English with next-intl 4.15.1. German is the
   default; a DE | EN switch in the header and on the login page keeps the choice in a cookie, and the paths stay the
   same. Statuses, check types, roles, audit actions, security event types and field names have labels in both
@@ -15,23 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the two message files differ in keys or a message does not format, another when a code in the API's source has
   no label, `tsc` fails on an unknown key, and ESLint fails on text written into JSX. The Playwright tests run in
   German, and a new one switches to English and back. A translated not-found page.
-
-### Fixed
-- The queue, the invoice page, the history and the upload page showed the reasons processing writes in English
-  in the German UI ("Failed checks: po_match."). The API now returns `status_reason_code` and
-  `status_reason_checks` with invoices and `reason_code` and `reason_checks` with audit events
-  (`status_reasons.py`, ADR-027 amended), and the web shows them in the chosen language with the check names.
-
-### Changed
-- DATEV export per chosen account (issue #24, ADR-013 amended): an invoice approved with accounts per line gets one
-  booking row per (account, VAT rate), with the chosen account as Gegenkonto, the BU key of the rate and the
-  gross amount from the line net amounts. The tax is computed per rate (as BT-117) and the rounding cent of a
-  rate split over several accounts goes to its largest row. The split is used only when there is no document
-  allowance or charge and the rows match BT-109, BT-110 and BT-112; otherwise the invoice keeps one row (the
-  single chosen account, else `INVOICEGUARD_DATEV_EXPENSE_ACCOUNT`) and is counted as `without_account_split` in
-  the response, the audit event and the web app's message. Invoices approved without accounts are unchanged.
-
-### Added
 - Model comparison (R4-6, ADR-026): `invoiceguard-eval models` and `make eval-models` run the app's PDF
   extraction with `gemini-3.5-flash-lite`, `gemini-3.8-flash` and `gemini-3.1-pro-preview` on 12 PDFs (the 6
   demo samples drawn as PDFs, new in `packages/evals/datasets/demo`, and 6 from the `small` set). The table
@@ -337,19 +328,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The CI smoke test checks that a clean invoice ends `ready` with every check passed (KoSIT included) and that the
   fraud sample ends `blocked` with the IBAN evidence.
 
-### Fixed
-- Startup recovery could leave an uploaded plain PDF in `awaiting_extraction` (#31): a run that finds the
-  invoice already read, by recovery, now still goes on to extraction, which claims the invoice, so it is
-  extracted once. Found as flaky CI; covered by two deterministic tests.
-- Injection scan docstring and known limitations: white and tiny PDF text is in the text layer and scanned like
-  visible text (the attack set showed it); the earlier note said it was not seen.
-- Eval recordings: UUIDs in text parts are replaced in the replay key, so agent runs replay on a fresh eval
-  database.
-- `vat_math` accepts a valid invoice with VAT category O ("not subject to VAT", KoSIT 01.04a): the lines without a
-  rate and the breakdown row printing 0 % are one group, and the tax of a category O row must be 0 (a row charging
-  tax is still `blocked`). Found by the R3-2 eval; tests for the 01.04a shape and three wrong-math variants.
-
 ### Changed
+- DATEV export per chosen account (issue #24, ADR-013 amended): an invoice approved with accounts per line gets one
+  booking row per (account, VAT rate), with the chosen account as Gegenkonto, the BU key of the rate and the
+  gross amount from the line net amounts. The tax is computed per rate (as BT-117) and the rounding cent of a
+  rate split over several accounts goes to its largest row. The split is used only when there is no document
+  allowance or charge and the rows match BT-109, BT-110 and BT-112; otherwise the invoice keeps one row (the
+  single chosen account, else `INVOICEGUARD_DATEV_EXPENSE_ACCOUNT`) and is counted as `without_account_split` in
+  the response, the audit event and the web app's message. Invoices approved without accounts are unchanged.
 - The eval harness's live spend cap (R4-6): before each live call it keeps the dearest call so far (and at least
   `min_reserve_usd`) free, so the next call cannot overshoot the cap; a live reply without a price is saved and
   stops the run.
@@ -370,6 +356,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The CI smoke test uploads a sample XRechnung, expects `202` and polls until the invoice is `ready`.
 - Processed invoices end in `ready` or `blocked` depending on the checks (before: `ready` once read).
 - Tests read an invoice after upload by polling until processing has finished, as the UI does.
+
+### Fixed
+- The queue, the invoice page, the history and the upload page showed the reasons processing writes in English
+  in the German UI ("Failed checks: po_match."). The API now returns `status_reason_code` and
+  `status_reason_checks` with invoices and `reason_code` and `reason_checks` with audit events
+  (`status_reasons.py`, ADR-027 amended), and the web shows them in the chosen language with the check names.
+- Startup recovery could leave an uploaded plain PDF in `awaiting_extraction` (#31): a run that finds the
+  invoice already read, by recovery, now still goes on to extraction, which claims the invoice, so it is
+  extracted once. Found as flaky CI; covered by two deterministic tests.
+- Injection scan docstring and known limitations: white and tiny PDF text is in the text layer and scanned like
+  visible text (the attack set showed it); the earlier note said it was not seen.
+- Eval recordings: UUIDs in text parts are replaced in the replay key, so agent runs replay on a fresh eval
+  database.
+- `vat_math` accepts a valid invoice with VAT category O ("not subject to VAT", KoSIT 01.04a): the lines without a
+  rate and the breakdown row printing 0 % are one group, and the tax of a category O row must be 0 (a row charging
+  tax is still `blocked`). Found by the R3-2 eval; tests for the 01.04a shape and three wrong-math variants.
 
 ### Removed
 - The Compose deploy path of the demo: `infra/docker-compose.prod.yml`, `make prod-up`, `make prod-down`,
