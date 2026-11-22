@@ -14,8 +14,8 @@ The first release: everything from R0 to R5. Newest entries first in each sectio
 ### Added
 - Docs for the release (R5): README with an English pass, a full German section, the architecture diagram as an
   image (`docs/architecture.mmd`, rendered to `docs/images/architecture.svg`), German screenshots, an OWASP
-  Agentic mapping, results, limitations and the roadmap after R4; `SECURITY.md`, `CONTRIBUTING.md`,
-  `docs/interview-notes.md` and `docs/demo-script.md` (the 90-second demo video).
+  Agentic mapping, results, limitations and the roadmap after R4; `SECURITY.md`, `CONTRIBUTING.md` and
+  `docs/demo-script.md` (the 90-second demo video).
 - German UI (R5, ADR-027): every page of the web app in German and English with next-intl 4.15.1. German is the
   default; a DE | EN switch in the header and on the login page keeps the choice in a cookie, and the paths stay the
   same. Statuses, check types, roles, audit actions, security event types and field names have labels in both

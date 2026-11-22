@@ -271,9 +271,6 @@ Every architectural choice is an ADR in [docs/decisions](docs/decisions/README.m
 - [ADR-026: gemini-3.8-flash stays the default extraction model](docs/decisions/ADR-026-default-extraction-model.md)
 - [ADR-027: German and English UI with next-intl, language in a cookie](docs/decisions/ADR-027-ui-languages.md)
 
-[docs/interview-notes.md](docs/interview-notes.md) collects the questions a reviewer is likely to ask, with
-answers taken from the ADRs and the measurements.
-
 ## Roadmap
 
 Done, one release each:

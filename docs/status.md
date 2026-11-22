@@ -132,7 +132,7 @@
       corrected invoice without quoting our bank data. **Sample 03 (price above order): $0.0044, 10.2 s**, 2 model
       calls, 2 tool calls (`get_purchase_order`, `get_goods_receipts`); finding: 380.00 invoiced vs 320.00 ordered,
       delivery WE-2026-0003 received; email asks for a corrected invoice or credit note
-    - Two problems found by the real runs and fixed (journal): the case file sent unbounded check evidence (a
+    - Two problems found by the real runs and fixed: the case file sent unbounded check evidence (a
       duplicate warning listing ~100 invoice IDs on the dev database: 8.4k input tokens per call, $0.029 for a
       failed run), now capped per check; and Gemini left out optional schema fields, so `finish` came back without
       the email twice. Every field of the action is now required (nullable)
@@ -435,9 +435,9 @@
     - German screenshots from a local stack after `make demo-reset`, without a model key: the queue, the
       changed-IBAN invoice and the agent's recorded run in `docs/images/`; also the injected invoice and the
       security log for the release.
-    - `SECURITY.md` (private reporting through GitHub, scope), `CONTRIBUTING.md`, `docs/interview-notes.md`
-      (each answer names its source: ADR, results, status or the development log) and `docs/demo-script.md`
-      (shot list and voice-over; the recording is Ziad's).
+    - `SECURITY.md` (private reporting through GitHub, now turned on; scope), `CONTRIBUTING.md` and
+      `docs/demo-script.md` (shot list and voice-over; the recording is Ziad's). The interview Q&A sheet is
+      kept private (`docs/private/`), not in the repository.
     - CHANGELOG: `[Unreleased]` became `[1.0.0] - 2026-11-22`, one section per kind.
     - Release: after the merge, tag `v1.0.0` on the merge commit and a GitHub Release with the notes from the
       CHANGELOG and the German screenshots.
