@@ -1,9 +1,11 @@
 import { CircleCheck, CircleX } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type { ApiHealth } from "@/lib/health";
 import { cn } from "@/lib/utils";
 
 export function HealthStatus({ status }: { status: ApiHealth }) {
+  const t = useTranslations("Home");
   const ok = status === "ok";
   const Icon = ok ? CircleCheck : CircleX;
   return (
@@ -17,7 +19,7 @@ export function HealthStatus({ status }: { status: ApiHealth }) {
       )}
     >
       <Icon aria-hidden="true" className="size-4" />
-      API: {status}
+      {t(ok ? "apiOk" : "apiUnreachable")}
     </p>
   );
 }

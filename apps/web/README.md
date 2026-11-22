@@ -17,6 +17,14 @@ the session cookie, which the login action copies from the API's answer into an 
 ([ADR-011](../../docs/decisions/ADR-011-session-cookie-auth.md)). [src/proxy.ts](src/proxy.ts) redirects to `/login`
 when there is no cookie; the API decides whether a session is valid and enforces every decision rule.
 
+## Languages
+
+German (default) and English with next-intl ([ADR-027](../../docs/decisions/ADR-027-ui-languages.md)): the DE | EN
+switch in the header and on the login page sets the `NEXT_LOCALE` cookie, and the paths stay the same. Every UI text is
+in [messages/de.json](messages/de.json) and [messages/en.json](messages/en.json); add a new text to both.
+`src/lib/codes.ts` lists the API codes that get a label. The tests fail on a key missing in one file or a code without
+a label, `tsc` on an unknown key, and ESLint on text written into JSX. Texts written by the API stay English.
+
 ## Requirements
 
 - Node.js 24, pnpm 10 (`corepack enable` picks the version from `package.json`)

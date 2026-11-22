@@ -1,8 +1,9 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DemoCredentials } from "@/components/demo-credentials";
 import { getDemoLogins } from "@/lib/demo";
+import { renderWithIntl } from "@/test/intl";
 
 // Made up for the tests; the real demo passwords come from the server environment.
 const PASSWORD = "shared-demo-pass"; // pragma: allowlist secret
@@ -56,7 +57,7 @@ describe("getDemoLogins", () => {
 
 describe("DemoCredentials", () => {
   it("shows each account with its role", () => {
-    render(
+    renderWithIntl(
       <DemoCredentials
         logins={[
           { role: "reviewer", email: "demo@example.com", password: PASSWORD },

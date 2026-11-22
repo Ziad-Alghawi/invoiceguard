@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ActionState } from "@/app/actions";
@@ -8,6 +8,7 @@ import {
 } from "@/components/decision-panel";
 import type { Bookings } from "@/lib/bookings";
 import type { InvoiceStatus } from "@/lib/invoices";
+import { renderWithIntl } from "@/test/intl";
 
 afterEach(cleanup);
 
@@ -57,15 +58,13 @@ const BOOKINGS: Bookings = {
     },
   ],
 };
-const OWN_REQUEST =
-  "You requested it, so a different approver has to decide it.";
 
 function panel(
   status: InvoiceStatus,
   override: OverrideRequest = NO_REQUEST,
   calls = actions(),
 ) {
-  return render(
+  return renderWithIntl(
     <DecisionPanel
       status={status}
       failedChecks={status === "ready" ? [] : ["iban"]}
@@ -107,7 +106,7 @@ describe("DecisionPanel", () => {
   it("offers an override request, not an approval, on a blocked invoice", () => {
     panel("blocked");
 
-    expect(screen.getByText(/Blocked by failed checks: iban\./)).toBeTruthy();
+    expect(screen.getByText(/Blocked by failed checks: IBAN\./)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
     const reason =
       screen.getByLabelText<HTMLTextAreaElement>("Override reason");
@@ -149,10 +148,14 @@ describe("DecisionPanel", () => {
   it("tells the requester or a reviewer why they cannot decide it", () => {
     panel("override_requested", {
       requestedBy: "anna@example.com",
-      blocker: OWN_REQUEST,
+      blocker: "requester",
     });
 
-    expect(screen.getByText(OWN_REQUEST)).toBeTruthy();
+    expect(
+      screen.getByText(
+        "You requested it, so a different approver has to decide it.",
+      ),
+    ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /override/ })).toBeNull();
     expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
   });

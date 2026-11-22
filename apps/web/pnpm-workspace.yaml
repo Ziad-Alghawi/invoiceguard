@@ -1,3 +1,8 @@
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
+# next-intl 4.15.1 accepts these; the newer releases (2026-11-15) were under a week old when it was added.
+overrides:
+  "@eloqnt/config": 0.1.1
+  "@eloqnt/format-po": 0.1.1
+  "@eloqnt/format-json": 0.1.0

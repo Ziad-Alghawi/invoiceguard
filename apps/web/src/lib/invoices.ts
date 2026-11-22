@@ -1,5 +1,7 @@
 /** Shapes of the InvoiceGuard API responses the review UI reads, and helpers for them. */
 
+import { TIME_ZONE } from "@/i18n/config";
+
 export type InvoiceStatus =
   | "received"
   | "processing"
@@ -74,23 +76,16 @@ export type User = {
 
 /** The queue tabs: each is one or more statuses passed to `GET /invoices?status=`. */
 export const QUEUE_FILTERS = {
-  review: {
-    label: "To review",
-    statuses: ["ready", "blocked", "override_requested"],
-  },
-  blocked: { label: "Blocked", statuses: ["blocked"] },
-  override: { label: "Override requested", statuses: ["override_requested"] },
-  approved: { label: "Approved", statuses: ["approved"] },
-  rejected: { label: "Rejected", statuses: ["rejected"] },
+  review: { statuses: ["ready", "blocked", "override_requested"] },
+  blocked: { statuses: ["blocked"] },
+  override: { statuses: ["override_requested"] },
+  approved: { statuses: ["approved"] },
+  rejected: { statuses: ["rejected"] },
   other: {
-    label: "Processing / failed",
     statuses: ["received", "processing", "awaiting_extraction", "failed"],
   },
-  all: { label: "All", statuses: [] },
-} as const satisfies Record<
-  string,
-  { label: string; statuses: readonly InvoiceStatus[] }
->;
+  all: { statuses: [] },
+} as const satisfies Record<string, { statuses: readonly InvoiceStatus[] }>;
 
 export type QueueFilter = keyof typeof QUEUE_FILTERS;
 
@@ -131,29 +126,21 @@ export function overrideRequester(history: AuditEvent[]): string | null {
   return requests.at(-1)?.actor ?? null;
 }
 
+/** Why a user cannot confirm or decline an override: not an approver, or they requested it. */
+export type OverrideBlocker = "role" | "requester";
+
 /** Why the user cannot confirm or decline the override, or null when they can. */
 export function overrideBlocker(
   user: User,
   requestedBy: string | null,
-): string | null {
+): OverrideBlocker | null {
   if (user.role !== "approver") {
-    return "Only a user with the approver role can confirm or decline it.";
+    return "role";
   }
   if (requestedBy === user.email) {
-    return "You requested it, so a different approver has to decide it.";
+    return "requester";
   }
   return null;
-}
-
-/** "payee_iban" → "Payee IBAN". */
-export function fieldLabel(name: string): string {
-  const words = name.split("_").map((word) => {
-    const upper = word.toUpperCase();
-    return ["IBAN", "VAT", "ID"].includes(upper)
-      ? upper
-      : word.charAt(0).toUpperCase() + word.slice(1);
-  });
-  return words.join(" ");
 }
 
 /** "0.550" → "55 %"; null (XML) → null. */
@@ -164,11 +151,12 @@ export function confidencePercent(confidence: string | null): string | null {
   return `${Math.round(Number(confidence) * 100)} %`;
 }
 
-export function formatDateTime(iso: string): string {
-  return new Intl.DateTimeFormat("de-DE", {
+/** Date and time in the UI language, always in the company's time zone. */
+export function formatDateTime(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
-    timeZone: "Europe/Berlin",
+    timeZone: TIME_ZONE,
   }).format(new Date(iso));
 }
 

@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { connection } from "next/server";
 import { Suspense } from "react";
 
@@ -6,7 +9,9 @@ import { invoiceStatus } from "@/app/actions";
 import { UploadForm } from "@/components/upload-form";
 import { getDemoLogins } from "@/lib/demo";
 
-export const metadata = { title: "Upload · InvoiceGuard" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("Metadata"))("upload") };
+}
 
 async function DemoNote() {
   // Read at request time: one image serves local runs and the demo.
@@ -14,32 +19,23 @@ async function DemoNote() {
   if (getDemoLogins().length === 0) {
     return null;
   }
-  return (
-    <p className="text-sm text-muted-foreground">
-      Public demo: PDFs without embedded XML are refused, because no model runs
-      on visitors&apos; files. Uploads are limited per hour, and every invoice
-      uploaded here is deleted by the nightly reset.
-    </p>
-  );
+  const t = await getTranslations("Upload");
+  return <p className="text-sm text-muted-foreground">{t("demoNote")}</p>;
 }
 
 /** Upload one invoice; every logged-in user may (reviewers and approvers). */
 export default function UploadPage() {
+  const t = useTranslations("Upload");
+  const common = useTranslations("Common");
   return (
     <main className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="font-heading text-2xl font-semibold">
-          Upload an invoice
-        </h1>
+        <h1 className="font-heading text-2xl font-semibold">{t("title")}</h1>
         <Link href="/invoices" className="text-sm underline underline-offset-4">
-          ← Queue
+          {common("backToQueue")}
         </Link>
       </div>
-      <p className="text-sm">
-        An XRechnung XML (UBL or CII) or a ZUGFeRD / Factur-X PDF with embedded
-        XML, up to 10 MB. The invoice is checked right after the upload and then
-        waits in the queue for review.
-      </p>
+      <p className="text-sm">{t("intro")}</p>
       <Suspense fallback={null}>
         <DemoNote />
       </Suspense>

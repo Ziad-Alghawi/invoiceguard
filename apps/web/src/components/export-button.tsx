@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState, useEffect } from "react";
 
 import { exportFileHref, type ExportState, exportSummary } from "@/lib/exports";
@@ -21,6 +22,7 @@ export function ExportButton({
   exportDatev: () => Promise<ExportState>;
   startDownload?: (href: string) => void;
 }) {
+  const t = useTranslations("Export");
   const [state, action, pending] = useActionState(exportDatev, INITIAL);
   const exportId = state.export?.id;
 
@@ -37,18 +39,18 @@ export function ExportButton({
         disabled={pending}
         className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 font-medium text-primary-foreground disabled:opacity-50"
       >
-        {pending ? "Exporting…" : "Export to DATEV"}
+        {pending ? t("exporting") : t("button")}
       </button>
       {state.export && (
         <div role="status" className="text-right">
           {exportSummary(state.export).map((line) => (
-            <p key={line}>{line}</p>
+            <p key={line.key}>{t(line.key, { count: line.count })}</p>
           ))}
           <a
             href={exportFileHref(state.export.id)}
             className="underline underline-offset-4"
           >
-            Download again
+            {t("downloadAgain")}
           </a>
         </div>
       )}

@@ -1,8 +1,9 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { HealthStatus } from "@/components/health-status";
 import { checkApiHealth, getApiUrl } from "@/lib/health";
+import { renderWithIntl } from "@/test/intl";
 
 afterEach(() => {
   cleanup();
@@ -18,12 +19,12 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 describe("HealthStatus", () => {
   it("shows ok when the API is healthy", () => {
-    render(<HealthStatus status="ok" />);
+    renderWithIntl(<HealthStatus status="ok" />);
     expect(screen.getByRole("status").textContent).toBe("API: ok");
   });
 
   it("shows unreachable when the API is down", () => {
-    render(<HealthStatus status="unreachable" />);
+    renderWithIntl(<HealthStatus status="unreachable" />);
     expect(screen.getByRole("status").textContent).toBe("API: unreachable");
   });
 });

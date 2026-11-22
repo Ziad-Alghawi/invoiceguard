@@ -1,8 +1,9 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { FieldsTable } from "@/components/fields-table";
 import type { InvoiceField } from "@/lib/invoices";
+import { renderWithIntl } from "@/test/intl";
 
 afterEach(cleanup);
 
@@ -22,7 +23,7 @@ function field(overrides: Partial<InvoiceField>): InvoiceField {
 
 describe("FieldsTable", () => {
   it("highlights low-confidence fields with their evidence", () => {
-    render(
+    renderWithIntl(
       <FieldsTable
         fields={[
           field({ source: "llm", confidence: "0.950" }),
@@ -46,13 +47,13 @@ describe("FieldsTable", () => {
     );
     expect(within(iban).getByText(/IBAN DE60 1234/)).toBeTruthy();
 
-    const number = screen.getByRole("row", { name: /Invoice Number/ });
+    const number = screen.getByRole("row", { name: /Invoice number/ });
     expect(number.dataset.lowConfidence).toBeUndefined();
     expect(within(number).getByText("LLM 95 %")).toBeTruthy();
   });
 
   it("groups line fields by line and marks XML values", () => {
-    render(
+    renderWithIntl(
       <FieldsTable
         fields={[
           field({}),
@@ -80,7 +81,7 @@ describe("FieldsTable", () => {
   });
 
   it("says so when nothing was extracted", () => {
-    render(<FieldsTable fields={[]} />);
+    renderWithIntl(<FieldsTable fields={[]} />);
     expect(screen.getByText("No fields extracted yet.")).toBeTruthy();
   });
 });

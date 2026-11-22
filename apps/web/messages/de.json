@@ -1,0 +1,343 @@
+{
+  "Metadata": {
+    "description": "Rechnungsprüfung mit menschlicher Freigabe.",
+    "login": "Anmelden · InvoiceGuard",
+    "upload": "Hochladen · InvoiceGuard",
+    "security": "Sicherheitsereignisse · InvoiceGuard",
+    "notFound": "Nicht gefunden · InvoiceGuard"
+  },
+  "Common": {
+    "loading": "Wird geladen…",
+    "backToQueue": "← Rechnungseingang"
+  },
+  "LocaleSwitch": {
+    "label": "Sprache",
+    "de": "Deutsch",
+    "en": "English",
+    "shortDe": "DE",
+    "shortEn": "EN"
+  },
+  "NotFound": {
+    "title": "Nicht gefunden",
+    "text": "Diese Seite oder Rechnung gibt es nicht.",
+    "home": "Zum Rechnungseingang"
+  },
+  "Home": {
+    "checkingApi": "API wird geprüft…",
+    "openQueue": "Zum Rechnungseingang",
+    "apiOk": "API: erreichbar",
+    "apiUnreachable": "API: nicht erreichbar"
+  },
+  "Login": {
+    "intro": "Melden Sie sich mit einem angelegten Konto als Prüfer oder Freigeber an. Eine Registrierung gibt es nicht.",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "submit": "Anmelden",
+    "submitting": "Anmeldung läuft…"
+  },
+  "DemoCredentials": {
+    "label": "Demo-Anmeldung",
+    "title": "Öffentliche Demo-Konten",
+    "role": "Rolle",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "note": "Eine gesperrte Rechnung braucht beide: Der Prüfer beantragt eine Ausnahmefreigabe, der Freigeber bestätigt sie. Hier kann eine Person beide Konten nutzen, die Demo zeigt also den Ablauf, keine echte Funktionstrennung. Erfundene Beispielrechnungen, jede Nacht zurückgesetzt. Bitte keine echten Daten hochladen."
+  },
+  "Header": {
+    "home": "InvoiceGuard · Prüfung",
+    "upload": "Hochladen",
+    "security": "Sicherheitsereignisse",
+    "user": "{name} · {role}",
+    "logout": "Abmelden"
+  },
+  "Queue": {
+    "title": "Rechnungseingang",
+    "filterLabel": "Filter",
+    "filters": {
+      "review": "Zu prüfen",
+      "blocked": "Gesperrt",
+      "override": "Ausnahme beantragt",
+      "approved": "Freigegeben",
+      "rejected": "Abgelehnt",
+      "other": "In Bearbeitung / fehlgeschlagen",
+      "all": "Alle"
+    },
+    "empty": "Hier sind keine Rechnungen.",
+    "file": "Datei",
+    "status": "Status",
+    "received": "Eingegangen",
+    "pagesLabel": "Seiten",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "pageInfo": "Seite {page} von {pages} · {total, plural, one {# Rechnung} other {# Rechnungen}}"
+  },
+  "Invoice": {
+    "received": "{source} · eingegangen am {date}",
+    "download": "Original herunterladen",
+    "llmCalls": "{count, plural, one {# LLM-Aufruf} other {# LLM-Aufrufe}}, ${cost}",
+    "checks": "Prüfungen",
+    "investigation": "Untersuchung",
+    "fields": "Ausgelesene Felder",
+    "decision": "Entscheidung",
+    "history": "Verlauf",
+    "lowConfidence": "{count, plural, one {# Feld mit niedriger Konfidenz ist markiert} other {# Felder mit niedriger Konfidenz sind markiert}}: Vergleichen Sie sie mit dem Original."
+  },
+  "Checks": {
+    "none": "Noch keine Prüfungen gelaufen.",
+    "evidence": "Nachweis"
+  },
+  "Fields": {
+    "none": "Noch keine Felder ausgelesen.",
+    "document": "Dokument",
+    "line": "Position {line}",
+    "field": "Feld",
+    "value": "Wert",
+    "source": "Quelle",
+    "xml": "XML",
+    "llm": "LLM {confidence}",
+    "llmLow": "LLM {confidence} – niedrige Konfidenz, PDF prüfen",
+    "snippet": "S. {page}: „{snippet}“",
+    "unknownPage": "?"
+  },
+  "Decision": {
+    "noDecision": "Keine Entscheidung möglich, solange die Rechnung {status} ist.",
+    "reopenForm": "Wieder öffnen",
+    "reopenIntro": "Versehentlich abgelehnt? Öffnen Sie sie wieder: Die Prüfungen laufen erneut mit den aktuellen Stammdaten, danach wartet sie auf die Prüfung.",
+    "reopenReason": "Grund für das Wiederöffnen",
+    "reopen": "Wieder öffnen",
+    "approve": "Freigeben",
+    "accounts": "Konto je Position (SKR03)",
+    "accountLine": "{line}. {text}",
+    "account": "{number} {name}",
+    "noSuggestion": "Kein Vorschlag: keine gebuchte Position zum Vergleich.",
+    "suggested": "Vorschlag {account} {name} ({share} %, {method, select, vector {nach Bedeutung} other {nach Textähnlichkeit}}) aus {sources}.",
+    "imported": "importiert",
+    "requestForm": "Ausnahmefreigabe beantragen",
+    "blockedBy": "Gesperrt durch fehlgeschlagene Prüfungen: {checks}. Eine Freigabe braucht eine Ausnahmefreigabe: Ihre Begründung, dann die Bestätigung durch eine zweite Person mit der Rolle Freigeber.",
+    "overrideReason": "Begründung der Ausnahme",
+    "confirmChecked": "Ich habe die fehlgeschlagenen Prüfungen kontrolliert und beantrage trotzdem die Freigabe.",
+    "requestOverride": "Ausnahmefreigabe beantragen",
+    "overrideRequested": "Ausnahmefreigabe beantragt von {requester} für die fehlgeschlagenen Prüfungen: {checks}. Sie wartet auf eine zweite Person mit der Rolle Freigeber.",
+    "anotherUser": "einem anderen Benutzer",
+    "decideForm": "Über Ausnahme entscheiden",
+    "approverReason": "Begründung des Freigebers",
+    "confirmOverride": "Ausnahme bestätigen",
+    "declineOverride": "Ausnahme ablehnen",
+    "blockerRole": "Nur ein Benutzer mit der Rolle Freigeber kann sie bestätigen oder ablehnen.",
+    "blockerRequester": "Sie haben sie beantragt, daher muss ein anderer Freigeber entscheiden.",
+    "rejectForm": "Ablehnen",
+    "rejectReason": "Grund der Ablehnung",
+    "reject": "Ablehnen"
+  },
+  "Investigation": {
+    "intro": "Der Agent liest ERP und Lieferantenregister (nur lesend) und schlägt eine Erklärung und eine E-Mail vor. Er kann die Rechnung weder freigeben noch ändern.",
+    "investigate": "Untersuchen",
+    "investigateAgain": "Erneut untersuchen",
+    "steps": "{count, plural, one {# Schritt} other {# Schritte}}: Modell- und Tool-Aufrufe",
+    "stepNo": "#",
+    "step": "Schritt",
+    "tokens": "Tokens ein/aus",
+    "cost": "Kosten",
+    "time": "Zeit",
+    "result": "Ergebnis",
+    "stepTokens": "{input}/{output}",
+    "unknown": "–",
+    "model": "Modell",
+    "modelAction": "Modell: {action}",
+    "emailTitle": "E-Mail-Entwurf an den Lieferanten (auf Deutsch, nicht gesendet)",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "emailTo": "An: {to}",
+    "emailSubject": "Betreff: {subject}",
+    "metaRecorded": "{status} · aufgezeichneter Lauf vom {date} (kein Modell auf diesem Server) · {model} · {input}/{output} Tokens · {cost} · {duration}",
+    "metaLive": "{status} · {date} · {model} · {input}/{output} Tokens · {cost} · {duration}",
+    "running": "Der Agent untersucht…",
+    "finding": "Befund"
+  },
+  "Export": {
+    "button": "Nach DATEV exportieren",
+    "exporting": "Export läuft…",
+    "downloadAgain": "Erneut herunterladen",
+    "exported": "{count, plural, one {# Rechnung} other {# Rechnungen}} nach DATEV exportiert.",
+    "withoutTaxKey": "{count, plural, one {# Rechnung} other {# Rechnungen}} ohne BU-Schlüssel (mehrere oder unbekannte Steuersätze): Steuer in DATEV setzen.",
+    "withoutAccountSplit": "{count, plural, one {# Rechnung} other {# Rechnungen}} als eine Zeile (die Positionen ergeben nicht die Summen, zum Beispiel bei einem Belegrabatt): in DATEV nach Konten aufteilen.",
+    "remaining": "{count, plural, one {# Rechnung} other {# Rechnungen}} aus einem späteren Geschäftsjahr {count, plural, one {wartet} other {warten}} noch: erneut exportieren."
+  },
+  "Upload": {
+    "title": "Rechnung hochladen",
+    "intro": "Eine XRechnung-XML (UBL oder CII) oder ein ZUGFeRD- bzw. Factur-X-PDF mit eingebettetem XML, bis 10 MB. Die Rechnung wird direkt nach dem Hochladen geprüft und wartet dann im Rechnungseingang auf die Prüfung.",
+    "demoNote": "Öffentliche Demo: PDFs ohne eingebettetes XML werden abgelehnt, weil auf Dateien von Besuchern kein Modell läuft. Uploads sind pro Stunde begrenzt, und jede hier hochgeladene Rechnung wird beim nächtlichen Zurücksetzen gelöscht.",
+    "file": "Rechnungsdatei",
+    "upload": "Hochladen",
+    "uploading": "Wird hochgeladen…",
+    "progress": "Hochladen {percent} %",
+    "checking": "Hochgeladen. Die Rechnung wird geprüft…",
+    "uploaded": "Hochgeladen.",
+    "slow": "Hochgeladen. Die Verarbeitung dauert länger als üblich; die Rechnungsseite zeigt das Ergebnis.",
+    "open": "Rechnung öffnen",
+    "openExisting": "Vorhandene Rechnung öffnen",
+    "summary": {
+      "ready": "Alle Prüfungen bestanden. Die Rechnung ist bereit zur Prüfung.",
+      "blocked": "Mindestens eine Prüfung ist fehlgeschlagen. Die Rechnung ist gesperrt und wartet auf die Prüfung.",
+      "awaitingExtraction": "Das PDF hat kein eingebettetes XML und wartet auf die LLM-Extraktion.",
+      "failed": "Die Rechnung konnte nicht gelesen werden. Sie steht mit dem Grund im Rechnungseingang.",
+      "other": "Die Rechnung ist {status}."
+    },
+    "problems": {
+      "chooseFile": "Wählen Sie eine Datei zum Hochladen.",
+      "wrongType": "Wählen Sie eine XRechnung-XML-Datei oder ein ZUGFeRD- bzw. Factur-X-PDF (.xml oder .pdf).",
+      "empty": "Die Datei ist leer.",
+      "tooLarge": "Die Datei ist größer als {mb} MB.",
+      "unreadable": "Der Upload konnte nicht gelesen werden.",
+      "interrupted": "Das Hochladen wurde unterbrochen.",
+      "noInvoice": "Die API hat die neue Rechnung nicht zurückgegeben.",
+      "duplicate": "Diese Datei wurde bereits hochgeladen.",
+      "session": "Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.",
+      "tooLargeApi": "Die Datei ist zu groß.",
+      "unsupported": "Laden Sie eine XML- oder PDF-Rechnung hoch; die Dateiendung muss zum Inhalt passen.",
+      "tooMany": "Zu viele Uploads. Versuchen Sie es später erneut.",
+      "failed": "Das Hochladen ist fehlgeschlagen ({status})."
+    }
+  },
+  "Security": {
+    "title": "Sicherheitsereignisse",
+    "forbidden": "Nur Benutzer mit der Rolle Freigeber können die Sicherheitsereignisse lesen.",
+    "introAll": "Fehlgeschlagene Anmeldungen, Kontosperren, verweigerte Rollenprüfungen, Versuche der Selbstfreigabe und in Rechnungen gefundene Prompt-Injections. Neueste zuerst. Nur lesbar: Das Protokoll kann nicht geändert werden.",
+    "introLatest": "Fehlgeschlagene Anmeldungen, Kontosperren, verweigerte Rollenprüfungen, Versuche der Selbstfreigabe und in Rechnungen gefundene Prompt-Injections. Neueste zuerst, die letzten {shown} von {total}. Nur lesbar: Das Protokoll kann nicht geändert werden.",
+    "empty": "Noch keine Sicherheitsereignisse.",
+    "when": "Zeitpunkt",
+    "severity": "Schwere",
+    "event": "Ereignis",
+    "user": "Benutzer",
+    "noUser": "—",
+    "openInvoice": "Rechnung öffnen",
+    "describe": {
+      "loginFailed": "Fehlgeschlagene Anmeldung ({reason})",
+      "loginFailedEmail": "Fehlgeschlagene Anmeldung ({reason}): {email}",
+      "accountLocked": "Konto gesperrt: {reason}",
+      "loginRateLimited": "Zu viele fehlgeschlagene Anmeldungen von einer Adresse: {email}",
+      "forbidden": "{method} {path} erfordert die Rolle {required} (Benutzer hat {role})",
+      "selfApproval": "Versuch, den eigenen Antrag auf Ausnahmefreigabe zu entscheiden ({action})",
+      "injection": "Verdacht auf Prompt-Injection im Rechnungstext: {rules}"
+    }
+  },
+  "Audit": {
+    "transition": "{before} → {after}",
+    "meta": "<time>{date}</time> · {actor}"
+  },
+  "Errors": {
+    "loginMissing": "Geben Sie E-Mail und Passwort ein.",
+    "noSession": "Die API hat keine Sitzung gestartet.",
+    "unknownInvoice": "Unbekannte Rechnung.",
+    "reasonAndAccounts": "Geben Sie eine Begründung ein und wählen Sie für jede Position ein Konto.",
+    "confirmChecked": "Bestätigen Sie, dass Sie die fehlgeschlagenen Prüfungen kontrolliert haben.",
+    "apiStatus": "Die API antwortete mit {status}.",
+    "notFound": "Nicht gefunden"
+  },
+  "Codes": {
+    "invoiceStatus": {
+      "received": "eingegangen",
+      "processing": "in Bearbeitung",
+      "awaiting_extraction": "wartet auf Extraktion",
+      "ready": "bereit",
+      "blocked": "gesperrt",
+      "failed": "fehlgeschlagen",
+      "override_requested": "Ausnahme beantragt",
+      "approved": "freigegeben",
+      "rejected": "abgelehnt"
+    },
+    "checkStatus": {
+      "passed": "bestanden",
+      "warning": "Warnung",
+      "failed": "fehlgeschlagen",
+      "skipped": "übersprungen"
+    },
+    "checkType": {
+      "duplicate": "Dublette",
+      "iban": "IBAN",
+      "kosit": "KoSIT-Validierung",
+      "low_confidence": "Niedrige Konfidenz",
+      "po_match": "Bestellabgleich",
+      "prompt_injection": "Prompt-Injection",
+      "supplier_known": "Bekannter Lieferant",
+      "vat_math": "USt-Berechnung"
+    },
+    "role": {
+      "reviewer": "Prüfer",
+      "approver": "Freigeber"
+    },
+    "severity": {
+      "low": "niedrig",
+      "medium": "mittel",
+      "high": "hoch"
+    },
+    "runStatus": {
+      "running": "Läuft",
+      "completed": "Abgeschlossen",
+      "stopped": "Gestoppt",
+      "failed": "Fehlgeschlagen"
+    },
+    "auditAction": {
+      "auth": {
+        "locked": "Konto gesperrt",
+        "login": "Angemeldet",
+        "login_failed": "Anmeldung fehlgeschlagen",
+        "logout": "Abgemeldet"
+      },
+      "demo": {
+        "reset": "Demo zurückgesetzt"
+      },
+      "invoice": {
+        "approved": "Freigegeben",
+        "exported": "Nach DATEV exportiert",
+        "extraction_deferred": "Extraktion zurückgestellt",
+        "override_confirmed": "Ausnahmefreigabe bestätigt",
+        "override_declined": "Ausnahmefreigabe abgelehnt",
+        "override_requested": "Ausnahmefreigabe beantragt",
+        "received": "Eingegangen",
+        "rejected": "Abgelehnt",
+        "reopened": "Wieder geöffnet",
+        "status_changed": "Status geändert"
+      },
+      "user": {
+        "created": "Benutzer angelegt",
+        "updated": "Benutzer geändert"
+      }
+    },
+    "securityEvent": {
+      "account_locked": "Konto gesperrt",
+      "forbidden": "Rollenprüfung verweigert",
+      "injection_suspected": "Verdacht auf Prompt-Injection",
+      "login_failed": "Fehlgeschlagene Anmeldung",
+      "login_rate_limited": "Anmeldelimit erreicht",
+      "self_approval_attempt": "Versuchte Selbstfreigabe"
+    },
+    "field": {
+      "invoice_number": "Rechnungsnummer",
+      "issue_date": "Rechnungsdatum",
+      "type_code": "Rechnungsart",
+      "currency": "Währung",
+      "due_date": "Fälligkeitsdatum",
+      "seller_name": "Verkäufer",
+      "seller_vat_id": "USt-IdNr. des Verkäufers",
+      "buyer_name": "Käufer",
+      "buyer_vat_id": "USt-IdNr. des Käufers",
+      "payee_iban": "IBAN des Zahlungsempfängers",
+      "order_reference": "Bestellreferenz",
+      "line_total": "Summe der Positionen",
+      "allowance_total": "Summe der Nachlässe",
+      "charge_total": "Summe der Zuschläge",
+      "net_total": "Nettosumme",
+      "tax_total": "Steuersumme",
+      "gross_total": "Bruttosumme",
+      "amount_due": "Zahlbetrag",
+      "line_id": "Positionsnummer",
+      "quantity": "Menge",
+      "unit_code": "Einheit",
+      "net_amount": "Nettobetrag der Position",
+      "net_price": "Nettopreis",
+      "vat_rate": "USt-Satz",
+      "item_name": "Artikelname"
+    }
+  }
+}

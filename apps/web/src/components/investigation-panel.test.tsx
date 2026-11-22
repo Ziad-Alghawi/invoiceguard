@@ -1,10 +1,11 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ActionState } from "@/app/actions";
 import { InvestigationPanel } from "@/components/investigation-panel";
 import type { Investigation } from "@/lib/investigations";
 import { RUN } from "@/lib/investigations.fixture";
+import { renderWithIntl } from "@/test/intl";
 
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
@@ -21,7 +22,7 @@ function panel(
     .fn<() => Promise<ActionState>>()
     .mockResolvedValue({ error: null }),
 ) {
-  render(
+  renderWithIntl(
     <InvestigationPanel
       investigation={investigation}
       investigate={investigate}
@@ -54,7 +55,7 @@ describe("InvestigationPanel", () => {
     ).toBeTruthy();
     expect(screen.getByText(/Subject: Rückfrage zu Rechnung/)).toBeTruthy();
     expect(
-      screen.getByText("2 step(s): model calls and tool calls"),
+      screen.getByText("2 steps: model calls and tool calls"),
     ).toBeTruthy();
     expect(screen.getByText("check_iban(DE58876543210000000099)")).toBeTruthy();
     expect(screen.getByText(/\$0\.006008 · 12\.1 s/)).toBeTruthy();

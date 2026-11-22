@@ -13,27 +13,57 @@ export type SecurityEvent = {
   details: Record<string, unknown>;
 };
 
+/** One line about an event: a message key in "Security.describe" and its values. */
+export type EventDescription = {
+  key:
+    | "loginFailed"
+    | "loginFailedEmail"
+    | "accountLocked"
+    | "loginRateLimited"
+    | "forbidden"
+    | "selfApproval"
+    | "injection";
+  values: Record<string, string>;
+};
+
 function text(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
 /**
- * One line about the event from its details. Details can hold attacker-chosen text (a typed
- * email, a snippet from an invoice); React renders it as text, never as markup.
+ * One line about the event from its details, or null for a type without one. Details can hold
+ * attacker-chosen text (a typed email, a snippet from an invoice); React renders it as text,
+ * never as markup.
  */
-export function describeEvent(event: SecurityEvent): string {
+export function describeEvent(event: SecurityEvent): EventDescription | null {
   const details = event.details;
   switch (event.type) {
     case "login_failed": {
       const email = text(details.email);
-      return `Failed login (${text(details.reason)})${email ? `: ${email}` : ""}`;
+      const reason = text(details.reason);
+      return email
+        ? { key: "loginFailedEmail", values: { reason, email } }
+        : { key: "loginFailed", values: { reason } };
     }
     case "account_locked":
-      return `Account locked: ${text(details.reason)}`;
+      return { key: "accountLocked", values: { reason: text(details.reason) } };
+    case "login_rate_limited":
+      return {
+        key: "loginRateLimited",
+        values: { email: text(details.email) },
+      };
     case "forbidden":
-      return `${text(details.method)} ${text(details.path)} needs the ${text(details.required_role)} role (user is ${text(details.role)})`;
+      return {
+        key: "forbidden",
+        values: {
+          method: text(details.method),
+          path: text(details.path),
+          required: text(details.required_role),
+          role: text(details.role),
+        },
+      };
     case "self_approval_attempt":
-      return `Tried to decide their own override request (${text(details.action)})`;
+      return { key: "selfApproval", values: { action: text(details.action) } };
     case "injection_suspected": {
       const findings = Array.isArray(details.findings) ? details.findings : [];
       const rules = findings
@@ -43,9 +73,12 @@ export function describeEvent(event: SecurityEvent): string {
             : "",
         )
         .filter(Boolean);
-      return `Prompt injection suspected in the invoice text: ${[...new Set(rules)].join(", ")}`;
+      return {
+        key: "injection",
+        values: { rules: [...new Set(rules)].join(", ") },
+      };
     }
     default:
-      return event.type;
+      return null;
   }
 }

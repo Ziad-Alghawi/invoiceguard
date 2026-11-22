@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import type { StatusState } from "@/app/actions";
@@ -11,6 +12,7 @@ import {
   isProcessing,
   sendFile,
   statusSummary,
+  type UploadProblem,
   type UploadResponse,
   uploadOutcome,
 } from "@/lib/upload";
@@ -29,7 +31,12 @@ type Phase =
       status: InvoiceStatus | null;
       reason: string | null;
     }
-  | { name: "error"; message: string; existingId: string | null };
+  | {
+      name: "error";
+      detail: string | null;
+      problem: UploadProblem;
+      existingId: string | null;
+    };
 
 const BUTTON =
   "inline-flex h-9 w-fit items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50";
@@ -54,6 +61,8 @@ export function UploadForm({
   ) => Promise<UploadResponse>;
   pollIntervalMs?: number;
 }) {
+  const t = useTranslations("Upload");
+  const codes = useTranslations("Codes.invoiceStatus");
   const [phase, setPhase] = useState<Phase>({ name: "idle" });
   const mounted = useRef(true);
   const input = useRef<HTMLInputElement>(null);
@@ -64,6 +73,12 @@ export function UploadForm({
     };
   }, []);
   const busy = phase.name === "uploading" || phase.name === "processing";
+
+  function problemText(problem: UploadProblem): string {
+    return "values" in problem
+      ? t(`problems.${problem.key}`, problem.values)
+      : t(`problems.${problem.key}`);
+  }
 
   async function waitForProcessing(invoiceId: string) {
     setPhase({ name: "processing", invoiceId });
@@ -93,14 +108,15 @@ export function UploadForm({
     if (file === undefined) {
       setPhase({
         name: "error",
-        message: "Choose a file to upload.",
+        detail: null,
+        problem: { key: "chooseFile" },
         existingId: null,
       });
       return;
     }
     const problem = checkFile(file);
     if (problem !== null) {
-      setPhase({ name: "error", message: problem, existingId: null });
+      setPhase({ name: "error", detail: null, problem, existingId: null });
       return;
     }
     setPhase({ name: "uploading", percent: 0 });
@@ -109,17 +125,23 @@ export function UploadForm({
       response = await send(file, (percent) =>
         setPhase({ name: "uploading", percent }),
       );
-    } catch (error) {
+    } catch {
       setPhase({
         name: "error",
-        message: error instanceof Error ? error.message : "The upload failed.",
+        detail: null,
+        problem: { key: "interrupted" },
         existingId: null,
       });
       return;
     }
     const outcome = uploadOutcome(response);
     if (outcome.kind === "error") {
-      setPhase({ name: "error", ...outcome });
+      setPhase({
+        name: "error",
+        detail: outcome.detail,
+        problem: outcome.problem,
+        existingId: outcome.existingId,
+      });
       return;
     }
     await waitForProcessing(outcome.invoiceId);
@@ -129,7 +151,7 @@ export function UploadForm({
     <div className="flex flex-col gap-4">
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         <label className="flex flex-col gap-1 text-sm">
-          Invoice file
+          {t("file")}
           <input
             ref={input}
             type="file"
@@ -140,29 +162,31 @@ export function UploadForm({
           />
         </label>
         <button type="submit" disabled={busy} className={BUTTON}>
-          {busy ? "Uploading…" : "Upload"}
+          {busy ? t("uploading") : t("upload")}
         </button>
       </form>
 
       {phase.name === "uploading" && (
         <label className="flex flex-col gap-1 text-sm">
-          Uploading {phase.percent} %
+          {t("progress", { percent: phase.percent })}
           <progress max={100} value={phase.percent} className="w-full" />
         </label>
       )}
       {phase.name === "processing" && (
         <p role="status" className="text-sm">
-          Uploaded. Checking the invoice…
+          {t("checking")}
         </p>
       )}
       {phase.name === "done" && (
         <div role="status" className="flex flex-col gap-1 text-sm">
           <p>
             {phase.status === null
-              ? "Uploaded."
+              ? t("uploaded")
               : isProcessing(phase.status)
-                ? "Uploaded. Processing takes longer than usual; the invoice page shows the result."
-                : statusSummary(phase.status)}
+                ? t("slow")
+                : t(`summary.${statusSummary(phase.status)}`, {
+                    status: codes(phase.status),
+                  })}
           </p>
           {phase.reason && (
             <p className="text-muted-foreground">{phase.reason}</p>
@@ -171,7 +195,7 @@ export function UploadForm({
             href={`/invoices/${phase.invoiceId}`}
             className="underline underline-offset-4"
           >
-            Open the invoice
+            {t("open")}
           </Link>
         </div>
       )}
@@ -180,13 +204,13 @@ export function UploadForm({
           role="alert"
           className="flex flex-col gap-1 text-sm text-destructive"
         >
-          <p>{phase.message}</p>
+          <p>{phase.detail ?? problemText(phase.problem)}</p>
           {phase.existingId && (
             <Link
               href={`/invoices/${phase.existingId}`}
               className="underline underline-offset-4"
             >
-              Open the existing invoice
+              {t("openExisting")}
             </Link>
           )}
         </div>

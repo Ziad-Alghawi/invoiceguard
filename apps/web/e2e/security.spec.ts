@@ -42,42 +42,45 @@ test("a poisoned invoice is blocked and shows in the approver's security log", a
   page,
 }) => {
   await logIn(page, reviewerLogin());
-  await expect(page.getByRole("link", { name: "Security events" })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByRole("link", { name: "Sicherheitsereignisse" }),
+  ).toHaveCount(0);
   await page.goto("/security");
   await expect(
     page.getByText(
-      "Only users with the approver role can read the security events.",
+      "Nur Benutzer mit der Rolle Freigeber können die Sicherheitsereignisse lesen.",
     ),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Log out" }).click();
+  await page.getByRole("button", { name: "Abmelden" }).click();
 
   await logIn(page, approverLogin());
-  // This run's row: the stack keeps the invoices of earlier runs.
+  // This run's row: the stack keeps the invoices of earlier runs. The reason is the API's
+  // text, which stays English (ADR-027).
   await expect(
     page
       .getByRole("row")
       .filter({ hasText: poisoned.file })
       .getByText("Failed checks: prompt_injection."),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Security events" }).click();
+  await page.getByRole("link", { name: "Sicherheitsereignisse" }).click();
   await expect(
-    page.getByRole("heading", { name: "Security events" }),
+    page.getByRole("heading", { name: "Sicherheitsereignisse" }),
   ).toBeVisible();
   // Newest first: the reviewer's refused visit, then the injection found at upload.
-  await expect(page.getByText("injection_suspected").first()).toBeVisible();
+  await expect(
+    page.getByText("Verdacht auf Prompt-Injection", { exact: true }).first(),
+  ).toBeVisible();
   await expect(
     page
       .getByText(
-        /Prompt injection suspected in the invoice text: .*ignore_instructions/,
+        /Verdacht auf Prompt-Injection im Rechnungstext: .*ignore_instructions/,
       )
       .first(),
   ).toBeVisible();
   await expect(
     page
       .getByText(
-        "GET /security-events needs the approver role (user is reviewer)",
+        "GET /security-events erfordert die Rolle approver (Benutzer hat reviewer)",
       )
       .first(),
   ).toBeVisible();

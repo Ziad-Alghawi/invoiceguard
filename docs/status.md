@@ -1,7 +1,7 @@
 # Status
 
-**Current milestone:** R5 — Polish and story (R4 complete; R5-1, issue #24, in review)
-**Last updated:** 2026-11-21
+**Current milestone:** R5 — Polish and story (R4 complete; R5-1 merged; R5-3 German UI in review)
+**Last updated:** 2026-11-22
 
 ## Done
 - R0 — Foundation (complete)
@@ -387,7 +387,7 @@
   - Cut from R4: self-hosted Langfuse and the trace ID in the UI (`model_calls` covers cost and latency), n8n,
     paid EU endpoints and large Ollama models, the full kube-prometheus-stack
 - R5 — Polish and story (PLAN.md §11). Done and open (sizes: XS < 1 h, S one session, M two, L three or more):
-  - R5-1: issue #24, DATEV export per chosen account and VAT rate (done, in review; ADR-013 amended):
+  - R5-1: issue #24, DATEV export per chosen account and VAT rate (done, PR #37 merged; ADR-013 amended):
     - One row per (chosen account, VAT rate): net from the line amounts (BT-131), tax per rate on the rate's sum
       (as BT-117), the rounding cent of a rate split over several accounts on its largest row; Soll/Haben per
       row. Used only when there is no document allowance or charge and the rows match BT-109, BT-110 and BT-112.
@@ -400,7 +400,23 @@
     2026-11-19; ADR-004 asks for a week). Changelog, price table for the three Gemini models and the embedding
     model, `make check`, `make test`, eval-gate replays (`small`, `full`, `eval-models --check`); filelock to
     4.2.1 and the CVE-2026-112940 entry out of `.trivyignore` (expires 2026-12-19). (S)
-  - German UI: next-intl, every page in German and English (no i18n exists yet). (L)
+  - R5-3: German UI (done, in review; ADR-027):
+    - next-intl 4.15.1 pinned exactly, without locale routing: German by default, a DE | EN switch in the header
+      and on the login page, the choice in the `NEXT_LOCALE` cookie for a year, paths unchanged. Three
+      `@eloqnt/*` packages pinned to older releases in `pnpm-workspace.yaml` (newest under a week old).
+    - Every page and component reads `messages/de.json` / `messages/en.json`; helpers return message keys
+      instead of English sentences. API codes (statuses, check types, roles, audit actions, security event
+      types, field names) have labels in both languages; dates follow the language in Europe/Berlin time.
+    - `cacheComponents`: the locale is read inside a Suspense boundary in the root layout; an inline script sets
+      `<html lang>` before the first paint. The production build still prerenders a shell for every page.
+    - Texts written by the API stay English (check messages, status reasons, API errors, the agent's finding),
+      listed as a limitation in the README.
+    - Done-when check: `messages.test.ts` (same keys, no empty text, every message formats), `codes.test.ts`
+      (every code in the API's Python source has a label in both languages; both checked to fail on a removed
+      key), typed keys in `tsc`, ESLint `react/jsx-no-literals`; the 7 Playwright tests pass in German on
+      `make dev`, including the new `language.spec.ts` (switch, reload, login in English, back to German).
+  - Possible later task: translate the API's own texts (a message code with parameters for each check result,
+    status reason and error, rendered by the web in the user's language). (M)
   - README: English pass and the German section (now "Kommt in R5"). (M)
   - Architecture diagram as an image for the README. (S)
   - README results, limitations and roadmap refreshed after R4. (S)

@@ -1,5 +1,6 @@
 import { cookies, headers as nextHeaders } from "next/headers";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { getApiUrl } from "@/lib/health";
 import { SESSION_COOKIE } from "@/lib/session";
@@ -23,7 +24,10 @@ function baseUrl(): string {
   return url.replace(/\/+$/, "");
 }
 
-/** The API's error text: `detail` as a string, or a generic message for validation errors. */
+/**
+ * The API's error text: `detail` as a string (English, ADR-027), or a generic message in the UI
+ * language for validation errors and answers without one.
+ */
 export async function errorMessage(response: Response): Promise<string> {
   try {
     const body: unknown = await response.json();
@@ -38,7 +42,9 @@ export async function errorMessage(response: Response): Promise<string> {
   } catch {
     // Not JSON: fall through to the generic message.
   }
-  return `The API answered ${response.status}.`;
+  return (await getTranslations("Errors"))("apiStatus", {
+    status: response.status,
+  });
 }
 
 /**
@@ -115,11 +121,17 @@ const DOWNLOAD_HEADERS = [
   "Content-Length",
 ];
 
+/** A plain-text error for a download that cannot be served, in the UI language. */
+export async function notFoundResponse(status = 404): Promise<Response> {
+  const t = await getTranslations("Errors");
+  return new Response(t("notFound"), { status });
+}
+
 /** Streams a file download from the API with the user's session (route handlers). */
 export async function apiDownload(path: string): Promise<Response> {
   const upstream = await apiFetch(path);
   if (!upstream.ok) {
-    return new Response("Not found", { status: upstream.status });
+    return notFoundResponse(upstream.status);
   }
   const headers = new Headers({ "X-Content-Type-Options": "nosniff" });
   for (const name of DOWNLOAD_HEADERS) {

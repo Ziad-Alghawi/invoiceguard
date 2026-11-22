@@ -53,11 +53,13 @@ describe("bookings", () => {
   });
 
   it("explains the suggestion with its sources", () => {
-    expect(suggestionNote(LINE)).toBe(
-      "Suggested 0410 Geschäftsausstattung (92 %, by meaning) from IT-2025-0004, Demo IT-Service GmbH.",
-    );
-    expect(suggestionNote(EMPTY)).toBe(
-      "No suggestion: no booked line to compare with.",
-    );
+    expect(suggestionNote(LINE, "imported")).toEqual({
+      account: "0410",
+      name: "Geschäftsausstattung",
+      share: 92,
+      method: "vector",
+      sources: "IT-2025-0004, Demo IT-Service GmbH",
+    });
+    expect(suggestionNote(EMPTY, "imported")).toBeNull();
   });
 });

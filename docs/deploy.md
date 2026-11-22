@@ -271,8 +271,8 @@ renders one chart at a time (memory). The applicationset-controller is not used.
 4. **Edge:** the site file [`infra/edge/sites/invoiceguard.caddy`](../infra/edge/sites/invoiceguard.caddy) and the
    `extra_hosts` entry of [`infra/edge/compose.yml`](../infra/edge/compose.yml) are already in place from 4.3; on
    a server whose `/opt/edge` already exists, add only those lines. Then `cd /opt/edge && docker compose up -d`.
-5. **Check:** https://invoiceguard.ziadalghawi.com shows the login page and `API: ok`; one failed login records
-   your own address (`kubectl -n invoiceguard exec statefulset/invoiceguard-postgres -- psql -U postgres -d
+5. **Check:** https://invoiceguard.ziadalghawi.com shows the login page and `API: erreichbar` (German UI,
+   ADR-027); one failed login records your own address (`kubectl -n invoiceguard exec statefulset/invoiceguard-postgres -- psql -U postgres -d
    invoiceguard -c "select client_ip from login_failures"`), not `10.42.0.1`; after `sudo reboot` everything
    comes back by itself.
 

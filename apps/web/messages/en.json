@@ -1,0 +1,343 @@
+{
+  "Metadata": {
+    "description": "Invoice checks with a human approval gate.",
+    "login": "Log in · InvoiceGuard",
+    "upload": "Upload · InvoiceGuard",
+    "security": "Security events · InvoiceGuard",
+    "notFound": "Not found · InvoiceGuard"
+  },
+  "Common": {
+    "loading": "Loading…",
+    "backToQueue": "← Queue"
+  },
+  "LocaleSwitch": {
+    "label": "Language",
+    "de": "Deutsch",
+    "en": "English",
+    "shortDe": "DE",
+    "shortEn": "EN"
+  },
+  "NotFound": {
+    "title": "Not found",
+    "text": "This page or invoice does not exist.",
+    "home": "Open the review queue"
+  },
+  "Home": {
+    "checkingApi": "Checking API…",
+    "openQueue": "Open the review queue",
+    "apiOk": "API: ok",
+    "apiUnreachable": "API: unreachable"
+  },
+  "Login": {
+    "intro": "Log in with a seeded reviewer or approver account. There is no sign-up.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Log in",
+    "submitting": "Logging in…"
+  },
+  "DemoCredentials": {
+    "label": "Demo login",
+    "title": "Public demo accounts",
+    "role": "Role",
+    "email": "Email",
+    "password": "Password",
+    "note": "A blocked invoice needs both: the reviewer requests an override, the approver confirms it. Here one visitor can use both accounts, so the demo shows the mechanism, not a real separation of duties. Made-up sample invoices, reset every night. Do not upload real data."
+  },
+  "Header": {
+    "home": "InvoiceGuard · Review",
+    "upload": "Upload",
+    "security": "Security events",
+    "user": "{name} · {role}",
+    "logout": "Log out"
+  },
+  "Queue": {
+    "title": "Invoice queue",
+    "filterLabel": "Queue filter",
+    "filters": {
+      "review": "To review",
+      "blocked": "Blocked",
+      "override": "Override requested",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "other": "Processing / failed",
+      "all": "All"
+    },
+    "empty": "No invoices here.",
+    "file": "File",
+    "status": "Status",
+    "received": "Received",
+    "pagesLabel": "Pages",
+    "previous": "Previous",
+    "next": "Next",
+    "pageInfo": "Page {page} of {pages} · {total, plural, one {# invoice} other {# invoices}}"
+  },
+  "Invoice": {
+    "received": "{source} · received {date}",
+    "download": "Download original",
+    "llmCalls": "{count, plural, one {# LLM call} other {# LLM calls}}, ${cost}",
+    "checks": "Checks",
+    "investigation": "Investigation",
+    "fields": "Extracted fields",
+    "decision": "Decision",
+    "history": "History",
+    "lowConfidence": "{count, plural, one {# field with low confidence is highlighted} other {# fields with low confidence are highlighted}}: compare them with the original."
+  },
+  "Checks": {
+    "none": "No checks run yet.",
+    "evidence": "Evidence"
+  },
+  "Fields": {
+    "none": "No fields extracted yet.",
+    "document": "Document",
+    "line": "Line {line}",
+    "field": "Field",
+    "value": "Value",
+    "source": "Source",
+    "xml": "XML",
+    "llm": "LLM {confidence}",
+    "llmLow": "LLM {confidence} – low confidence, check the PDF",
+    "snippet": "p. {page}: “{snippet}”",
+    "unknownPage": "?"
+  },
+  "Decision": {
+    "noDecision": "No decision possible while the invoice is {status}.",
+    "reopenForm": "Reopen",
+    "reopenIntro": "Rejected by mistake? Reopen it: the checks run again on the current master data, and it waits for review.",
+    "reopenReason": "Reopen reason",
+    "reopen": "Reopen",
+    "approve": "Approve",
+    "accounts": "Account per line (SKR03)",
+    "accountLine": "{line}. {text}",
+    "account": "{number} {name}",
+    "noSuggestion": "No suggestion: no booked line to compare with.",
+    "suggested": "Suggested {account} {name} ({share} %, {method, select, vector {by meaning} other {by text match}}) from {sources}.",
+    "imported": "imported",
+    "requestForm": "Request override",
+    "blockedBy": "Blocked by failed checks: {checks}. Approving it needs an override: your reason, then a confirmation by a second person with the approver role.",
+    "overrideReason": "Override reason",
+    "confirmChecked": "I checked the failed checks and ask to approve anyway.",
+    "requestOverride": "Request override",
+    "overrideRequested": "Override requested by {requester} for the failed checks: {checks}. It waits for a second person with the approver role.",
+    "anotherUser": "another user",
+    "decideForm": "Decide override",
+    "approverReason": "Approver reason",
+    "confirmOverride": "Confirm override",
+    "declineOverride": "Decline override",
+    "blockerRole": "Only a user with the approver role can confirm or decline it.",
+    "blockerRequester": "You requested it, so a different approver has to decide it.",
+    "rejectForm": "Reject",
+    "rejectReason": "Reject reason",
+    "reject": "Reject"
+  },
+  "Investigation": {
+    "intro": "The agent reads the ERP and the supplier registry (read only) and proposes an explanation and an email. It cannot approve or change the invoice.",
+    "investigate": "Investigate",
+    "investigateAgain": "Investigate again",
+    "steps": "{count, plural, one {# step} other {# steps}}: model calls and tool calls",
+    "stepNo": "#",
+    "step": "Step",
+    "tokens": "Tokens in/out",
+    "cost": "Cost",
+    "time": "Time",
+    "result": "Result",
+    "stepTokens": "{input}/{output}",
+    "unknown": "–",
+    "model": "Model",
+    "modelAction": "Model: {action}",
+    "emailTitle": "Email draft to the supplier (German, not sent)",
+    "copy": "Copy",
+    "copied": "Copied",
+    "emailTo": "To: {to}",
+    "emailSubject": "Subject: {subject}",
+    "metaRecorded": "{status} · recorded run from {date} (no model on this server) · {model} · {input}/{output} tokens · {cost} · {duration}",
+    "metaLive": "{status} · {date} · {model} · {input}/{output} tokens · {cost} · {duration}",
+    "running": "The agent is investigating…",
+    "finding": "Finding"
+  },
+  "Export": {
+    "button": "Export to DATEV",
+    "exporting": "Exporting…",
+    "downloadAgain": "Download again",
+    "exported": "Exported {count, plural, one {# invoice} other {# invoices}} to DATEV.",
+    "withoutTaxKey": "{count, plural, one {# invoice} other {# invoices}} without a tax key (several or unknown VAT rates): set the tax in DATEV.",
+    "withoutAccountSplit": "{count, plural, one {# invoice} other {# invoices}} as one row (lines do not add up to the totals, for example a document discount): split by account in DATEV.",
+    "remaining": "{count, plural, one {# invoice} other {# invoices}} from a later fiscal year still waiting: export again."
+  },
+  "Upload": {
+    "title": "Upload an invoice",
+    "intro": "An XRechnung XML (UBL or CII) or a ZUGFeRD / Factur-X PDF with embedded XML, up to 10 MB. The invoice is checked right after the upload and then waits in the queue for review.",
+    "demoNote": "Public demo: PDFs without embedded XML are refused, because no model runs on visitors’ files. Uploads are limited per hour, and every invoice uploaded here is deleted by the nightly reset.",
+    "file": "Invoice file",
+    "upload": "Upload",
+    "uploading": "Uploading…",
+    "progress": "Uploading {percent} %",
+    "checking": "Uploaded. Checking the invoice…",
+    "uploaded": "Uploaded.",
+    "slow": "Uploaded. Processing takes longer than usual; the invoice page shows the result.",
+    "open": "Open the invoice",
+    "openExisting": "Open the existing invoice",
+    "summary": {
+      "ready": "All checks passed. The invoice is ready for review.",
+      "blocked": "At least one check failed. The invoice is blocked and waits for review.",
+      "awaitingExtraction": "The PDF has no embedded XML and waits for LLM extraction.",
+      "failed": "The invoice could not be read. It is in the queue with the reason.",
+      "other": "The invoice is {status}."
+    },
+    "problems": {
+      "chooseFile": "Choose a file to upload.",
+      "wrongType": "Choose an XRechnung XML file or a ZUGFeRD / Factur-X PDF (.xml or .pdf).",
+      "empty": "The file is empty.",
+      "tooLarge": "The file is larger than {mb} MB.",
+      "unreadable": "The upload could not be read.",
+      "interrupted": "The upload was interrupted.",
+      "noInvoice": "The API did not return the new invoice.",
+      "duplicate": "This file was already uploaded.",
+      "session": "Your session has ended. Log in again.",
+      "tooLargeApi": "The file is too large.",
+      "unsupported": "Upload an XML or PDF invoice; the file extension must match its content.",
+      "tooMany": "Too many uploads. Try again later.",
+      "failed": "The upload failed ({status})."
+    }
+  },
+  "Security": {
+    "title": "Security events",
+    "forbidden": "Only users with the approver role can read the security events.",
+    "introAll": "Failed logins, lockouts, refused role checks, self-approval attempts and prompt injections found in invoices. Newest first. Read-only: the log cannot be changed.",
+    "introLatest": "Failed logins, lockouts, refused role checks, self-approval attempts and prompt injections found in invoices. Newest first, the latest {shown} of {total}. Read-only: the log cannot be changed.",
+    "empty": "No security events yet.",
+    "when": "When",
+    "severity": "Severity",
+    "event": "Event",
+    "user": "User",
+    "noUser": "—",
+    "openInvoice": "Open invoice",
+    "describe": {
+      "loginFailed": "Failed login ({reason})",
+      "loginFailedEmail": "Failed login ({reason}): {email}",
+      "accountLocked": "Account locked: {reason}",
+      "loginRateLimited": "Too many failed logins from one address: {email}",
+      "forbidden": "{method} {path} needs the {required} role (user is {role})",
+      "selfApproval": "Tried to decide their own override request ({action})",
+      "injection": "Prompt injection suspected in the invoice text: {rules}"
+    }
+  },
+  "Audit": {
+    "transition": "{before} → {after}",
+    "meta": "<time>{date}</time> · {actor}"
+  },
+  "Errors": {
+    "loginMissing": "Enter your email and password.",
+    "noSession": "The API did not start a session.",
+    "unknownInvoice": "Unknown invoice.",
+    "reasonAndAccounts": "Enter a reason and choose an account for every line.",
+    "confirmChecked": "Confirm that you checked the failed checks.",
+    "apiStatus": "The API answered {status}.",
+    "notFound": "Not found"
+  },
+  "Codes": {
+    "invoiceStatus": {
+      "received": "received",
+      "processing": "processing",
+      "awaiting_extraction": "awaiting extraction",
+      "ready": "ready",
+      "blocked": "blocked",
+      "failed": "failed",
+      "override_requested": "override requested",
+      "approved": "approved",
+      "rejected": "rejected"
+    },
+    "checkStatus": {
+      "passed": "passed",
+      "warning": "warning",
+      "failed": "failed",
+      "skipped": "skipped"
+    },
+    "checkType": {
+      "duplicate": "Duplicate",
+      "iban": "IBAN",
+      "kosit": "KoSIT validation",
+      "low_confidence": "Low confidence",
+      "po_match": "Purchase order match",
+      "prompt_injection": "Prompt injection",
+      "supplier_known": "Known supplier",
+      "vat_math": "VAT math"
+    },
+    "role": {
+      "reviewer": "reviewer",
+      "approver": "approver"
+    },
+    "severity": {
+      "low": "low",
+      "medium": "medium",
+      "high": "high"
+    },
+    "runStatus": {
+      "running": "Running",
+      "completed": "Completed",
+      "stopped": "Stopped",
+      "failed": "Failed"
+    },
+    "auditAction": {
+      "auth": {
+        "locked": "Account locked",
+        "login": "Logged in",
+        "login_failed": "Login failed",
+        "logout": "Logged out"
+      },
+      "demo": {
+        "reset": "Demo reset"
+      },
+      "invoice": {
+        "approved": "Approved",
+        "exported": "Exported to DATEV",
+        "extraction_deferred": "Extraction deferred",
+        "override_confirmed": "Override confirmed",
+        "override_declined": "Override declined",
+        "override_requested": "Override requested",
+        "received": "Received",
+        "rejected": "Rejected",
+        "reopened": "Reopened",
+        "status_changed": "Status changed"
+      },
+      "user": {
+        "created": "User created",
+        "updated": "User updated"
+      }
+    },
+    "securityEvent": {
+      "account_locked": "Account locked",
+      "forbidden": "Refused role check",
+      "injection_suspected": "Prompt injection suspected",
+      "login_failed": "Failed login",
+      "login_rate_limited": "Login limit reached",
+      "self_approval_attempt": "Self-approval attempt"
+    },
+    "field": {
+      "invoice_number": "Invoice number",
+      "issue_date": "Issue date",
+      "type_code": "Type code",
+      "currency": "Currency",
+      "due_date": "Due date",
+      "seller_name": "Seller name",
+      "seller_vat_id": "Seller VAT ID",
+      "buyer_name": "Buyer name",
+      "buyer_vat_id": "Buyer VAT ID",
+      "payee_iban": "Payee IBAN",
+      "order_reference": "Order reference",
+      "line_total": "Line total",
+      "allowance_total": "Allowance total",
+      "charge_total": "Charge total",
+      "net_total": "Net total",
+      "tax_total": "Tax total",
+      "gross_total": "Gross total",
+      "amount_due": "Amount due",
+      "line_id": "Line ID",
+      "quantity": "Quantity",
+      "unit_code": "Unit code",
+      "net_amount": "Net amount",
+      "net_price": "Net price",
+      "vat_rate": "VAT rate",
+      "item_name": "Item name"
+    }
+  }
+}
