@@ -24,7 +24,14 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    computed_field,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -57,6 +64,7 @@ from invoiceguard_api.processing import (
     override_requester,
 )
 from invoiceguard_api.security import SELF_APPROVAL, forbidden_event, refuse, security_event
+from invoiceguard_api.status_reasons import ReasonCode, reason_code
 
 router = APIRouter(prefix="/invoices", tags=["review"], dependencies=[Depends(current_user)])
 
@@ -130,6 +138,17 @@ class AuditEventOut(BaseModel):
     status_after: str | None
     reason: str | None
     details: dict[str, Any]
+
+    # As InvoiceOut.status_reason_code: the code of a reason processing wrote (ADR-027).
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def reason_code(self) -> ReasonCode | None:
+        return reason_code(self.reason)[0]
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def reason_checks(self) -> list[str]:
+        return reason_code(self.reason)[1]
 
 
 def _lock(session: Session, request: Request, invoice_id: uuid.UUID) -> Invoice:

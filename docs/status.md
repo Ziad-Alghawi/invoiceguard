@@ -409,14 +409,17 @@
       types, field names) have labels in both languages; dates follow the language in Europe/Berlin time.
     - `cacheComponents`: the locale is read inside a Suspense boundary in the root layout; an inline script sets
       `<html lang>` before the first paint. The production build still prerenders a shell for every page.
-    - Texts written by the API stay English (check messages, status reasons, API errors, the agent's finding),
-      listed as a limitation in the README.
+    - Texts written by the API stay English (check messages, API errors, the agent's finding), listed as a
+      limitation in the README. Fix in PR B (ADR-027 amended): the status reasons processing writes
+      ("Failed checks: po_match.", seen on the live demo) now come with a code (`status_reasons.py`) and show
+      in the user's language with the check labels, in the queue, the detail page, the history and the upload
+      page. The e2e tests check that the German queue and detail page contain no "Failed checks".
     - Done-when check: `messages.test.ts` (same keys, no empty text, every message formats), `codes.test.ts`
       (every code in the API's Python source has a label in both languages; both checked to fail on a removed
       key), typed keys in `tsc`, ESLint `react/jsx-no-literals`; the 7 Playwright tests pass in German on
       `make dev`, including the new `language.spec.ts` (switch, reload, login in English, back to German).
-  - Possible later task: translate the API's own texts (a message code with parameters for each check result,
-    status reason and error, rendered by the web in the user's language). (M)
+  - Possible later task: translate the API's other texts (a message code with parameters for each check result,
+    the agent's notes and API errors, rendered by the web in the user's language). (M)
   - README: English pass and the German section (now "Kommt in R5"). (M)
   - Architecture diagram as an image for the README. (S)
   - README results, limitations and roadmap refreshed after R4. (S)

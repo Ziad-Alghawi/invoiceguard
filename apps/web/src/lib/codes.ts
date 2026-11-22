@@ -117,7 +117,18 @@ export const FIELD_NAMES = [
   "item_name",
 ] as const;
 
+/** Codes of the status reasons processing writes (the API's status_reasons.py). */
+export const REASON_CODES = [
+  "failed_checks",
+  "awaiting_extraction",
+  "extraction_off",
+  "daily_budget",
+  "internal_error",
+  "restarted",
+] as const;
+
 export type CheckType = (typeof CHECK_TYPES)[number];
+export type ReasonCode = (typeof REASON_CODES)[number];
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[number];
 export type FieldName = (typeof FIELD_NAMES)[number];
@@ -131,6 +142,10 @@ function isOneOf<T extends string>(
 
 export function isInvoiceStatus(value: string): value is InvoiceStatus {
   return isOneOf(INVOICE_STATUSES, value);
+}
+
+export function isReasonCode(value: string): value is ReasonCode {
+  return isOneOf(REASON_CODES, value);
 }
 
 export function isCheckType(value: string): value is CheckType {

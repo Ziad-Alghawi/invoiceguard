@@ -316,9 +316,10 @@ Architectural choices are recorded as ADRs in [docs/decisions](docs/decisions/RE
 - Upload: one file at a time on the upload page. The public demo accepts XRechnung XML and ZUGFeRD / Factur-X PDFs
   with embedded XML only (no visitor's PDF goes to a model), at most 30 uploads per hour per shared demo
   account, and the nightly reset deletes every upload.
-- UI languages: German (default) and English, switched in the header (ADR-027). Texts written by the API stay
-  English in both: check messages, status reasons, API error details and the agent's finding. The agent's email
-  draft to the supplier is German.
+- UI languages: German (default) and English, switched in the header (ADR-027). The status reasons processing
+  writes ("Failed checks: …") are shown in the chosen language; other texts written by the API stay English in
+  both: check messages, the agent's finding and notes, and API error details. The agent's email draft to the
+  supplier is German.
 - DATEV export: not certified and not yet imported into a real DATEV installation. Rows per chosen account and
   VAT rate need lines that add up to the totals: an invoice with a document allowance or charge stays one row and
   the advisor splits it; invoices approved without accounts are one row, so several VAT rates there (or lines

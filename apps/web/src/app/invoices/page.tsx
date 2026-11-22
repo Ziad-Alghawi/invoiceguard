@@ -6,10 +6,12 @@ import { Suspense } from "react";
 import { exportDatev } from "@/app/actions";
 import { ExportButton } from "@/components/export-button";
 import { StatusBadge } from "@/components/status-badge";
+import { StatusReason } from "@/components/status-reason";
 import { apiFetch, ApiError, errorMessage } from "@/lib/api";
 import {
   formatDateTime,
   type Invoice,
+  invoiceReason,
   isQueueFilter,
   QUEUE_FILTERS,
   type QueueFilter,
@@ -99,7 +101,7 @@ async function Queue({ searchParams }: { searchParams: SearchParams }) {
                   </Link>
                   {invoice.status_reason && (
                     <p className="text-xs text-muted-foreground">
-                      {invoice.status_reason}
+                      <StatusReason reason={invoiceReason(invoice)} />
                     </p>
                   )}
                 </td>

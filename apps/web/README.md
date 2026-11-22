@@ -23,7 +23,8 @@ German (default) and English with next-intl ([ADR-027](../../docs/decisions/ADR-
 switch in the header and on the login page sets the `NEXT_LOCALE` cookie, and the paths stay the same. Every UI text is
 in [messages/de.json](messages/de.json) and [messages/en.json](messages/en.json); add a new text to both.
 `src/lib/codes.ts` lists the API codes that get a label. The tests fail on a key missing in one file or a code without
-a label, `tsc` on an unknown key, and ESLint on text written into JSX. Texts written by the API stay English.
+a label, `tsc` on an unknown key, and ESLint on text written into JSX. Status reasons written by processing come with a code and are translated (`components/status-reason.tsx`);
+other texts written by the API stay English.
 
 ## Requirements
 

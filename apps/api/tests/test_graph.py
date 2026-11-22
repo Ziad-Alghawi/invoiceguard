@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from conftest import REVIEWER_EMAIL, FinishedInvoice, poll_until_done
 from fakes import FakeLLMClient, reply_text
-from invoiceguard_api import demo, processing
+from invoiceguard_api import demo, processing, status_reasons
 from invoiceguard_api.auth import SESSION_COOKIE
 from invoiceguard_api.checks import KositValidator
 from invoiceguard_api.db import make_session_factory
@@ -441,7 +441,7 @@ def test_an_unexpected_extraction_error_ends_in_failed_at_review(
     assert invoice is not None
     assert (invoice.status, invoice.status_reason) == (
         InvoiceStatus.FAILED,
-        processing.INTERNAL_ERROR_REASON,
+        status_reasons.INTERNAL_ERROR_REASON,
     )
     assert paused_for_review(graph, invoice_id)
 

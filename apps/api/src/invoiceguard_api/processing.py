@@ -88,22 +88,19 @@ from invoiceguard_api.parsing import (
 )
 from invoiceguard_api.parsing.fields import to_field_rows
 from invoiceguard_api.security import INJECTION, security_event
+from invoiceguard_api.status_reasons import (
+    AWAITING_EXTRACTION_REASON,
+    BUDGET_REASON,
+    EXTRACTION_OFF_REASON,
+    INTERNAL_ERROR_REASON,
+    RESTART_REASON,
+    failed_checks_reason,
+)
 from invoiceguard_api.storage import FileStorage
 
 logger = logging.getLogger(__name__)
 
 SYSTEM_ACTOR = "system"
-AWAITING_EXTRACTION_REASON = "The PDF has no embedded e-invoice XML; it needs LLM extraction."
-EXTRACTION_OFF_REASON = (
-    "The PDF has no embedded e-invoice XML, and LLM extraction is skipped: no API key is "
-    "configured (INVOICEGUARD_LLM_API_KEY)."
-)
-BUDGET_REASON = (
-    "The daily LLM budget (INVOICEGUARD_LLM_DAILY_BUDGET_USD) is used up; the PDF is extracted "
-    "after the next API restart on a later day."
-)
-INTERNAL_ERROR_REASON = "Processing failed with an internal error; see the API logs."
-RESTART_REASON = "Reset after an API restart interrupted processing."
 EXTRACTION_PURPOSE = "extraction"
 NO_XML = Validation(
     outcome="not_applicable",
@@ -376,9 +373,7 @@ def _check_and_finish(session: Session, invoice: Invoice, reading: Reading) -> N
     summary = summarise(results)
     status = final_status(results)
     reason = (
-        None
-        if status is InvoiceStatus.READY
-        else "Failed checks: " + ", ".join(summary["failed_checks"]) + "."
+        None if status is InvoiceStatus.READY else failed_checks_reason(summary["failed_checks"])
     )
     _finish(
         session,

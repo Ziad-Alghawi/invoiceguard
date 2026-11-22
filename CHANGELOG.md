@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no label, `tsc` fails on an unknown key, and ESLint fails on text written into JSX. The Playwright tests run in
   German, and a new one switches to English and back. A translated not-found page.
 
+### Fixed
+- The queue, the invoice page, the history and the upload page showed the reasons processing writes in English
+  in the German UI ("Failed checks: po_match."). The API now returns `status_reason_code` and
+  `status_reason_checks` with invoices and `reason_code` and `reason_checks` with audit events
+  (`status_reasons.py`, ADR-027 amended), and the web shows them in the chosen language with the check names.
+
 ### Changed
 - DATEV export per chosen account (issue #24, ADR-013 amended): an invoice approved with accounts per line gets one
   booking row per (account, VAT rate), with the chosen account as Gegenkonto, the BU key of the rate and the

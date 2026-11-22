@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from conftest import INVOICE_TEXT, PROCESSING_TIMEOUT_SECONDS, poll_until_done, text_pdf
 from fakes import COST_USD, FakeLLMClient, field, recorded, reply_text
-from invoiceguard_api import processing
+from invoiceguard_api import processing, status_reasons
 from invoiceguard_api.auth import SESSION_COOKIE
 from invoiceguard_api.extraction.extract import DOCUMENT_END, DOCUMENT_START, SYSTEM_PROMPT
 from invoiceguard_api.llm import FilePart, LLMError
@@ -260,7 +260,7 @@ def test_without_an_api_key_the_pdf_waits_with_a_reason(
 
     assert (detail["status"], detail["status_reason"]) == (
         "awaiting_extraction",
-        processing.EXTRACTION_OFF_REASON,
+        status_reasons.EXTRACTION_OFF_REASON,
     )
     assert _calls(db_session, detail["id"]) == []
 
@@ -367,7 +367,7 @@ def test_cost_stays_logged_when_a_later_step_fails(
 
     assert (detail["status"], detail["status_reason"]) == (
         "failed",
-        processing.INTERNAL_ERROR_REASON,
+        status_reasons.INTERNAL_ERROR_REASON,
     )
     assert [call.status for call in _calls(db_session, detail["id"])] == [ModelCallStatus.OK]
 
@@ -466,7 +466,7 @@ def test_a_used_up_daily_budget_keeps_the_pdf_waiting(
     ).headers["location"]
     # `awaiting_extraction` is set first, the budget reason right after it.
     deadline = time.monotonic() + PROCESSING_TIMEOUT_SECONDS
-    while (detail := client.get(location).json())["status_reason"] != processing.BUDGET_REASON:
+    while (detail := client.get(location).json())["status_reason"] != status_reasons.BUDGET_REASON:
         assert time.monotonic() < deadline, detail
         time.sleep(0.02)
 

@@ -19,6 +19,10 @@ export type Invoice = {
   id: string;
   status: InvoiceStatus;
   status_reason: string | null;
+  /** The reason's code when processing wrote it (ADR-027); null for a user's text. */
+  status_reason_code: string | null;
+  /** The failed check types of a `failed_checks` reason. */
+  status_reason_checks: string[];
   source_type: "xml" | "pdf";
   original_filename: string;
   sha256: string;
@@ -62,8 +66,33 @@ export type AuditEvent = {
   status_before: string | null;
   status_after: string | null;
   reason: string | null;
+  reason_code: string | null;
+  reason_checks: string[];
   details: Record<string, unknown>;
 };
+
+/** A status reason as the API sent it: its text, and its code when processing wrote it. */
+export type Reason = { text: string; code: string | null; checks: string[] };
+
+export function invoiceReason(invoice: Invoice): Reason | null {
+  return invoice.status_reason === null
+    ? null
+    : {
+        text: invoice.status_reason,
+        code: invoice.status_reason_code,
+        checks: invoice.status_reason_checks,
+      };
+}
+
+export function auditReason(event: AuditEvent): Reason | null {
+  return event.reason === null
+    ? null
+    : {
+        text: event.reason,
+        code: event.reason_code,
+        checks: event.reason_checks,
+      };
+}
 
 export type Role = "reviewer" | "approver";
 

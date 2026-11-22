@@ -39,7 +39,11 @@ describe("UploadForm", () => {
       })
       .mockResolvedValueOnce({
         status: "blocked",
-        reason: "Failed checks: iban.",
+        reason: {
+          text: "Failed checks: iban.",
+          code: "failed_checks",
+          checks: ["iban"],
+        },
         error: null,
       });
     renderWithIntl(
@@ -51,7 +55,7 @@ describe("UploadForm", () => {
 
     const status = await screen.findByText(/The invoice is blocked/);
     expect(status).toBeTruthy();
-    expect(screen.getByText("Failed checks: iban.")).toBeTruthy();
+    expect(screen.getByText("Failed checks: IBAN.")).toBeTruthy();
     expect(
       screen
         .getByRole("link", { name: "Open the invoice" })

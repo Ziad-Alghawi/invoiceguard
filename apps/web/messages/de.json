@@ -338,6 +338,14 @@
       "net_price": "Nettopreis",
       "vat_rate": "USt-Satz",
       "item_name": "Artikelname"
+    },
+    "reason": {
+      "failed_checks": "Fehlgeschlagene Prüfungen: {checks}.",
+      "awaiting_extraction": "Das PDF hat kein eingebettetes E-Rechnungs-XML; es braucht die LLM-Extraktion.",
+      "extraction_off": "Das PDF hat kein eingebettetes E-Rechnungs-XML, und die LLM-Extraktion ist aus: Es ist kein API-Schlüssel eingerichtet (INVOICEGUARD_LLM_API_KEY).",
+      "daily_budget": "Das tägliche LLM-Budget (INVOICEGUARD_LLM_DAILY_BUDGET_USD) ist aufgebraucht; das PDF wird nach dem nächsten Neustart der API an einem späteren Tag ausgelesen.",
+      "internal_error": "Die Verarbeitung ist mit einem internen Fehler abgebrochen; siehe die API-Logs.",
+      "restarted": "Zurückgesetzt, weil ein Neustart der API die Verarbeitung unterbrochen hat."
     }
   }
 }

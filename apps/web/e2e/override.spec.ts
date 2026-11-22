@@ -45,6 +45,11 @@ test("a reviewer requests an override and a second person approves it", async ({
   await expect(
     page.getByText(/Gesperrt durch fehlgeschlagene Prüfungen: IBAN\./),
   ).toBeVisible();
+  // The status reason under the title and in the history, in German (ADR-027).
+  await expect(
+    page.getByText("Fehlgeschlagene Prüfungen: IBAN.").first(),
+  ).toBeVisible();
+  await expect(page.getByRole("main")).not.toContainText("Failed checks");
   await expect(
     page.getByRole("button", { name: "Freigeben", exact: true }),
   ).toHaveCount(0);

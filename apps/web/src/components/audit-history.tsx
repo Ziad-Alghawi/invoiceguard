@@ -1,7 +1,8 @@
 import { useLocale, useTranslations } from "next-intl";
 
 import { isAuditAction, isInvoiceStatus } from "@/lib/codes";
-import { type AuditEvent, formatDateTime } from "@/lib/invoices";
+import { StatusReason } from "@/components/status-reason";
+import { type AuditEvent, auditReason, formatDateTime } from "@/lib/invoices";
 
 /** The invoice's audit log, oldest first. Reasons are what the users wrote. */
 export function AuditHistory({ events }: { events: AuditEvent[] }) {
@@ -36,7 +37,11 @@ export function AuditHistory({ events }: { events: AuditEvent[] }) {
               time: (chunks) => <time dateTime={event.at}>{chunks}</time>,
             })}
           </div>
-          {event.reason && <p className="mt-0.5">{event.reason}</p>}
+          {event.reason && (
+            <p className="mt-0.5">
+              <StatusReason reason={auditReason(event)} />
+            </p>
+          )}
         </li>
       ))}
     </ol>

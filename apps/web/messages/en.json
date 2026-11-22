@@ -338,6 +338,14 @@
       "net_price": "Net price",
       "vat_rate": "VAT rate",
       "item_name": "Item name"
+    },
+    "reason": {
+      "failed_checks": "Failed checks: {checks}.",
+      "awaiting_extraction": "The PDF has no embedded e-invoice XML; it needs LLM extraction.",
+      "extraction_off": "The PDF has no embedded e-invoice XML, and LLM extraction is skipped: no API key is configured (INVOICEGUARD_LLM_API_KEY).",
+      "daily_budget": "The daily LLM budget (INVOICEGUARD_LLM_DAILY_BUDGET_USD) is used up; the PDF is extracted after the next API restart on a later day.",
+      "internal_error": "Processing failed with an internal error; see the API logs.",
+      "restarted": "Reset after an API restart interrupted processing."
     }
   }
 }

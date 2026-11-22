@@ -12,6 +12,7 @@ import {
   CHECK_TYPES,
   FIELD_NAMES,
   INVOICE_STATUSES,
+  REASON_CODES,
   ROLES,
   SECURITY_EVENT_TYPES,
   SEVERITIES,
@@ -101,6 +102,15 @@ describe("codes match the API", () => {
     expect(sorted(AUDIT_ACTIONS)).toEqual(sorted(actions));
   });
 
+  it("status reason codes (ReasonCode in status_reasons.py)", () => {
+    const literal = source("status_reasons.py").match(
+      /ReasonCode = Literal\[([^\]]*)\]/,
+    );
+    expect(literal, "ReasonCode in status_reasons.py").not.toBeNull();
+    const codes = [...literal![1].matchAll(/"([a-z_]+)"/g)].map((m) => m[1]);
+    expect(sorted(REASON_CODES)).toEqual(sorted(codes));
+  });
+
   it("field names (parsing/fields.py)", () => {
     const names = [
       ...source("parsing", "fields.py").matchAll(
@@ -134,6 +144,7 @@ describe("every code has a label", () => {
     ["auditAction", AUDIT_ACTIONS],
     ["securityEvent", SECURITY_EVENT_TYPES],
     ["field", FIELD_NAMES],
+    ["reason", REASON_CODES],
   ];
 
   it.each([

@@ -59,6 +59,25 @@ Four checks keep it complete:
   names and the documented choice for the App Router, with server components, server actions and route
   handlers covered.
 
+## Amendment 2026-11-22: status reasons processing writes
+
+On the live demo the queue showed "Failed checks: po_match." in the German UI. `status_reason` had
+been counted as API text, but this reason is a fixed template around check codes, written by
+processing and shown on every blocked invoice in the queue, the detail page and the history.
+
+The API now keeps the reasons processing writes in `status_reasons.py` and returns their code next
+to the text: `status_reason_code` and `status_reason_checks` on invoices, `reason_code` and
+`reason_checks` on audit events. The codes are `failed_checks` (with the check types),
+`awaiting_extraction`, `extraction_off`, `daily_budget`, `internal_error` and `restarted`. They are
+derived from the stored text by the same module that writes it, so no migration is needed and old
+rows get codes too. The web shows coded reasons in the user's language with the check labels; other
+text in the column (what a user wrote with a decision, a parser error, an extraction failure) is
+shown as written. `codes.test.ts` compares the web's list with `ReasonCode`, and the e2e tests check
+that the German queue and detail page show no "Failed checks".
+
+The other API sentences stay English as decided above: check messages, the agent's finding, notes
+and errors, and API error details.
+
 ## Consequences
 
 - No page has a prerendered shell with text any more: the text depends on the cookie. Before, only
