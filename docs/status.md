@@ -403,6 +403,9 @@
     2026-11-19; ADR-004 asks for a week). Changelog, price table for the three Gemini models and the embedding
     model, `make check`, `make test`, eval-gate replays (`small`, `full`, `eval-models --check`); filelock to
     4.2.1 and the CVE-2026-112940 entry out of `.trivyignore` (expires 2026-12-19). (S)
+    Same PR, since it needs live replays anyway: reword the `AgentAction` docstring in `agent/schema.py`, which
+    still names the private journal. It is the schema description the model receives, so any change to it
+    changes the recording key and needs the agent replies recorded again.
   - R5-3: German UI (done, PR #38 merged; ADR-027):
     - next-intl 4.15.1 pinned exactly, without locale routing: German by default, a DE | EN switch in the header
       and on the login page, the choice in the `NEXT_LOCALE` cookie for a year, paths unchanged. Three

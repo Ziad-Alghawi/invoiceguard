@@ -134,7 +134,7 @@ class AgentAction(BaseModel):
     """One step's reply: call up to three tools, or finish with a finding and an email draft.
 
     Every field is required (null or empty when unused): models with structured output leave
-    out optional fields, and a `finish` without its email is useless (first real run, R2-6).
+    out optional fields, and a `finish` without its email is useless (journal, 2026-11-18).
     """
 
     model_config = ConfigDict(extra="forbid")
