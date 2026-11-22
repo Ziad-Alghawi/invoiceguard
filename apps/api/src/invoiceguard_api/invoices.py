@@ -20,7 +20,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -44,6 +44,7 @@ from invoiceguard_api.models import (
 from invoiceguard_api.parsing import NoEmbeddedXml, ParseError, invoice_xml
 from invoiceguard_api.parsing.fields import DOCUMENT_TERMS, LINE_TERMS
 from invoiceguard_api.processing import process_invoice
+from invoiceguard_api.status_reasons import ReasonCode, reason_code
 from invoiceguard_api.storage import FileStorage
 
 router = APIRouter(prefix="/invoices", tags=["invoices"], dependencies=[Depends(current_user)])
@@ -70,6 +71,19 @@ class InvoiceOut(BaseModel):
     sha256: str
     size_bytes: int
     created_at: datetime
+
+    # The reason's code when processing wrote it, so the web can show it in the user's language
+    # (ADR-027); null for other text, such as a user's reason or a parser error.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def status_reason_code(self) -> ReasonCode | None:
+        return reason_code(self.status_reason)[0]
+
+    # The failed check types of a `failed_checks` reason, else [].
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def status_reason_checks(self) -> list[str]:
+        return reason_code(self.status_reason)[1]
 
 
 class CheckOut(BaseModel):

@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import type { StatusState } from "@/app/actions";
-import type { InvoiceStatus } from "@/lib/invoices";
+import { StatusReason } from "@/components/status-reason";
+import type { InvoiceStatus, Reason } from "@/lib/invoices";
 import {
   ACCEPTED_EXTENSIONS,
   checkFile,
@@ -29,7 +30,7 @@ type Phase =
       name: "done";
       invoiceId: string;
       status: InvoiceStatus | null;
-      reason: string | null;
+      reason: Reason | null;
     }
   | {
       name: "error";
@@ -189,7 +190,9 @@ export function UploadForm({
                   })}
           </p>
           {phase.reason && (
-            <p className="text-muted-foreground">{phase.reason}</p>
+            <p className="text-muted-foreground">
+              <StatusReason reason={phase.reason} />
+            </p>
           )}
           <Link
             href={`/invoices/${phase.invoiceId}`}

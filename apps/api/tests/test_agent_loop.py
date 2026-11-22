@@ -301,7 +301,7 @@ def test_the_schema_offers_only_the_read_only_tools() -> None:
 
 def test_every_action_field_is_required() -> None:
     # Models with structured output leave out optional fields: a real run returned "finish"
-    # with only a subject until every field was required (journal, 2026-11-18).
+    # with only a subject until every field was required (R2-6).
     from invoiceguard_api.agent.schema import SCHEMA
 
     assert set(SCHEMA["required"]) == set(SCHEMA["properties"])

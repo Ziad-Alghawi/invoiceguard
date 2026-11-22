@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
-from invoiceguard_api import main, processing
+from invoiceguard_api import main, processing, status_reasons
 from invoiceguard_api.checkpoints import lock_invoice
 from invoiceguard_api.checks import KositValidator
 from invoiceguard_api.checks.model import Validation
@@ -237,7 +237,7 @@ def test_unexpected_error_ends_in_failed(
 
     invoice = load(db_session, invoice_id)
     assert invoice.status is InvoiceStatus.FAILED
-    assert invoice.status_reason == processing.INTERNAL_ERROR_REASON
+    assert invoice.status_reason == status_reasons.INTERNAL_ERROR_REASON
     # The details go to the logs, not to the user-facing reason.
     assert "disk on fire" in caplog.text
     assert fields(db_session, invoice_id) == {}

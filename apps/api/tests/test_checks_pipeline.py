@@ -75,12 +75,29 @@ def test_clean_invoice_ends_ready(upload: Upload, samples: dict[str, bytes]) -> 
 
 @pytest.mark.usefixtures("seeded")
 def test_changed_iban_ends_blocked_with_evidence(
-    upload: Upload, samples: dict[str, bytes], db_session: Session
+    upload: Upload, samples: dict[str, bytes], db_session: Session, client: TestClient
 ) -> None:
     detail = upload("rechnung.xml", samples["ubl_fraud_iban"])
 
     assert detail["status"] == "blocked"
     assert detail["status_reason"] == "Failed checks: iban."
+    # The code and check types the web shows in the user's language (ADR-027): in the detail,
+    # the queue and the audit history.
+    assert (detail["status_reason_code"], detail["status_reason_checks"]) == (
+        "failed_checks",
+        ["iban"],
+    )
+    queued = next(i for i in client.get("/invoices").json() if i["id"] == detail["id"])
+    assert (queued["status_reason_code"], queued["status_reason_checks"]) == (
+        "failed_checks",
+        ["iban"],
+    )
+    history = client.get(f"/invoices/{detail['id']}/audit").json()
+    assert (history[-1]["reason_code"], history[-1]["reason_checks"]) == (
+        "failed_checks",
+        ["iban"],
+    )
+    assert history[0]["reason_code"] is None
     iban = detail["checks"][0]
     assert (iban["type"], iban["status"]) == ("iban", "failed")
     assert "possible bank-detail fraud" in iban["message"]

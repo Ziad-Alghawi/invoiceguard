@@ -62,6 +62,8 @@ function event(action: string, actor: string): AuditEvent {
     status_before: null,
     status_after: null,
     reason: null,
+    reason_code: null,
+    reason_checks: [],
     details: {},
   };
 }

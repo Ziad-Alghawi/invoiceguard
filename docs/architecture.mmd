@@ -1,0 +1,25 @@
+%% InvoiceGuard architecture as deployed on the demo (ADR-014, ADR-021, ADR-024).
+%% Render after a change, from the repository root:
+%%   npx --yes @mermaid-js/mermaid-cli@12.2.0 -i docs/architecture.mmd -o docs/images/architecture.svg -b white
+flowchart LR
+    user(["Reviewer / approver<br/>browser"]) -- HTTPS --> caddy
+
+    subgraph vps["Hetzner VPS, 4 GB"]
+        caddy["Caddy in Docker<br/>TLS, security headers"] --> traefik
+
+        subgraph k3s["k3s cluster"]
+            traefik["Traefik ingress"] --> web["web<br/>Next.js, German and English<br/>backend for frontend"]
+            web -- "REST + session cookie" --> api["api<br/>FastAPI, LangGraph graph per invoice<br/>checks, review gate, DATEV export"]
+            api --> pg[("PostgreSQL 16 + pgvector<br/>invoices, audit and security logs,<br/>checkpoints, embeddings")]
+            api -- "XML" --> kosit["KoSIT validator<br/>Java service"]
+            api -- "blocked invoices:<br/>exception agent" --> mcp["mcp-erp, mcp-registry, mcp-history<br/>read-only MCP servers"]
+            mcp -- "one read-only role each" --> pg
+            prom["Prometheus"] -. "scrapes /metrics" .-> api
+            reset[["Nightly demo reset<br/>CronJob"]] --> pg
+            argo["Argo CD core<br/>+ sealed-secrets"] -- "syncs Helm charts" --> api
+        end
+    end
+
+    api -. "plain PDFs and the agent,<br/>only with a model key" .-> llm[("Gemini via LiteLLM")]
+    api -- "approved invoices" --> datev[/"DATEV-style CSV<br/>for the tax advisor"/]
+    ci["GitHub Actions<br/>tests, eval gate, Trivy"] -- "images to GHCR,<br/>moves the demo tag" --> argo

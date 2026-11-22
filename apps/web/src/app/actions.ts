@@ -9,7 +9,13 @@ import { isLocale, LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE } from "@/i18n/config";
 import { apiFetch, apiPostAnonymous, errorMessage } from "@/lib/api";
 import { type BookingChoice, bookingsFromForm } from "@/lib/bookings";
 import type { ExportState } from "@/lib/exports";
-import { type Invoice, type InvoiceStatus, isInvoiceId } from "@/lib/invoices";
+import {
+  type Invoice,
+  invoiceReason,
+  type InvoiceStatus,
+  isInvoiceId,
+  type Reason,
+} from "@/lib/invoices";
 import { parseSessionCookie, SESSION_COOKIE } from "@/lib/session";
 
 export type ActionState = { error: string | null };
@@ -217,7 +223,7 @@ export async function investigate(invoiceId: string): Promise<ActionState> {
 }
 
 export type StatusState =
-  | { status: InvoiceStatus; reason: string | null; error: null }
+  | { status: InvoiceStatus; reason: Reason | null; error: null }
   | { status: null; reason: null; error: string };
 
 /** The invoice's current status, for the upload page while processing runs (ADR-007). */
@@ -238,5 +244,9 @@ export async function invoiceStatus(invoiceId: string): Promise<StatusState> {
     };
   }
   const invoice = (await response.json()) as Invoice;
-  return { status: invoice.status, reason: invoice.status_reason, error: null };
+  return {
+    status: invoice.status,
+    reason: invoiceReason(invoice),
+    error: null,
+  };
 }

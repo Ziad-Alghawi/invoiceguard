@@ -19,12 +19,14 @@ import { DecisionPanel } from "@/components/decision-panel";
 import { FieldsTable } from "@/components/fields-table";
 import { InvestigationPanel } from "@/components/investigation-panel";
 import { StatusBadge } from "@/components/status-badge";
+import { StatusReason } from "@/components/status-reason";
 import { apiGet, ApiError } from "@/lib/api";
 import type { Bookings } from "@/lib/bookings";
 import type { Investigation } from "@/lib/investigations";
 import {
   type AuditEvent,
   formatDateTime,
+  invoiceReason,
   type InvoiceDetail,
   isInvoiceId,
   overrideBlocker,
@@ -74,6 +76,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
   const [invoice, history, user, investigation, bookings] = await load(id);
   const t = await getTranslations("Invoice");
   const locale = await getLocale();
+  const statusReason = invoiceReason(invoice);
   const requestedBy = overrideRequester(history);
   const failedChecks = invoice.checks
     .filter((check) => check.status === "failed")
@@ -94,8 +97,10 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
             </h1>
             <StatusBadge status={invoice.status} />
           </div>
-          {invoice.status_reason && (
-            <p className="text-sm">{invoice.status_reason}</p>
+          {statusReason && (
+            <p className="text-sm">
+              <StatusReason reason={statusReason} />
+            </p>
           )}
           <p className="flex flex-wrap gap-x-1 text-sm text-muted-foreground">
             <span>

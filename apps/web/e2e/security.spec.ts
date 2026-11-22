@@ -54,14 +54,15 @@ test("a poisoned invoice is blocked and shows in the approver's security log", a
   await page.getByRole("button", { name: "Abmelden" }).click();
 
   await logIn(page, approverLogin());
-  // This run's row: the stack keeps the invoices of earlier runs. The reason is the API's
-  // text, which stays English (ADR-027).
+  // This run's row: the stack keeps the invoices of earlier runs. The reason comes from the API
+  // with its code and is shown in German (ADR-027), never as the API's English text.
   await expect(
     page
       .getByRole("row")
       .filter({ hasText: poisoned.file })
-      .getByText("Failed checks: prompt_injection."),
+      .getByText("Fehlgeschlagene Prüfungen: Prompt-Injection."),
   ).toBeVisible();
+  await expect(page.getByRole("main")).not.toContainText("Failed checks");
   await page.getByRole("link", { name: "Sicherheitsereignisse" }).click();
   await expect(
     page.getByRole("heading", { name: "Sicherheitsereignisse" }),

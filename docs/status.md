@@ -1,6 +1,6 @@
 # Status
 
-**Current milestone:** R5 — Polish and story (R4 complete; R5-1 merged; R5-3 German UI in review)
+**Current milestone:** R5 — Polish and story: done except the dated items below; release v1.0.0
 **Last updated:** 2026-11-22
 
 ## Done
@@ -132,7 +132,7 @@
       corrected invoice without quoting our bank data. **Sample 03 (price above order): $0.0044, 10.2 s**, 2 model
       calls, 2 tool calls (`get_purchase_order`, `get_goods_receipts`); finding: 380.00 invoiced vs 320.00 ordered,
       delivery WE-2026-0003 received; email asks for a corrected invoice or credit note
-    - Two problems found by the real runs and fixed (journal): the case file sent unbounded check evidence (a
+    - Two problems found by the real runs and fixed: the case file sent unbounded check evidence (a
       duplicate warning listing ~100 invoice IDs on the dev database: 8.4k input tokens per call, $0.029 for a
       failed run), now capped per check; and Gemini left out optional schema fields, so `finish` came back without
       the email twice. Every field of the action is now required (nullable)
@@ -386,7 +386,10 @@
       the default. Spent $0.389 ($0.040 smoke, $0.348 full run).
   - Cut from R4: self-hosted Langfuse and the trace ID in the UI (`model_calls` covers cost and latency), n8n,
     paid EU endpoints and large Ollama models, the full kube-prometheus-stack
-- R5 — Polish and story (PLAN.md §11). Done and open (sizes: XS < 1 h, S one session, M two, L three or more):
+- R5 — Polish and story (PLAN.md §11): done, except the dated and waiting items at the end (sizes: XS < 1 h,
+  S one session, M two, L three or more). Done when "a stranger can understand, run and judge the project from
+  the README alone": the README now covers what it does, the demo, the architecture, safety, results, running
+  it, decisions, roadmap and limits, in English and German.
   - R5-1: issue #24, DATEV export per chosen account and VAT rate (done, PR #37 merged; ADR-013 amended):
     - One row per (chosen account, VAT rate): net from the line amounts (BT-131), tax per rate on the rate's sum
       (as BT-117), the rounding cent of a rate split over several accounts on its largest row; Soll/Haben per
@@ -400,7 +403,10 @@
     2026-11-19; ADR-004 asks for a week). Changelog, price table for the three Gemini models and the embedding
     model, `make check`, `make test`, eval-gate replays (`small`, `full`, `eval-models --check`); filelock to
     4.2.1 and the CVE-2026-112940 entry out of `.trivyignore` (expires 2026-12-19). (S)
-  - R5-3: German UI (done, in review; ADR-027):
+    Same PR, since it needs live replays anyway: reword the `AgentAction` docstring in `agent/schema.py`, which
+    still names the private journal. It is the schema description the model receives, so any change to it
+    changes the recording key and needs the agent replies recorded again.
+  - R5-3: German UI (done, PR #38 merged; ADR-027):
     - next-intl 4.15.1 pinned exactly, without locale routing: German by default, a DE | EN switch in the header
       and on the login page, the choice in the `NEXT_LOCALE` cookie for a year, paths unchanged. Three
       `@eloqnt/*` packages pinned to older releases in `pnpm-workspace.yaml` (newest under a week old).
@@ -409,24 +415,42 @@
       types, field names) have labels in both languages; dates follow the language in Europe/Berlin time.
     - `cacheComponents`: the locale is read inside a Suspense boundary in the root layout; an inline script sets
       `<html lang>` before the first paint. The production build still prerenders a shell for every page.
-    - Texts written by the API stay English (check messages, status reasons, API errors, the agent's finding),
-      listed as a limitation in the README.
+    - Texts written by the API stay English (check messages, API errors, the agent's finding), listed as a
+      limitation in the README. Fix in R5-4 (ADR-027 amended): the status reasons processing writes
+      ("Failed checks: po_match.", seen on the live demo) now come with a code (`status_reasons.py`) and show
+      in the user's language with the check labels, in the queue, the detail page, the history and the upload
+      page. The e2e tests check that the German queue and detail page contain no "Failed checks".
     - Done-when check: `messages.test.ts` (same keys, no empty text, every message formats), `codes.test.ts`
       (every code in the API's Python source has a label in both languages; both checked to fail on a removed
       key), typed keys in `tsc`, ESLint `react/jsx-no-literals`; the 7 Playwright tests pass in German on
       `make dev`, including the new `language.spec.ts` (switch, reload, login in English, back to German).
-  - Possible later task: translate the API's own texts (a message code with parameters for each check result,
-    status reason and error, rendered by the web in the user's language). (M)
-  - README: English pass and the German section (now "Kommt in R5"). (M)
-  - Architecture diagram as an image for the README. (S)
-  - README results, limitations and roadmap refreshed after R4. (S)
-  - 90-second demo video (poisoned invoice caught) and `docs/demo-script.md`. (M, recording by Ziad)
-  - `docs/interview-notes.md`, the interview Q&A sheet. (M)
-  - `SECURITY.md` and a short `CONTRIBUTING.md`. (S)
-  - Three LinkedIn posts, CV bullets, cover-letter paragraph. (S to M, outside the repo)
-  - Release tag and GitHub Release with screenshots (PLAN.md §8). (S)
-  - Drop the zlib `.trivyignore` entry (CVE-2026-85091) once python:3.12-slim ships the Debian fix. (XS, waiting)
-  - Delete the Compose volumes on the server after 2026-11-23, after asking. (XS)
+  - Possible later task: translate the API's other texts (a message code with parameters for each check result,
+    the agent's notes and API errors, rendered by the web in the user's language). (M)
+  - R5-4: docs and release (done, one PR after #38):
+    - First commit: the status-reason fix above (`status_reasons.py`, `status_reason_code` /
+      `status_reason_checks` and `reason_code` / `reason_checks` in the API, `StatusReason` in the web).
+    - README: English pass, the German section ("Deutsch"), the demo table corrected (three samples are ready,
+      not two), the architecture as it runs now (k3s, Argo CD) instead of Compose, an OWASP Agentic mapping
+      with evidence, results, the roadmap after R4 and the limitations brought up to date (per-IP limit and
+      per-invoice agent cap exist now).
+    - Architecture diagram: `docs/architecture.mmd`, rendered once to `docs/images/architecture.svg` with
+      `npx @mermaid-js/mermaid-cli@12.2.0` (not a repo dependency; the command is in the file).
+    - German screenshots from a local stack after `make demo-reset`, without a model key: the queue, the
+      changed-IBAN invoice and the agent's recorded run in `docs/images/`; also the injected invoice and the
+      security log for the release.
+    - `SECURITY.md` (private reporting through GitHub, now turned on; scope), `CONTRIBUTING.md` and
+      `docs/demo-script.md` (shot list and voice-over; the recording is Ziad's). The interview Q&A sheet is
+      kept private (`docs/private/`), not in the repository.
+    - CHANGELOG: `[Unreleased]` became `[1.0.0] - 2026-11-22`, one section per kind.
+    - Release: after the merge, tag `v1.0.0` on the merge commit and a GitHub Release with the notes from the
+      CHANGELOG and the German screenshots.
+  - Open, outside the repo: the 90-second video (recording by Ziad, script in `docs/demo-script.md`); three
+    LinkedIn posts, CV bullets, cover-letter paragraph. (S to M)
+  - Open, dated or waiting:
+    - R5-2 litellm (above), on or after 2026-11-26.
+    - Delete the Compose volumes on the server after 2026-11-23, after asking. (XS)
+    - Drop the zlib `.trivyignore` entry (CVE-2026-85091) once python:3.12-slim ships the Debian fix. (XS,
+      waiting)
 - Backlog: scan-like generated PDFs (image noise, no text layer) for the eval set
 
 ## Known limitations
@@ -495,7 +519,8 @@
   the demo seed only; scan-like PDFs are in the backlog. Calls that failed live are not recorded, so a replay of
   such a run needs `--missing-as-failed`.
 - The daily LLM budget is checked before each extraction, so parallel extractions can overshoot it by one invoice
-  each; PDFs it held back wait until the API restarts (no scheduler). No per-invoice cap yet (R2).
+  each; PDFs it held back wait until the API restarts (no scheduler). The extraction has no per-invoice cap (one
+  call and one retry per PDF); the agent has one (ADR-018).
 - A PDF the model cannot read a required term from (invoice number, date, totals) ends in `failed`, not in review.
 - DATEV export (ADR-013): not certified and not yet imported into a real DATEV installation; rows per chosen
   account and VAT rate only when the lines add up to the totals (no document allowance or charge), else one row
