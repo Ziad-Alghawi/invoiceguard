@@ -80,7 +80,14 @@
     "fields": "Ausgelesene Felder",
     "decision": "Entscheidung",
     "history": "Verlauf",
-    "lowConfidence": "{count, plural, one {# Feld mit niedriger Konfidenz ist markiert} other {# Felder mit niedriger Konfidenz sind markiert}}: Vergleichen Sie sie mit dem Original."
+    "lowConfidence": "{count, plural, one {# Feld mit niedriger Konfidenz ist markiert} other {# Felder mit niedriger Konfidenz sind markiert}}: Vergleichen Sie sie mit dem Original.",
+    "document": "Dokument"
+  },
+  "Document": {
+    "loading": "PDF wird geladen …",
+    "pdfFailed": "Das PDF kann hier nicht angezeigt werden; laden Sie das Original herunter.",
+    "page": "Seite {page} von {pages}",
+    "xmlOnly": "Diese Rechnung ist eine XML-E-Rechnung ohne PDF; laden Sie das Original herunter."
   },
   "Checks": {
     "none": "Noch keine Prüfungen gelaufen.",

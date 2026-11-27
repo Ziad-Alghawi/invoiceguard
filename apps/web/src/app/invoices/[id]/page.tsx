@@ -17,6 +17,7 @@ import { AuditHistory } from "@/components/audit-history";
 import { CheckList } from "@/components/check-list";
 import { DecisionPanel } from "@/components/decision-panel";
 import { FieldsTable } from "@/components/fields-table";
+import { InvoiceDocument } from "@/components/invoice-document";
 import { InvestigationPanel } from "@/components/investigation-panel";
 import { StatusBadge } from "@/components/status-badge";
 import { StatusReason } from "@/components/status-reason";
@@ -88,7 +89,13 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
     invoice.status === "override_requested";
 
   return (
-    <div className="grid gap-8 md:grid-cols-[1fr_18rem]">
+    <div className="grid gap-6 lg:grid-cols-2">
+      <section
+        aria-label={t("document")}
+        className="min-w-0 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-auto"
+      >
+        <InvoiceDocument invoice={invoice} />
+      </section>
       <div className="flex min-w-0 flex-col gap-6">
         <div className="flex flex-col gap-1">
           <div className="flex flex-wrap items-center gap-3">
@@ -148,31 +155,31 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
           )}
           <FieldsTable fields={invoice.fields} />
         </Section>
+        <aside className="flex flex-col gap-6">
+          <Section title={t("decision")}>
+            <DecisionPanel
+              status={invoice.status}
+              failedChecks={failedChecks}
+              override={{
+                requestedBy,
+                blocker: overrideBlocker(user, requestedBy),
+              }}
+              bookings={bookings}
+              actions={{
+                approve: approve.bind(null, invoice.id),
+                reject: reject.bind(null, invoice.id),
+                requestOverride: requestOverride.bind(null, invoice.id),
+                confirmOverride: confirmOverride.bind(null, invoice.id),
+                declineOverride: declineOverride.bind(null, invoice.id),
+                reopen: reopen.bind(null, invoice.id),
+              }}
+            />
+          </Section>
+          <Section title={t("history")}>
+            <AuditHistory events={history} />
+          </Section>
+        </aside>
       </div>
-      <aside className="flex flex-col gap-6">
-        <Section title={t("decision")}>
-          <DecisionPanel
-            status={invoice.status}
-            failedChecks={failedChecks}
-            override={{
-              requestedBy,
-              blocker: overrideBlocker(user, requestedBy),
-            }}
-            bookings={bookings}
-            actions={{
-              approve: approve.bind(null, invoice.id),
-              reject: reject.bind(null, invoice.id),
-              requestOverride: requestOverride.bind(null, invoice.id),
-              confirmOverride: confirmOverride.bind(null, invoice.id),
-              declineOverride: declineOverride.bind(null, invoice.id),
-              reopen: reopen.bind(null, invoice.id),
-            }}
-          />
-        </Section>
-        <Section title={t("history")}>
-          <AuditHistory events={history} />
-        </Section>
-      </aside>
     </div>
   );
 }

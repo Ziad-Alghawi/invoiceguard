@@ -80,7 +80,14 @@
     "fields": "Extracted fields",
     "decision": "Decision",
     "history": "History",
-    "lowConfidence": "{count, plural, one {# field with low confidence is highlighted} other {# fields with low confidence are highlighted}}: compare them with the original."
+    "lowConfidence": "{count, plural, one {# field with low confidence is highlighted} other {# fields with low confidence are highlighted}}: compare them with the original.",
+    "document": "Document"
+  },
+  "Document": {
+    "loading": "Loading the PDF …",
+    "pdfFailed": "The PDF cannot be shown here; download the original.",
+    "page": "Page {page} of {pages}",
+    "xmlOnly": "This invoice is an XML e-invoice without a PDF; download the original."
   },
   "Checks": {
     "none": "No checks run yet.",
