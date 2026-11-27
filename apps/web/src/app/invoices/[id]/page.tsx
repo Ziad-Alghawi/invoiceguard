@@ -18,6 +18,7 @@ import { CheckList } from "@/components/check-list";
 import { DecisionPanel } from "@/components/decision-panel";
 import { FieldsTable } from "@/components/fields-table";
 import { InvoiceDocument } from "@/components/invoice-document";
+import { InvoiceShortcuts } from "@/components/invoice-shortcuts";
 import { SelectionProvider } from "@/components/review-selection";
 import { InvestigationPanel } from "@/components/investigation-panel";
 import { StatusBadge } from "@/components/status-badge";
@@ -198,11 +199,16 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
 
 export default function InvoicePage({ params }: PageProps<"/invoices/[id]">) {
   const common = useTranslations("Common");
+  const t = useTranslations("Invoice");
   return (
     <main className="flex flex-col gap-4">
-      <Link href="/invoices" className="text-sm underline underline-offset-4">
-        {common("backToQueue")}
-      </Link>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <Link href="/invoices" className="text-sm underline underline-offset-4">
+          {common("backToQueue")}
+        </Link>
+        <p className="text-xs text-muted-foreground">{t("shortcutsHint")}</p>
+      </div>
+      <InvoiceShortcuts />
       <Suspense
         fallback={
           <p className="text-sm text-muted-foreground">{common("loading")}</p>

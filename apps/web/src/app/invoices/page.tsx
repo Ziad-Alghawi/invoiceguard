@@ -5,6 +5,7 @@ import { Suspense } from "react";
 
 import { exportDatev } from "@/app/actions";
 import { ExportButton } from "@/components/export-button";
+import { QueueShortcuts } from "@/components/queue-shortcuts";
 import { StatusBadge } from "@/components/status-badge";
 import { StatusReason } from "@/components/status-reason";
 import { apiFetch, ApiError, errorMessage } from "@/lib/api";
@@ -95,7 +96,8 @@ async function Queue({ searchParams }: { searchParams: SearchParams }) {
                 <td className="py-2 pr-3">
                   <Link
                     href={`/invoices/${invoice.id}`}
-                    className="font-medium underline-offset-4 hover:underline"
+                    data-queue-link
+                    className="rounded-sm font-medium underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   >
                     {invoice.original_filename}
                   </Link>
@@ -142,9 +144,13 @@ export default function QueuePage({ searchParams }: PageProps<"/invoices">) {
   return (
     <main className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <h1 className="text-xl font-semibold">{t("title")}</h1>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-xl font-semibold">{t("title")}</h1>
+          <p className="text-xs text-muted-foreground">{t("shortcutsHint")}</p>
+        </div>
         <ExportButton exportDatev={exportDatev} />
       </div>
+      <QueueShortcuts />
       <Suspense
         fallback={
           <p className="text-sm text-muted-foreground">{common("loading")}</p>

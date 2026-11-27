@@ -69,7 +69,8 @@
     "pagesLabel": "Pages",
     "previous": "Previous",
     "next": "Next",
-    "pageInfo": "Page {page} of {pages} · {total, plural, one {# invoice} other {# invoices}}"
+    "pageInfo": "Page {page} of {pages} · {total, plural, one {# invoice} other {# invoices}}",
+    "shortcutsHint": "Keys: j / k to move, Enter to open, ? for help"
   },
   "Invoice": {
     "received": "{source} · received {date}",
@@ -81,7 +82,8 @@
     "decision": "Decision",
     "history": "History",
     "lowConfidence": "{count, plural, one {# field with low confidence is highlighted} other {# fields with low confidence are highlighted}}: compare them with the original.",
-    "document": "Document"
+    "document": "Document",
+    "shortcutsHint": "Keys: a approve, r reject, Esc back, ? help"
   },
   "Document": {
     "loading": "Loading the PDF …",
@@ -140,7 +142,9 @@
     "blockerRequester": "You requested it, so a different approver has to decide it.",
     "rejectForm": "Reject",
     "rejectReason": "Reject reason",
-    "reject": "Reject"
+    "reject": "Reject",
+    "confirmApprove": "Approve this invoice?",
+    "cancel": "Cancel"
   },
   "Investigation": {
     "intro": "The agent reads the ERP and the supplier registry (read only) and proposes an explanation and an email. It cannot approve or change the invoice.",
@@ -360,5 +364,15 @@
       "internal_error": "Processing failed with an internal error; see the API logs.",
       "restarted": "Reset after an API restart interrupted processing."
     }
+  },
+  "Shortcuts": {
+    "title": "Keyboard shortcuts",
+    "close": "Close",
+    "next": "Next invoice",
+    "previous": "Previous invoice",
+    "open": "Open the invoice",
+    "help": "Show these shortcuts",
+    "approve": "Approve (asks first)",
+    "reject": "Reject: write the reason"
   }
 }
