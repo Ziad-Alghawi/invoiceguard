@@ -39,6 +39,7 @@ from invoiceguard_evals import (
     decisions,
     evaluate,
     gate,
+    location_eval,
     model_comparison,
     report,
     rulebook_eval,
@@ -450,6 +451,13 @@ def main(argv: Sequence[str] | None = None) -> None:
             else str(path)
         )
         notes = None if args.notes is None else args.notes.read_text("utf-8")
-        markdown = report.render_results(content, args.effort, source, notes)
+        # No model and no recordings: computed from the PDFs each time (P1, ADR-029).
+        location_cases = [
+            *datasets.demo_cases(),
+            *datasets.generated_cases("full"),
+            *datasets.corpus_cases(load_manifest(), "full"),
+        ]
+        locations = location_eval.render_locations(location_eval.evaluate_locations(location_cases))
+        markdown = report.render_results(content, args.effort, source, notes, locations)
         args.out.write_text(markdown, "utf-8", newline="\n")
         print(f"wrote {args.out}")

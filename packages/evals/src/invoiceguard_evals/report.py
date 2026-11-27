@@ -19,7 +19,7 @@ def usd(value: float | None) -> str:
     return "-" if value is None else f"${value:.4f}"
 
 
-def _table(header: list[str], rows: list[list[str]]) -> list[str]:
+def table(header: list[str], rows: list[list[str]]) -> list[str]:
     lines = ["| " + " | ".join(header) + " |", "| " + " | ".join("---" for _ in header) + " |"]
     return lines + ["| " + " | ".join(row) + " |" for row in rows]
 
@@ -40,7 +40,7 @@ def _parser(parser: dict[str, Any]) -> list[str]:
     ]
     if parser["pair_differences"]:
         lines += ["", "Differences between the two files of a pair:", ""]
-        lines += _table(
+        lines += table(
             ["Case", "Term", "UBL", "CII"],
             [
                 [d["case"], d["term"], str(d["ubl"]), str(d["cii"])]
@@ -92,7 +92,7 @@ def _efforts(extraction: dict[str, Any]) -> list[str]:
         "separates right from wrong fields (0.5 = no better than chance). Conflicts: right / decoy "
         "/ other value, and how many got a confidence below the threshold.",
         "",
-        *_table(
+        *table(
             [
                 "Effort",
                 "Invoices",
@@ -117,7 +117,7 @@ def _efforts(extraction: dict[str, Any]) -> list[str]:
 def _chosen(effort: str, result: dict[str, Any]) -> list[str]:
     lines = [f"## Extraction at `{effort}`", ""]
     by_dataset = result["by_dataset"]
-    lines += _table(
+    lines += table(
         [
             "Dataset",
             "Invoices",
@@ -142,11 +142,11 @@ def _chosen(effort: str, result: dict[str, Any]) -> list[str]:
     )
     summary = result["summary"]
     lines += ["", "Accuracy per term (all datasets):", ""]
-    lines += _table(
+    lines += table(
         ["Term", "Accuracy"], [[term, pct(value)] for term, value in summary["per_term"].items()]
     )
     lines += ["", "Confidence buckets:", ""]
-    lines += _table(
+    lines += table(
         ["Confidence", "Fields", "Accuracy"],
         [
             [b["range"], str(b["fields"]), pct(b["accuracy"])]
@@ -156,7 +156,7 @@ def _chosen(effort: str, result: dict[str, Any]) -> list[str]:
     wrong = [(d, w) for d in result["details"] for w in d["wrong"]]
     if wrong:
         lines += ["", "Wrong fields:", ""]
-        lines += _table(
+        lines += table(
             ["Invoice", "Run", "Term", "Line", "Expected", "Extracted", "Confidence"],
             [
                 [
@@ -174,7 +174,7 @@ def _chosen(effort: str, result: dict[str, Any]) -> list[str]:
     conflicts = [(d, c) for d in result["details"] for c in d["conflicts"]]
     if conflicts:
         lines += ["", "Conflicting printed values:", ""]
-        lines += _table(
+        lines += table(
             ["Invoice", "Run", "Conflict", "Term", "Picked", "Confidence"],
             [
                 [d["case"], str(d["run"]), c["kind"], c["term"], c["picked"], str(c["confidence"])]
@@ -201,7 +201,7 @@ def _decisions(decisions: dict[str, Any]) -> list[str]:
             f"{s['clean_flagged']}",
             "",
         ]
-        lines += _table(
+        lines += table(
             ["Fraud type", "Cases", "Flagged", "Blocked"],
             [
                 [name, str(t["cases"]), str(t["flagged"]), str(t["blocked"])]
@@ -209,7 +209,7 @@ def _decisions(decisions: dict[str, Any]) -> list[str]:
             ],
         )
         lines += [""]
-        lines += _table(
+        lines += table(
             ["Check", "True pos.", "False pos.", "False neg.", "Precision", "Recall"],
             [
                 [
@@ -261,7 +261,7 @@ def _attacks(attacks: dict[str, Any]) -> list[str]:
         "",
     ]
     for key, label in ATTACK_GROUPS:
-        lines += _table(
+        lines += table(
             [label, "Cases", "Scan flagged", "Succeeded", "Succeeded model only"],
             [
                 [name, str(g["cases"]), str(g["flagged"]), str(g["succeeded"]),
@@ -280,7 +280,7 @@ def _attacks(attacks: dict[str, Any]) -> list[str]:
             d["case"], d["variant"], d["status"], "yes" if d["scan_flagged"] else "no",
             tools, "; ".join(reasons) or "-",
         ])  # fmt: skip
-    lines += _table(["Case", "File", "Status", "Scan", "Agent tool calls", "Succeeded because"],
+    lines += table(["Case", "File", "Status", "Scan", "Agent tool calls", "Succeeded because"],
                     rows)  # fmt: skip
     lines += _history_attacks(a)
     mentions = [d for d in a["details"] if d["finding_mentions"]]
@@ -329,7 +329,7 @@ def _history_attacks(a: dict[str, Any]) -> list[str]:
         for d in a["details"]
         if d["place"] == "history"
     ]  # fmt: skip
-    lines += _table(
+    lines += table(
         ["Case", "Twin", "Goal", "Language", "Scan at its upload", "Delivered", "Succeeded",
          "Forced: delivered", "Forced: succeeded"], rows,
     )  # fmt: skip
@@ -369,7 +369,7 @@ def _rulebook(rulebook: dict[str, Any]) -> list[str]:
             m = g[method]
             rows.append([label, method, str(g["questions"]), pct(m["hit1"]), pct(m["hit3"]),
                          num(m["mrr"], 3)])  # fmt: skip
-    lines += _table(["Questions", "Method", "Count", "hit@1", "hit@3", "MRR"], rows)
+    lines += table(["Questions", "Method", "Count", "hit@1", "hit@3", "MRR"], rows)
     misses = [
         c for c in r["cases"]
         if c["vector"]["rank"] is None or c["vector"]["rank"] > 3
@@ -432,7 +432,7 @@ def _bookings(bookings: dict[str, Any]) -> list[str]:
             f"{pct(k['vector_sum']['top1'])} / {pct(k['vector_sum']['top3'])}",
             pct(k["supplier_top"]["top1"]),
         ])  # fmt: skip
-    lines += _table(
+    lines += table(
         ["Test lines", "Lines", "Vector top-1 / top-3", "Text top-1 / top-3",
          "First design top-1 / top-3", "Supplier's top account"],
         rows,
@@ -445,12 +445,16 @@ def _bookings(bookings: dict[str, Any]) -> list[str]:
     ]
     if misses:
         lines += ["", "Lines whose top suggestion was wrong:", ""]
-        lines += _table(["Case", "Line", "Account", "Method", "Suggested (best first)"], misses)
+        lines += table(["Case", "Line", "Account", "Method", "Suggested (best first)"], misses)
     return [*lines, ""]
 
 
 def render_results(
-    report: dict[str, Any], chosen_effort: str, source: str, notes: str | None = None
+    report: dict[str, Any],
+    chosen_effort: str,
+    source: str,
+    notes: str | None = None,
+    locations: list[str] | None = None,
 ) -> str:
     meta = report["meta"]
     calls = (
@@ -485,6 +489,8 @@ def render_results(
         lines += _bookings(report["bookings"])
     if report.get("rulebook"):
         lines += _rulebook(report["rulebook"])
+    if locations:
+        lines += locations
     if notes:
         lines += ["## Notes on this run", "", notes.strip(), ""]
     return "\n".join(lines).rstrip() + "\n"
