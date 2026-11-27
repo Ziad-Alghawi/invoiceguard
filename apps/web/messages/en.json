@@ -71,12 +71,18 @@
     "empty": "No invoices here.",
     "file": "File",
     "status": "Status",
-    "received": "Received",
     "pagesLabel": "Pages",
     "previous": "Previous",
     "next": "Next",
     "pageInfo": "Page {page} of {pages} · {total, plural, one {# invoice} other {# invoices}}",
-    "shortcutsHint": "Keys: j / k to move, Enter to open, ? for help"
+    "shortcutsHint": "Keys: j / k to move, Enter to open, ? for help",
+    "supplier": "Supplier",
+    "gross": "Gross amount",
+    "due": "Due date",
+    "dueSortedAsc": "Due date ↑",
+    "dueSortedDesc": "Due date ↓",
+    "age": "Age",
+    "ageDays": "{days, plural, =0 {today} one {# day} other {# days}}"
   },
   "Invoice": {
     "received": "{source} · received {date}",

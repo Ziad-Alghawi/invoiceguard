@@ -4,7 +4,7 @@
 
 import hashlib
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any, BinaryIO, Literal
 from urllib.parse import quote
@@ -86,6 +86,19 @@ class InvoiceOut(BaseModel):
     @property
     def status_reason_checks(self) -> list[str]:
         return reason_code(self.status_reason)[1]
+
+
+class QueueItemOut(InvoiceOut):
+    """An invoice in the queue, with the terms a reviewer sorts and picks by (P1)."""
+
+    # BT-27, BT-112, BT-5 and BT-9 as stored; null until read, or when the invoice has none.
+    supplier: str | None
+    gross_total: Decimal | None
+    currency: str | None
+    due_date: date | None
+
+
+QueueSort = Literal["received", "due_date", "-due_date"]
 
 
 class CheckOut(BaseModel):
@@ -359,6 +372,34 @@ def upload_invoice(
     return InvoiceOut.model_validate(invoice)
 
 
+def _document_term(code: str) -> Any:
+    """A document term's stored value for each listed invoice (a correlated subquery)."""
+    return (
+        select(InvoiceField.value)
+        .where(
+            InvoiceField.invoice_id == Invoice.id,
+            InvoiceField.code == code,
+            InvoiceField.line_no.is_(None),
+        )
+        .correlate(Invoice)
+        .scalar_subquery()
+    )
+
+
+def _decimal(value: str | None) -> Decimal | None:
+    try:
+        return None if value is None else Decimal(value)
+    except ArithmeticError:
+        return None
+
+
+def _date(value: str | None) -> date | None:
+    try:
+        return None if value is None else date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
 @router.get("")
 def list_invoices(
     session: DbSession,
@@ -366,20 +407,53 @@ def list_invoices(
     status_filter: Annotated[list[InvoiceStatus] | None, Query(alias="status")] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-) -> list[InvoiceOut]:
-    """Invoices, newest first. Repeat `status` to filter on several statuses.
+    sort: QueueSort = "received",
+) -> list[QueueItemOut]:
+    """Invoices with supplier, gross amount, currency and due date. Repeat `status` to filter on
+    several statuses.
 
-    The `X-Total-Count` header holds the number of matching invoices, for paging.
+    `sort`: `received` newest first (default), `due_date` soonest due first, `-due_date` latest
+    first; invoices without a due date come last either way. The `X-Total-Count` header holds
+    the number of matching invoices, for paging.
     """
+    supplier, gross, currency, due = (
+        _document_term(code).label(name)
+        for code, name in (
+            ("BT-27", "supplier"),
+            ("BT-112", "gross_total"),
+            ("BT-5", "currency"),
+            ("BT-9", "due_date"),
+        )
+    )
     query = select(Invoice)
     if status_filter:
         query = query.where(Invoice.status.in_(status_filter))
     total = session.scalar(select(func.count()).select_from(query.subquery()))
     response.headers["X-Total-Count"] = str(total)
-    invoices = session.scalars(
-        query.order_by(Invoice.created_at.desc(), Invoice.id.desc()).limit(limit).offset(offset)
+    # BT-9 is stored as an ISO date (YYYY-MM-DD), so text order is date order.
+    order = {
+        "received": [Invoice.created_at.desc()],
+        "due_date": [due.asc().nulls_last(), Invoice.created_at.desc()],
+        "-due_date": [due.desc().nulls_last(), Invoice.created_at.desc()],
+    }[sort]
+    rows = session.execute(
+        query.add_columns(supplier, gross, currency, due)
+        .order_by(*order, Invoice.id.desc())
+        .limit(limit)
+        .offset(offset)
     )
-    return [InvoiceOut.model_validate(invoice) for invoice in invoices]
+    return [
+        QueueItemOut.model_validate(
+            {
+                **InvoiceOut.model_validate(invoice).model_dump(),
+                "supplier": supplier_name,
+                "gross_total": _decimal(gross_total),
+                "currency": currency_code,
+                "due_date": _date(due_date),
+            }
+        )
+        for invoice, supplier_name, gross_total, currency_code, due_date in rows
+    ]
 
 
 def get_invoice_or_404(session: Session, invoice_id: uuid.UUID) -> Invoice:

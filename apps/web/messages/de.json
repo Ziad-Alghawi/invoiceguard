@@ -71,12 +71,18 @@
     "empty": "Hier sind keine Rechnungen.",
     "file": "Datei",
     "status": "Status",
-    "received": "Eingegangen",
     "pagesLabel": "Seiten",
     "previous": "Zurück",
     "next": "Weiter",
     "pageInfo": "Seite {page} von {pages} · {total, plural, one {# Rechnung} other {# Rechnungen}}",
-    "shortcutsHint": "Tasten: j / k wechseln, Enter öffnet, ? Hilfe"
+    "shortcutsHint": "Tasten: j / k wechseln, Enter öffnet, ? Hilfe",
+    "supplier": "Lieferant",
+    "gross": "Bruttobetrag",
+    "due": "Fällig am",
+    "dueSortedAsc": "Fällig am ↑",
+    "dueSortedDesc": "Fällig am ↓",
+    "age": "Alter",
+    "ageDays": "{days, plural, =0 {heute} one {# Tag} other {# Tage}}"
   },
   "Invoice": {
     "received": "{source} · eingegangen am {date}",
