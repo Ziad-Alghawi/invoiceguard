@@ -1,13 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import {
-  apiAs,
-  history,
-  invoiceXml,
-  logIn,
-  reviewerLogin,
-  upload,
-} from "./helpers";
+import { apiAs, invoiceXml, logIn, reviewerLogin, upload } from "./helpers";
 
 /**
  * Keyboard only (P1): j/k in the queue, Enter opens, a approves after the confirmation, ? shows
