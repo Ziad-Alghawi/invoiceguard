@@ -108,7 +108,7 @@ Plain PDFs (no embedded e-invoice XML) are read by an LLM, the one LLM step in R
 ([ADR-010](../../docs/decisions/ADR-010-llm-pdf-extraction.md), [ADR-002](../../docs/decisions/ADR-002-code-vs-llm-boundary.md)).
 
 - [llm/](src/invoiceguard_api/llm/): our `LLMClient` protocol; `litellm_client.py` is the only module that imports
-  LiteLLM ([ADR-004](../../docs/decisions/ADR-004-model-router.md), pinned to 1.108.1, its bundled price table only).
+  LiteLLM ([ADR-004](../../docs/decisions/ADR-004-model-router.md), pinned to 1.110.2, its bundled price table only).
 - [extraction/](src/invoiceguard_api/extraction/): the PDF goes to the model as a file part between
   `<<<UNTRUSTED_DOCUMENT>>>` markers in the user message; the system prompt is a constant that says the document is
   data, never instructions. The reply must match a strict JSON schema (`extra="forbid"`): per term a value,
