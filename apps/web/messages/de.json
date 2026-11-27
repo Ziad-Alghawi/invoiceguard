@@ -17,6 +17,12 @@
     "shortDe": "DE",
     "shortEn": "EN"
   },
+  "Theme": {
+    "label": "Farbschema",
+    "system": "Wie das System",
+    "light": "Hell",
+    "dark": "Dunkel"
+  },
   "NotFound": {
     "title": "Nicht gefunden",
     "text": "Diese Seite oder Rechnung gibt es nicht.",

@@ -6,6 +6,7 @@ import { Suspense } from "react";
 
 import { HtmlLang } from "@/components/html-lang";
 import { DEFAULT_LOCALE, HTML_LANG_SCRIPT } from "@/i18n/config";
+import { THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,7 +38,8 @@ async function IntlProvider({ children }: { children: React.ReactNode }) {
 /**
  * The language comes from a cookie (ADR-027). Reading it here would make the static shell
  * request-bound (cacheComponents), so <html lang> starts as the default, the inline script sets
- * it before the first paint, and everything with text renders inside the Suspense boundary.
+ * it before the first paint, and everything with text renders inside the Suspense boundary. The
+ * theme (light or dark) is set the same way, from its own cookie (lib/theme.ts).
  */
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -48,6 +50,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: HTML_LANG_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="flex min-h-full flex-col">
         <Suspense fallback={null}>

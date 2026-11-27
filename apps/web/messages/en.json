@@ -17,6 +17,12 @@
     "shortDe": "DE",
     "shortEn": "EN"
   },
+  "Theme": {
+    "label": "Colour scheme",
+    "system": "As the system",
+    "light": "Light",
+    "dark": "Dark"
+  },
   "NotFound": {
     "title": "Not found",
     "text": "This page or invoice does not exist.",
