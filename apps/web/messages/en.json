@@ -87,7 +87,8 @@
     "loading": "Loading the PDF …",
     "pdfFailed": "The PDF cannot be shown here; download the original.",
     "page": "Page {page} of {pages}",
-    "xmlOnly": "This invoice is an XML e-invoice without a PDF; download the original."
+    "xmlOnly": "This invoice is an XML e-invoice without a PDF; download the original.",
+    "notLocated": "{field}: not located in the PDF text layer. Compare it with the page by eye."
   },
   "Checks": {
     "none": "No checks run yet.",
@@ -104,7 +105,9 @@
     "llm": "LLM {confidence}",
     "llmLow": "LLM {confidence} – low confidence, check the PDF",
     "snippet": "p. {page}: “{snippet}”",
-    "unknownPage": "?"
+    "unknownPage": "?",
+    "show": "Show {field} in the document",
+    "notLocated": "not located"
   },
   "Decision": {
     "noDecision": "No decision possible while the invoice is {status}.",

@@ -6,7 +6,7 @@ import hashlib
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Annotated, Any, BinaryIO
+from typing import Annotated, Any, BinaryIO, Literal
 from urllib.parse import quote
 
 from fastapi import (
@@ -30,6 +30,7 @@ from invoiceguard_api.auth import CurrentUser, current_user
 from invoiceguard_api.booking.embedding import embed_invoice_lines
 from invoiceguard_api.db import DbSession
 from invoiceguard_api.filetype import safe_filename, source_type_for
+from invoiceguard_api.locations import FieldToLocate, UnreadablePdf, locate_fields, read_text_layer
 from invoiceguard_api.models import (
     AuditEvent,
     Check,
@@ -127,6 +128,33 @@ class InvoiceDetailOut(InvoiceOut):
 
 # The order a reviewer reads check results in.
 SEVERITY_ORDER = (CheckStatus.FAILED, CheckStatus.WARNING, CheckStatus.SKIPPED, CheckStatus.PASSED)
+
+
+class BoxOut(BaseModel):
+    # 1-based page number; the box in fractions of the page, origin at the top left.
+    page: int
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+
+
+class FieldLocationOut(BaseModel):
+    code: str
+    line_no: int | None
+    located: bool
+    # "text": the value found in the text layer; "evidence": an LLM field found through its
+    # stored page and printed text. Null when not located.
+    method: Literal["text", "evidence"] | None
+    # One box per printed line of the value; empty when not located.
+    boxes: list[BoxOut]
+
+
+class LocationsOut(BaseModel):
+    # False for an XML invoice: there is no PDF to point into, and `fields` is empty.
+    pdf: bool
+    # Same order as the fields of GET /invoices/{id}.
+    fields: list[FieldLocationOut]
 
 
 class ErrorOut(BaseModel):
@@ -381,11 +409,7 @@ def get_invoice(invoice_id: uuid.UUID, session: DbSession, request: Request) -> 
     """The invoice with its fields and check results (empty until processing has run)."""
     invoice = get_invoice_or_404(session, invoice_id)
     threshold = request.app.state.settings.extraction_confidence_threshold
-    fields = session.scalars(
-        select(InvoiceField)
-        .where(InvoiceField.invoice_id == invoice_id)
-        .order_by(InvoiceField.line_no.asc().nulls_first(), InvoiceField.code)
-    ).all()
+    fields = _fields(session, invoice_id)
     checks = session.scalars(select(Check).where(Check.invoice_id == invoice_id)).all()
     ordered = sorted(checks, key=lambda check: (SEVERITY_ORDER.index(check.status), check.type))
     calls, cost = session.execute(
@@ -402,6 +426,55 @@ def get_invoice(invoice_id: uuid.UUID, session: DbSession, request: Request) -> 
             "llm_calls": calls,
             "llm_cost_usd": cost,
         }
+    )
+
+
+def _fields(session: Session, invoice_id: uuid.UUID) -> list[InvoiceField]:
+    return list(
+        session.scalars(
+            select(InvoiceField)
+            .where(InvoiceField.invoice_id == invoice_id)
+            .order_by(InvoiceField.line_no.asc().nulls_first(), InvoiceField.code)
+        )
+    )
+
+
+@router.get(
+    "/{invoice_id}/locations",
+    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorOut, "description": "Unknown invoice"}},
+)
+def get_invoice_locations(
+    invoice_id: uuid.UUID, session: DbSession, request: Request
+) -> LocationsOut:
+    """Where each field value is printed in the PDF (click-to-highlight, ADR-029).
+
+    Found by code in the PDF's text layer; no model is called. A PDF without a text layer, or one
+    pdfminer cannot read, gives every field as not located.
+    """
+    invoice = get_invoice_or_404(session, invoice_id)
+    if invoice.source_type is not SourceType.PDF:
+        return LocationsOut(pdf=False, fields=[])
+    fields = _fields(session, invoice_id)
+    storage: FileStorage = request.app.state.storage
+    try:
+        pages = read_text_layer(storage.read(invoice.storage_path))
+    except UnreadablePdf:
+        pages = []
+    located = locate_fields(
+        [FieldToLocate(f.code, f.line_no, f.value, f.evidence) for f in fields], pages
+    )
+    return LocationsOut(
+        pdf=True,
+        fields=[
+            FieldLocationOut(
+                code=location.code,
+                line_no=location.line_no,
+                located=location.located,
+                method=location.method,
+                boxes=[BoxOut(**vars(box)) for box in location.boxes],
+            )
+            for location in located
+        ],
     )
 
 
