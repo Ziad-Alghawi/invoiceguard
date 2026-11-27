@@ -257,6 +257,7 @@ jobs:
         working-directory: apps/api
         env:
           INVOICEGUARD_TEST_VALIDATOR_URL: http://localhost:8081/
+          INVOICEGUARD_TEST_VISUALIZATION_URL: http://localhost:8082/
         run: uv run pytest -m kosit --no-cov
       - name: Clean XRechnung ends ready with all checks passed (KoSIT included); the same file again 409
         run: |

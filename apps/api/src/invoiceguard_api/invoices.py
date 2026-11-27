@@ -47,6 +47,7 @@ from invoiceguard_api.parsing.fields import DOCUMENT_TERMS, LINE_TERMS
 from invoiceguard_api.processing import process_invoice
 from invoiceguard_api.status_reasons import ReasonCode, reason_code
 from invoiceguard_api.storage import FileStorage
+from invoiceguard_api.visualization import Language, VisualizationUnavailable, make_static
 
 router = APIRouter(prefix="/invoices", tags=["invoices"], dependencies=[Depends(current_user)])
 
@@ -475,6 +476,62 @@ def get_invoice_locations(
             )
             for location in located
         ],
+    )
+
+
+# The view is shown in a sandboxed iframe of the web app; this CSP makes it static wherever it
+# is opened: no scripts, no requests, no forms, inline styles and data: images only.
+NO_XML_MESSAGE = "This invoice has no e-invoice XML."
+VIEW_CSP = (
+    "default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; "
+    "frame-ancestors 'self'; sandbox"
+)
+
+
+@router.get(
+    "/{invoice_id}/view",
+    response_class=Response,
+    responses={
+        status.HTTP_200_OK: {"content": {"text/html": {}}},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorOut, "description": "Unknown invoice or no XML"},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "model": ErrorOut,
+            "description": "The visualization is not configured or not reachable",
+        },
+    },
+)
+def get_invoice_view(
+    invoice_id: uuid.UUID,
+    session: DbSession,
+    request: Request,
+    lang: Language = "de",
+    highlight: Annotated[str | None, Query(pattern=r"^BT-\d{1,3}$")] = None,
+    line: Annotated[int | None, Query(ge=1)] = None,
+) -> Response:
+    """The invoice's e-invoice XML as the official KoSIT visualization (ADR-029), static HTML.
+
+    For XML invoices and PDFs with embedded XML (ZUGFeRD). `highlight` marks a business term
+    (`BT-84`), `line` picks the invoice line of a line term; the marked value has the anchor
+    `#highlight`.
+    """
+    invoice = get_invoice_or_404(session, invoice_id)
+    storage: FileStorage = request.app.state.storage
+    try:
+        xml = invoice_xml(storage.read(invoice.storage_path), invoice.source_type)
+    except (NoEmbeddedXml, ParseError) as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, NO_XML_MESSAGE) from error
+    try:
+        page = request.app.state.visualizer.render(invoice.sha256, xml, lang)
+    except VisualizationUnavailable as error:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(error)) from error
+    return Response(
+        make_static(page, highlight, line),
+        media_type="text/html",
+        headers={
+            "Content-Security-Policy": VIEW_CSP,
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, no-store",
+        },
     )
 
 

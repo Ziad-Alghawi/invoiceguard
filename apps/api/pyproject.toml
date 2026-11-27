@@ -70,7 +70,7 @@ filterwarnings = [
     "ignore:Items? .* on TypedDict class .* using the `ReadOnly` qualifier:UserWarning",
 ]
 markers = [
-    "kosit: needs a running KoSIT validator (INVOICEGUARD_TEST_VALIDATOR_URL); skipped without it",
+    "kosit: needs the running KoSIT validator (INVOICEGUARD_TEST_VALIDATOR_URL / _VISUALIZATION_URL)",
 ]
 
 [tool.coverage.run]

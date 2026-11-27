@@ -38,6 +38,7 @@ from invoiceguard_api.review import router as review_router
 from invoiceguard_api.security_events import router as security_events_router
 from invoiceguard_api.settings import Settings, get_settings
 from invoiceguard_api.storage import FileStorage
+from invoiceguard_api.visualization import Visualizer
 
 logger = logging.getLogger(__name__)
 
@@ -168,6 +169,10 @@ def create_app(
     app.state.session_factory = session_factory
     app.state.storage = storage
     app.state.validator = validator
+    app.state.visualizer = Visualizer(
+        None if settings.visualization_url is None else str(settings.visualization_url),
+        settings.visualization_timeout_seconds,
+    )
     app.state.extractor = extractor
     app.state.agent = agent
     app.state.embedder = embedder

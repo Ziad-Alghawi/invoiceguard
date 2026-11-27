@@ -87,8 +87,11 @@
     "loading": "PDF wird geladen …",
     "pdfFailed": "Das PDF kann hier nicht angezeigt werden; laden Sie das Original herunter.",
     "page": "Seite {page} von {pages}",
-    "xmlOnly": "Diese Rechnung ist eine XML-E-Rechnung ohne PDF; laden Sie das Original herunter.",
-    "notLocated": "{field}: im Text des PDFs nicht gefunden. Bitte selbst mit der Seite vergleichen."
+    "notLocated": "{field}: im Text des PDFs nicht gefunden. Bitte selbst mit der Seite vergleichen.",
+    "xrechnungTitle": "E-Rechnung in der KoSIT-XRechnung-Visualisierung",
+    "viewLabel": "Dokumentansicht",
+    "viewPdf": "PDF",
+    "viewXml": "E-Rechnung (XML)"
   },
   "Checks": {
     "none": "Noch keine Prüfungen gelaufen.",

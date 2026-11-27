@@ -24,6 +24,14 @@ vi.mock("@/components/pdf-viewer", () => ({
   ),
 }));
 
+vi.mock("@/components/xrechnung-view", () => ({
+  XRechnungView: ({
+    field,
+  }: {
+    field: { code: string; line_no: number | null } | null;
+  }) => <div data-testid="xrechnung-view" data-field={field?.code ?? ""} />,
+}));
+
 afterEach(cleanup);
 
 const ID = "0b9d1c51-6f0e-4d0c-9f0a-1d2e3f405162";
@@ -118,8 +126,39 @@ describe("InvoiceDocument", () => {
     expect(highlights()).toEqual([]);
   });
 
-  it("says when there is no PDF to show", () => {
-    renderSplit("xml", "de");
-    expect(screen.getByText(/XML-E-Rechnung ohne PDF/)).toBeTruthy();
+  it("shows an XML invoice as the XRechnung view, with the clicked term", () => {
+    renderSplit("xml");
+    expect(screen.queryByTestId("pdf-viewer")).toBeNull();
+    expect(screen.queryByRole("group", { name: "Document view" })).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show Payee IBAN in the document" }),
+    );
+    expect(screen.getByTestId("xrechnung-view").dataset.field).toBe("BT-84");
+  });
+
+  it("switches a ZUGFeRD PDF between the PDF and its e-invoice XML", () => {
+    renderSplit("pdf", "de");
+    const switcher = screen.getByRole("group", { name: "Dokumentansicht" });
+    fireEvent.click(
+      within(switcher).getByRole("button", { name: "E-Rechnung (XML)" }),
+    );
+    expect(screen.getByTestId("xrechnung-view")).toBeTruthy();
+    expect(screen.queryByTestId("pdf-viewer")).toBeNull();
+    fireEvent.click(within(switcher).getByRole("button", { name: "PDF" }));
+    expect(screen.getByTestId("pdf-viewer")).toBeTruthy();
+  });
+
+  it("offers no XML view for a plain PDF read by the LLM", () => {
+    renderWithIntl(
+      <SelectionProvider>
+        <InvoiceDocument
+          invoice={{ id: ID, source_type: "pdf" }}
+          fields={FIELDS.map((field) => ({ ...field, source: "llm" as const }))}
+          locations={LOCATIONS}
+        />
+      </SelectionProvider>,
+    );
+    expect(screen.queryByRole("group")).toBeNull();
+    expect(screen.getByTestId("pdf-viewer")).toBeTruthy();
   });
 });

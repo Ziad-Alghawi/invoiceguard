@@ -87,8 +87,11 @@
     "loading": "Loading the PDF …",
     "pdfFailed": "The PDF cannot be shown here; download the original.",
     "page": "Page {page} of {pages}",
-    "xmlOnly": "This invoice is an XML e-invoice without a PDF; download the original.",
-    "notLocated": "{field}: not located in the PDF text layer. Compare it with the page by eye."
+    "notLocated": "{field}: not located in the PDF text layer. Compare it with the page by eye.",
+    "xrechnungTitle": "E-invoice in the KoSIT XRechnung visualization",
+    "viewLabel": "Document view",
+    "viewPdf": "PDF",
+    "viewXml": "E-invoice (XML)"
   },
   "Checks": {
     "none": "No checks run yet.",
