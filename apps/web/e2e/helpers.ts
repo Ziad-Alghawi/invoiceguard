@@ -74,6 +74,33 @@ export async function upload(
   });
   expect(response.status(), await response.text()).toBe(202);
   const { id } = (await response.json()) as { id: string };
+  return waitForProcessing(api, id);
+}
+
+/**
+ * Uploads a committed fixture file; a run on the same stack finds it already there (409, the
+ * same bytes) and uses that invoice. Returns the invoice ID once processing has finished.
+ */
+export async function uploadFixture(
+  api: APIRequestContext,
+  fixture: string,
+  mimeType: string,
+) {
+  const buffer = await readFile(path.join(__dirname, "fixtures", fixture));
+  const response = await api.post("/invoices", {
+    multipart: { file: { name: fixture, mimeType, buffer } },
+  });
+  const body = (await response.json()) as {
+    id?: string;
+    detail?: { invoice_id: string };
+  };
+  const id = response.status() === 409 ? body.detail?.invoice_id : body.id;
+  expect(id, JSON.stringify(body)).toBeTruthy();
+  await waitForProcessing(api, id as string);
+  return id as string;
+}
+
+async function waitForProcessing(api: APIRequestContext, id: string) {
   let status = "received";
   await expect
     .poll(
