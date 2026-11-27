@@ -41,6 +41,10 @@ exception agent's recorded run (the demo has no model key). Do not upload real i
 | --- | --- | --- |
 | ![Review queue in German with ready and blocked invoices and the reason for each block](docs/images/queue.png) | ![Invoice page with the failed IBAN check, its evidence, the decision panel and the history](docs/images/blocked-iban.png) | ![The agent's finding and its German email draft to the supplier](docs/images/investigation.png) |
 
+| Split view: click a field, see it in the PDF | Readable XRechnung (KoSIT visualization) |
+| --- | --- |
+| ![ZUGFeRD PDF on the left with the payee IBAN marked in yellow, the extracted fields on the right with the IBAN row selected](docs/images/split-view.png) | ![An XRechnung shown with the official KoSIT visualization next to the checks, the clicked IBAN marked](docs/images/xrechnung-view.png) |
+
 ## Features
 
 - **E-invoice reading by code:** XRechnung (UBL and CII) and ZUGFeRD 2.x / Factur-X into EN 16931 terms,
@@ -51,6 +55,11 @@ exception agent's recorded run (the demo has no model key). Do not upload real i
 - **Deterministic checks with evidence:** the official KoSIT validator, VAT math, duplicates, known supplier,
   payee IBAN against verified accounts, purchase-order match, low LLM confidence, and a prompt-injection scan.
   Any failed check blocks the invoice.
+- **Review you can check at a glance:** the invoice page shows the document next to the fields, checks and
+  decision. Click a field and its value is marked in the PDF, found by code in the PDF's text layer (German and
+  English amounts and dates, IBANs with spaces; 98.9 % of the eval fields located, no model). XRechnung is shown
+  with the official KoSIT visualization in a sandboxed frame, with the clicked business term marked. Keyboard
+  shortcuts (j/k/Enter, a/r/Esc/?), a dark mode, and queue columns for supplier, amount, due date and age.
 - **Human review as a hard gate:** each invoice is a LangGraph thread that pauses at review with `interrupt()`.
   Approve or reject with reasons; a blocked invoice is approved only by a four-eyes override. Seeded logins
   (Argon2id, server-side sessions, HttpOnly cookies, lockout per account and a limit per IP address).
@@ -71,7 +80,7 @@ exception agent's recorded run (the demo has no model key). Do not upload real i
 - **German and English UI** (next-intl): German by default, a DE | EN switch, and tests that fail on a missing
   translation.
 - **Run like production:** Helm charts on k3s, delivered by Argo CD from a git tag; images scanned by Trivy
-  and pushed to GHCR; Prometheus metrics with tested alert rules; 99 % API test coverage and 7 Playwright tests
+  and pushed to GHCR; Prometheus metrics with tested alert rules; 99 % API test coverage and 10 Playwright tests
   in CI.
 
 ## Architecture
@@ -357,6 +366,9 @@ keine echte Funktionstrennung. Bitte keine echten Rechnungen hochladen.
    vier Augen. Die API setzt diese Regeln durch, nicht die Oberfläche. Ein KI-Agent untersucht gesperrte
    Rechnungen mit nur lesenden Werkzeugen (ERP, Lieferantenregister, Buchungshistorie, Regelwerk) und schreibt
    einen Befund und einen E-Mail-Entwurf an den Lieferanten. Er kann nichts freigeben und nichts ändern.
+   Die Rechnungsseite zeigt das Dokument neben Feldern, Prüfungen und Entscheidung: Ein Klick auf ein Feld markiert
+   den Wert im PDF (per Code im Textlayer gefunden, ohne KI); XRechnungen erscheinen in der offiziellen
+   KoSIT-Visualisierung. Tastenkürzel (j/k/Enter, a/r/Esc/?) und ein dunkles Farbschema.
 5. **Exportieren:** Freigegebene Rechnungen als DATEV-Buchungsstapel (`EXTF`), je gewähltem Konto und Steuersatz
    eine Zeile. Keine zertifizierte DATEV-Schnittstelle: Der erste Import braucht eine Prüfung durch die
    Steuerberatung.
