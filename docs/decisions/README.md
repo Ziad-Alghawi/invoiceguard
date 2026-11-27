@@ -32,3 +32,4 @@ New ADRs start from the [template](ADR-000-template.md).
 | [ADR-025](ADR-025-metrics-prometheus-local-grafana.md) | Metrics with one small Prometheus on the demo, Grafana on the developer machine | Accepted |
 | [ADR-026](ADR-026-default-extraction-model.md) | gemini-3.8-flash stays the default extraction model | Accepted |
 | [ADR-027](ADR-027-ui-languages.md) | German and English UI with next-intl, language in a cookie | Accepted |
+| [ADR-028](ADR-028-scope-v2-incoming-invoice-desk.md) | Scope v2.0: an incoming-invoice desk | Accepted |

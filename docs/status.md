@@ -1,7 +1,7 @@
 # Status
 
-**Current milestone:** R5 — Polish and story: done except the dated items below; release v1.0.0
-**Last updated:** 2026-11-22
+**Current milestone:** P1 — Review you can trust (v2.0, ADR-028)
+**Last updated:** 2026-11-27
 
 ## Done
 - R0 — Foundation (complete)
@@ -237,6 +237,10 @@
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
+- P1 — Review you can trust (v2.0, ADR-028), one PR from `feat/v2-p1-review` (in progress):
+  - ADR-028 (scope v2), split view with PDF.js, click-to-highlight from the PDF text layer, readable XRechnung
+    with the KoSIT visualization (ADR-029), keyboard shortcuts, dark-mode switch, queue columns.
+  - Gate 1: both views work on all 6 demo invoices; share of fields located in `docs/results.md`; CI green.
 - R4 — Platform (PLAN.md §11), plan approved 2026-11-19, six PRs in this order:
   - R4-1: R3 wrap-up (done, see R3 above), CI hardening (every GitHub Action pinned to a commit SHA, Dependabot for actions, images built,
     scanned by Trivy and pushed to GHCR tagged with the commit SHA) and ADR-021 (k3s on the existing VPS, Caddy

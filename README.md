@@ -258,7 +258,7 @@ working rules, [SECURITY.md](SECURITY.md) how to report a vulnerability.
 
 ## Decisions
 
-Every architectural choice is an ADR in [docs/decisions](docs/decisions/README.md), 27 so far, among them:
+Every architectural choice is an ADR in [docs/decisions](docs/decisions/README.md), 28 so far, among them:
 
 - [ADR-002: Boundary between deterministic code and LLMs](docs/decisions/ADR-002-code-vs-llm-boundary.md)
 - [ADR-003: Human approval is a hard gate](docs/decisions/ADR-003-approval-hard-gate.md)
@@ -285,15 +285,15 @@ Done, one release each:
   Prometheus, model comparison
 - **R5 Polish:** DATEV rows per account, German UI, this README, release 1.0.0
 
-What I would do next, in this order:
+Next: version 2.0, an incoming-invoice desk ([ADR-028](docs/decisions/ADR-028-scope-v2-incoming-invoice-desk.md)),
+one phase at a time:
 
-1. Upgrade LiteLLM once the release has been public for a week (ADR-004), planned for 2026-11-26.
-2. Translate the API's remaining texts (check messages, agent notes, errors) through message codes.
-3. Match purchase-order lines by item ID or order line reference instead of by position.
-4. Close the duplicate-check race with a unique index on seller and normalised invoice number.
-5. Scan-like PDFs (no text layer, image noise) in the eval set, then measure OCR.
-6. Compare an EU-hosted model (Mistral or a local Ollama model) once a server has room for it.
-7. Traces (Langfuse) and an Alertmanager route, both cut from R4 to keep the 4 GB server small.
+- **P1 Review you can trust:** split view with the document next to the fields, click-to-highlight, readable
+  XRechnung, keyboard shortcuts
+- **P2 Every invoice arrives:** mailbox intake with a job queue and worker, archive record from receipt
+- **P3 Tax rules and fraud:** mandatory invoice items and error classes, PDF-vs-XML check, bank change workflow
+- **P4 On time, paid right:** Skonto and due dates, payment proposal list, approval routing, learned supplier rules
+- **P5 Proof and release:** a real DATEV import by a tax advisor, agent facts eval, release 2.0.0
 
 ## Limitations
 
