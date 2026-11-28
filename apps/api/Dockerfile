@@ -25,6 +25,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Run: the virtual environment and the migrations, as a non-root user.
 FROM python:3.12-slim AS run
 
+# CVE-2026-124851: the base image still has libzstd1 1.5.7+dfsg-1; Debian's fix (+deb13u1) is in
+# trixie-security. Drop this step once the official image ships it.
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends --only-upgrade libzstd1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # A named volume mounted on /data/uploads takes over this owner, so the app user can write uploads.
 # Fixed IDs, so Kubernetes can check runAsNonRoot and the chart sets the same user (R4-3).
 RUN groupadd --system --gid 999 app && useradd --system --uid 999 --gid app --no-create-home app \
