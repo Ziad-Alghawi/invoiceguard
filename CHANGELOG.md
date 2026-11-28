@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- LiteLLM 1.108.1 → 1.110.2 and filelock 3.32.7 → 4.2.2 (ADR-004: each release public for at least a week); the
+  filelock entry is out of `.trivyignore`. The exception agent's schema text was reworded, so its recorded replies
+  were recorded again ($0.32); the eval gates pass unchanged.
+
 ## [1.0.0] - 2026-11-22
 
 The first release: everything from R0 to R5. Newest entries first in each section.

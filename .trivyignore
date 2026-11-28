@@ -1,7 +1,2 @@
 # Accepted Trivy findings (R4-1). Each entry: why it is accepted, what removes it, and an expiry
 # date after which the scan fails again. Fix instead of ignoring whenever a fix exists.
-
-# filelock 3.32.7 in the api (through litellm and huggingface-hub): only ReadWriteLock is affected,
-# and nothing in the api or its packages uses it (checked 2026-11-19). The fix (4.2.1) is outside
-# litellm 1.108.1's `filelock<4`; litellm 1.110.1 allows it, and that upgrade (ADR-004) removes this.
-CVE-2026-112940 exp:2026-12-19
