@@ -1,7 +1,7 @@
 # Status
 
-**Current milestone:** R5 — Polish and story: done except the dated items below; release v1.0.0
-**Last updated:** 2026-11-22
+**Current milestone:** P1 — Review you can trust (v2.0, ADR-028)
+**Last updated:** 2026-11-27
 
 ## Done
 - R0 — Foundation (complete)
@@ -237,6 +237,30 @@
 - None for R1. Demo hosting and domain settled in ADR-014.
 
 ## Next
+- P1 — Review you can trust (v2.0, ADR-028): done on `feat/v2-p1-review`, one PR, waiting for review. P0 (LiteLLM
+  1.110.2, filelock 4.2.2, agent replies recorded again for $0.317) is its own PR from `chore/litellm-upgrade`.
+  - ADR-028 (scope v2: incoming-invoice desk; AI reads and writes text, code decides; payment proposal file
+    allowed, no payment; n8n and the Arabic UI dropped). CLAUDE.md: one phase per session.
+  - Split view (pdf.js 6.5.438): PDF left, fields, checks and decision right, stacked below `lg`.
+  - Click-to-highlight (ADR-029): `GET /invoices/{id}/locations`, pdfminer.six character boxes, value patterns
+    for German and English amounts and dates, IBANs with spaces, unit and type codes as printed words; line terms
+    on their printed row; LLM fields through their stored evidence. "Not located" when nothing matches.
+  - Readable XRechnung (ADR-029): KoSIT xrechnung-visualization v2026-10-13 (SHA-256 pinned) in the validator's
+    JVM on port 8082 (a Java launcher compiles the stylesheets with the validator jar's Saxon, then starts the
+    daemon). Measured under the 1 GiB limit: 446 → 529 MiB; first view 0.18 s, then about 0.07 s. The api strips
+    scripts and handlers, shows every tab panel, marks the clicked BT element, and serves it under
+    `default-src 'none' … sandbox`; the web shows it in `<iframe sandbox="">`. Helm: Service port and a
+    NetworkPolicy rule for the api only; no new pod.
+  - Keyboard shortcuts (j/k/Enter; a with a confirmation dialog, r to the reject reason, Esc, ?), never in text
+    fields; dark-mode switch (cookie `THEME`, head script, no flash); queue columns supplier, gross amount, due
+    date, age, sort by due date (`GET /invoices?sort=`). All new text in German and English.
+  - Gate 1: both views work on all 6 demo invoices (XML view with the clicked term marked: checked through the
+    api on all 6; PDF view: the 6 demo PDFs 166 of 166 fields located, checked in the browser on a ZUGFeRD
+    build of sample 04). Fields located on demo and eval PDFs: **1240 of 1254 (98.9 %)** (corpus 96.7 %, demo
+    100 %, generated 99.9 %), in `docs/results.md`. Ziad's keyboard-only review of the 6 demo invoices is still
+    open.
+  - Tests added: pytest 35 (locations) + 10 (visualization, 2 against the real service) + 3 (queue) + 2 (evals);
+    Vitest 9 files / 32 tests; Playwright 3 (PDF highlight, XRechnung view, keyboard approve).
 - R4 — Platform (PLAN.md §11), plan approved 2026-11-19, six PRs in this order:
   - R4-1: R3 wrap-up (done, see R3 above), CI hardening (every GitHub Action pinned to a commit SHA, Dependabot for actions, images built,
     scanned by Trivy and pushed to GHCR tagged with the commit SHA) and ADR-021 (k3s on the existing VPS, Caddy

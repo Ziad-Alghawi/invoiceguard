@@ -17,6 +17,12 @@
     "shortDe": "DE",
     "shortEn": "EN"
   },
+  "Theme": {
+    "label": "Farbschema",
+    "system": "Wie das System",
+    "light": "Hell",
+    "dark": "Dunkel"
+  },
   "NotFound": {
     "title": "Nicht gefunden",
     "text": "Diese Seite oder Rechnung gibt es nicht.",
@@ -65,11 +71,18 @@
     "empty": "Hier sind keine Rechnungen.",
     "file": "Datei",
     "status": "Status",
-    "received": "Eingegangen",
     "pagesLabel": "Seiten",
     "previous": "Zurück",
     "next": "Weiter",
-    "pageInfo": "Seite {page} von {pages} · {total, plural, one {# Rechnung} other {# Rechnungen}}"
+    "pageInfo": "Seite {page} von {pages} · {total, plural, one {# Rechnung} other {# Rechnungen}}",
+    "shortcutsHint": "Tasten: j / k wechseln, Enter öffnet, ? Hilfe",
+    "supplier": "Lieferant",
+    "gross": "Bruttobetrag",
+    "due": "Fällig am",
+    "dueSortedAsc": "Fällig am ↑",
+    "dueSortedDesc": "Fällig am ↓",
+    "age": "Alter",
+    "ageDays": "{days, plural, =0 {heute} one {# Tag} other {# Tage}}"
   },
   "Invoice": {
     "received": "{source} · eingegangen am {date}",
@@ -80,7 +93,19 @@
     "fields": "Ausgelesene Felder",
     "decision": "Entscheidung",
     "history": "Verlauf",
-    "lowConfidence": "{count, plural, one {# Feld mit niedriger Konfidenz ist markiert} other {# Felder mit niedriger Konfidenz sind markiert}}: Vergleichen Sie sie mit dem Original."
+    "lowConfidence": "{count, plural, one {# Feld mit niedriger Konfidenz ist markiert} other {# Felder mit niedriger Konfidenz sind markiert}}: Vergleichen Sie sie mit dem Original.",
+    "document": "Dokument",
+    "shortcutsHint": "Tasten: a freigeben, r ablehnen, Esc zurück, ? Hilfe"
+  },
+  "Document": {
+    "loading": "PDF wird geladen …",
+    "pdfFailed": "Das PDF kann hier nicht angezeigt werden; laden Sie das Original herunter.",
+    "page": "Seite {page} von {pages}",
+    "notLocated": "{field}: im Text des PDFs nicht gefunden. Bitte selbst mit der Seite vergleichen.",
+    "xrechnungTitle": "E-Rechnung in der KoSIT-XRechnung-Visualisierung",
+    "viewLabel": "Dokumentansicht",
+    "viewPdf": "PDF",
+    "viewXml": "E-Rechnung (XML)"
   },
   "Checks": {
     "none": "Noch keine Prüfungen gelaufen.",
@@ -97,7 +122,9 @@
     "llm": "LLM {confidence}",
     "llmLow": "LLM {confidence} – niedrige Konfidenz, PDF prüfen",
     "snippet": "S. {page}: „{snippet}“",
-    "unknownPage": "?"
+    "unknownPage": "?",
+    "show": "{field} im Dokument zeigen",
+    "notLocated": "nicht gefunden"
   },
   "Decision": {
     "noDecision": "Keine Entscheidung möglich, solange die Rechnung {status} ist.",
@@ -127,7 +154,9 @@
     "blockerRequester": "Sie haben sie beantragt, daher muss ein anderer Freigeber entscheiden.",
     "rejectForm": "Ablehnen",
     "rejectReason": "Grund der Ablehnung",
-    "reject": "Ablehnen"
+    "reject": "Ablehnen",
+    "confirmApprove": "Diese Rechnung freigeben?",
+    "cancel": "Abbrechen"
   },
   "Investigation": {
     "intro": "Der Agent liest ERP und Lieferantenregister (nur lesend) und schlägt eine Erklärung und eine E-Mail vor. Er kann die Rechnung weder freigeben noch ändern.",
@@ -347,5 +376,15 @@
       "internal_error": "Die Verarbeitung ist mit einem internen Fehler abgebrochen; siehe die API-Logs.",
       "restarted": "Zurückgesetzt, weil ein Neustart der API die Verarbeitung unterbrochen hat."
     }
+  },
+  "Shortcuts": {
+    "title": "Tastenkürzel",
+    "close": "Schließen",
+    "next": "Nächste Rechnung",
+    "previous": "Vorherige Rechnung",
+    "open": "Rechnung öffnen",
+    "help": "Diese Kürzel zeigen",
+    "approve": "Freigeben (mit Rückfrage)",
+    "reject": "Ablehnen: Grund eingeben"
   }
 }

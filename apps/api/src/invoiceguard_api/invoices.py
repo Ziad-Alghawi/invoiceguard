@@ -4,9 +4,9 @@
 
 import hashlib
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
-from typing import Annotated, Any, BinaryIO
+from typing import Annotated, Any, BinaryIO, Literal
 from urllib.parse import quote
 
 from fastapi import (
@@ -30,6 +30,7 @@ from invoiceguard_api.auth import CurrentUser, current_user
 from invoiceguard_api.booking.embedding import embed_invoice_lines
 from invoiceguard_api.db import DbSession
 from invoiceguard_api.filetype import safe_filename, source_type_for
+from invoiceguard_api.locations import FieldToLocate, UnreadablePdf, locate_fields, read_text_layer
 from invoiceguard_api.models import (
     AuditEvent,
     Check,
@@ -46,6 +47,7 @@ from invoiceguard_api.parsing.fields import DOCUMENT_TERMS, LINE_TERMS
 from invoiceguard_api.processing import process_invoice
 from invoiceguard_api.status_reasons import ReasonCode, reason_code
 from invoiceguard_api.storage import FileStorage
+from invoiceguard_api.visualization import Language, VisualizationUnavailable, make_static
 
 router = APIRouter(prefix="/invoices", tags=["invoices"], dependencies=[Depends(current_user)])
 
@@ -84,6 +86,19 @@ class InvoiceOut(BaseModel):
     @property
     def status_reason_checks(self) -> list[str]:
         return reason_code(self.status_reason)[1]
+
+
+class QueueItemOut(InvoiceOut):
+    """An invoice in the queue, with the terms a reviewer sorts and picks by (P1)."""
+
+    # BT-27, BT-112, BT-5 and BT-9 as stored; null until read, or when the invoice has none.
+    supplier: str | None
+    gross_total: Decimal | None
+    currency: str | None
+    due_date: date | None
+
+
+QueueSort = Literal["received", "due_date", "-due_date"]
 
 
 class CheckOut(BaseModel):
@@ -127,6 +142,33 @@ class InvoiceDetailOut(InvoiceOut):
 
 # The order a reviewer reads check results in.
 SEVERITY_ORDER = (CheckStatus.FAILED, CheckStatus.WARNING, CheckStatus.SKIPPED, CheckStatus.PASSED)
+
+
+class BoxOut(BaseModel):
+    # 1-based page number; the box in fractions of the page, origin at the top left.
+    page: int
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+
+
+class FieldLocationOut(BaseModel):
+    code: str
+    line_no: int | None
+    located: bool
+    # "text": the value found in the text layer; "evidence": an LLM field found through its
+    # stored page and printed text. Null when not located.
+    method: Literal["text", "evidence"] | None
+    # One box per printed line of the value; empty when not located.
+    boxes: list[BoxOut]
+
+
+class LocationsOut(BaseModel):
+    # False for an XML invoice: there is no PDF to point into, and `fields` is empty.
+    pdf: bool
+    # Same order as the fields of GET /invoices/{id}.
+    fields: list[FieldLocationOut]
 
 
 class ErrorOut(BaseModel):
@@ -330,6 +372,34 @@ def upload_invoice(
     return InvoiceOut.model_validate(invoice)
 
 
+def _document_term(code: str) -> Any:
+    """A document term's stored value for each listed invoice (a correlated subquery)."""
+    return (
+        select(InvoiceField.value)
+        .where(
+            InvoiceField.invoice_id == Invoice.id,
+            InvoiceField.code == code,
+            InvoiceField.line_no.is_(None),
+        )
+        .correlate(Invoice)
+        .scalar_subquery()
+    )
+
+
+def _decimal(value: str | None) -> Decimal | None:
+    try:
+        return None if value is None else Decimal(value)
+    except ArithmeticError:
+        return None
+
+
+def _date(value: str | None) -> date | None:
+    try:
+        return None if value is None else date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
 @router.get("")
 def list_invoices(
     session: DbSession,
@@ -337,20 +407,53 @@ def list_invoices(
     status_filter: Annotated[list[InvoiceStatus] | None, Query(alias="status")] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-) -> list[InvoiceOut]:
-    """Invoices, newest first. Repeat `status` to filter on several statuses.
+    sort: QueueSort = "received",
+) -> list[QueueItemOut]:
+    """Invoices with supplier, gross amount, currency and due date. Repeat `status` to filter on
+    several statuses.
 
-    The `X-Total-Count` header holds the number of matching invoices, for paging.
+    `sort`: `received` newest first (default), `due_date` soonest due first, `-due_date` latest
+    first; invoices without a due date come last either way. The `X-Total-Count` header holds
+    the number of matching invoices, for paging.
     """
+    supplier, gross, currency, due = (
+        _document_term(code).label(name)
+        for code, name in (
+            ("BT-27", "supplier"),
+            ("BT-112", "gross_total"),
+            ("BT-5", "currency"),
+            ("BT-9", "due_date"),
+        )
+    )
     query = select(Invoice)
     if status_filter:
         query = query.where(Invoice.status.in_(status_filter))
     total = session.scalar(select(func.count()).select_from(query.subquery()))
     response.headers["X-Total-Count"] = str(total)
-    invoices = session.scalars(
-        query.order_by(Invoice.created_at.desc(), Invoice.id.desc()).limit(limit).offset(offset)
+    # BT-9 is stored as an ISO date (YYYY-MM-DD), so text order is date order.
+    order = {
+        "received": [Invoice.created_at.desc()],
+        "due_date": [due.asc().nulls_last(), Invoice.created_at.desc()],
+        "-due_date": [due.desc().nulls_last(), Invoice.created_at.desc()],
+    }[sort]
+    rows = session.execute(
+        query.add_columns(supplier, gross, currency, due)
+        .order_by(*order, Invoice.id.desc())
+        .limit(limit)
+        .offset(offset)
     )
-    return [InvoiceOut.model_validate(invoice) for invoice in invoices]
+    return [
+        QueueItemOut.model_validate(
+            {
+                **InvoiceOut.model_validate(invoice).model_dump(),
+                "supplier": supplier_name,
+                "gross_total": _decimal(gross_total),
+                "currency": currency_code,
+                "due_date": _date(due_date),
+            }
+        )
+        for invoice, supplier_name, gross_total, currency_code, due_date in rows
+    ]
 
 
 def get_invoice_or_404(session: Session, invoice_id: uuid.UUID) -> Invoice:
@@ -381,11 +484,7 @@ def get_invoice(invoice_id: uuid.UUID, session: DbSession, request: Request) -> 
     """The invoice with its fields and check results (empty until processing has run)."""
     invoice = get_invoice_or_404(session, invoice_id)
     threshold = request.app.state.settings.extraction_confidence_threshold
-    fields = session.scalars(
-        select(InvoiceField)
-        .where(InvoiceField.invoice_id == invoice_id)
-        .order_by(InvoiceField.line_no.asc().nulls_first(), InvoiceField.code)
-    ).all()
+    fields = _fields(session, invoice_id)
     checks = session.scalars(select(Check).where(Check.invoice_id == invoice_id)).all()
     ordered = sorted(checks, key=lambda check: (SEVERITY_ORDER.index(check.status), check.type))
     calls, cost = session.execute(
@@ -402,6 +501,111 @@ def get_invoice(invoice_id: uuid.UUID, session: DbSession, request: Request) -> 
             "llm_calls": calls,
             "llm_cost_usd": cost,
         }
+    )
+
+
+def _fields(session: Session, invoice_id: uuid.UUID) -> list[InvoiceField]:
+    return list(
+        session.scalars(
+            select(InvoiceField)
+            .where(InvoiceField.invoice_id == invoice_id)
+            .order_by(InvoiceField.line_no.asc().nulls_first(), InvoiceField.code)
+        )
+    )
+
+
+@router.get(
+    "/{invoice_id}/locations",
+    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorOut, "description": "Unknown invoice"}},
+)
+def get_invoice_locations(
+    invoice_id: uuid.UUID, session: DbSession, request: Request
+) -> LocationsOut:
+    """Where each field value is printed in the PDF (click-to-highlight, ADR-029).
+
+    Found by code in the PDF's text layer; no model is called. A PDF without a text layer, or one
+    pdfminer cannot read, gives every field as not located.
+    """
+    invoice = get_invoice_or_404(session, invoice_id)
+    if invoice.source_type is not SourceType.PDF:
+        return LocationsOut(pdf=False, fields=[])
+    fields = _fields(session, invoice_id)
+    storage: FileStorage = request.app.state.storage
+    try:
+        pages = read_text_layer(storage.read(invoice.storage_path))
+    except UnreadablePdf:
+        pages = []
+    located = locate_fields(
+        [FieldToLocate(f.code, f.line_no, f.value, f.evidence) for f in fields], pages
+    )
+    return LocationsOut(
+        pdf=True,
+        fields=[
+            FieldLocationOut(
+                code=location.code,
+                line_no=location.line_no,
+                located=location.located,
+                method=location.method,
+                boxes=[BoxOut(**vars(box)) for box in location.boxes],
+            )
+            for location in located
+        ],
+    )
+
+
+# The view is shown in a sandboxed iframe of the web app; this CSP makes it static wherever it
+# is opened: no scripts, no requests, no forms, inline styles and data: images only.
+NO_XML_MESSAGE = "This invoice has no e-invoice XML."
+VIEW_CSP = (
+    "default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; "
+    "frame-ancestors 'self'; sandbox"
+)
+
+
+@router.get(
+    "/{invoice_id}/view",
+    response_class=Response,
+    responses={
+        status.HTTP_200_OK: {"content": {"text/html": {}}},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorOut, "description": "Unknown invoice or no XML"},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "model": ErrorOut,
+            "description": "The visualization is not configured or not reachable",
+        },
+    },
+)
+def get_invoice_view(
+    invoice_id: uuid.UUID,
+    session: DbSession,
+    request: Request,
+    lang: Language = "de",
+    highlight: Annotated[str | None, Query(pattern=r"^BT-\d{1,3}$")] = None,
+    line: Annotated[int | None, Query(ge=1)] = None,
+) -> Response:
+    """The invoice's e-invoice XML as the official KoSIT visualization (ADR-029), static HTML.
+
+    For XML invoices and PDFs with embedded XML (ZUGFeRD). `highlight` marks a business term
+    (`BT-84`), `line` picks the invoice line of a line term; the marked value has the anchor
+    `#highlight`.
+    """
+    invoice = get_invoice_or_404(session, invoice_id)
+    storage: FileStorage = request.app.state.storage
+    try:
+        xml = invoice_xml(storage.read(invoice.storage_path), invoice.source_type)
+    except (NoEmbeddedXml, ParseError) as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, NO_XML_MESSAGE) from error
+    try:
+        page = request.app.state.visualizer.render(invoice.sha256, xml, lang)
+    except VisualizationUnavailable as error:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(error)) from error
+    return Response(
+        make_static(page, highlight, line),
+        media_type="text/html",
+        headers={
+            "Content-Security-Policy": VIEW_CSP,
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, no-store",
+        },
     )
 
 

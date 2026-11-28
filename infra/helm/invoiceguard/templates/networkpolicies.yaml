@@ -96,7 +96,8 @@ spec:
     - {{- toYaml $dns | nindent 6 }}
 {{- end }}
 ---
-# The validator: reached by the api and the demo reset; needs no outgoing traffic at all.
+# The validator: reached by the api and the demo reset; needs no outgoing traffic at all. The
+# visualization on its second port (ADR-029) is for the api only.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -118,5 +119,12 @@ spec:
               {{- include "invoiceguard.selectorLabels" (dict "ctx" . "component" "demo-reset") | nindent 14 }}
       ports:
         - port: 8080
+          protocol: TCP
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "invoiceguard.selectorLabels" (dict "ctx" . "component" "api") | nindent 14 }}
+      ports:
+        - port: 8082
           protocol: TCP
 {{- end }}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 
 import type { ActionState } from "@/app/actions";
 import { useCheckTypeLabel } from "@/components/check-list";
@@ -19,6 +19,7 @@ import {
   type InvoiceStatus,
   type OverrideBlocker,
 } from "@/lib/invoices";
+import { shortcutKey } from "@/lib/shortcuts";
 
 type Action = (state: ActionState, formData: FormData) => Promise<ActionState>;
 
@@ -55,11 +56,20 @@ function ErrorText({ state }: { state: ActionState }) {
   ) : null;
 }
 
-function ReasonField({ label, name }: { label: string; name: string }) {
+function ReasonField({
+  label,
+  name,
+  ref,
+}: {
+  label: string;
+  name: string;
+  ref?: React.Ref<HTMLTextAreaElement>;
+}) {
   return (
     <label className="flex flex-col gap-1 text-sm">
       {label}
       <textarea
+        ref={ref}
         name={name}
         required
         maxLength={2000}
@@ -165,6 +175,31 @@ export function DecisionPanel({
     rejecting ||
     reopening;
   const overrideRequested = status === "override_requested";
+  const approveForm = useRef<HTMLFormElement>(null);
+  const approveDialog = useRef<HTMLDialogElement>(null);
+  const approveConfirm = useRef<HTMLButtonElement>(null);
+  const rejectReason = useRef<HTMLTextAreaElement>(null);
+
+  // a: approve, after the confirmation below; r: to the reject reason, which the reject button
+  // needs. Never while typing (lib/shortcuts.ts).
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      const key = shortcutKey(event);
+      if (key === "a" && approveForm.current !== null && !busy) {
+        event.preventDefault();
+        approveDialog.current?.showModal();
+        // React does not render `autoFocus` as an attribute, so showModal() would focus the
+        // first button (cancel); Enter confirms instead.
+        approveConfirm.current?.focus();
+      } else if (key === "r" && rejectReason.current !== null) {
+        event.preventDefault();
+        rejectReason.current.scrollIntoView({ block: "center" });
+        rejectReason.current.focus();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy]);
 
   if (!canApprove(status) && !canReject(status)) {
     return (
@@ -194,6 +229,7 @@ export function DecisionPanel({
     <div className="flex flex-col gap-4">
       {canApprove(status) && (
         <form
+          ref={approveForm}
           action={approveAction}
           aria-label={t("approve")}
           className="flex flex-col gap-3"
@@ -203,6 +239,35 @@ export function DecisionPanel({
             {t("approve")}
           </button>
           <ErrorText state={approveState} />
+          <dialog
+            ref={approveDialog}
+            aria-labelledby="approve-confirm-title"
+            className="m-auto rounded-md border bg-background p-4 text-foreground shadow-lg backdrop:bg-black/40"
+          >
+            <p id="approve-confirm-title" className="mb-4 text-sm font-medium">
+              {t("confirmApprove")}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => approveDialog.current?.close()}
+                className={OUTLINE}
+              >
+                {t("cancel")}
+              </button>
+              <button
+                ref={approveConfirm}
+                type="button"
+                onClick={() => {
+                  approveDialog.current?.close();
+                  approveForm.current?.requestSubmit();
+                }}
+                className={PRIMARY}
+              >
+                {t("approve")}
+              </button>
+            </div>
+          </dialog>
         </form>
       )}
       {canRequestOverride(status) && (
@@ -275,7 +340,11 @@ export function DecisionPanel({
           aria-label={t("rejectForm")}
           className="flex flex-col gap-2"
         >
-          <ReasonField label={t("rejectReason")} name="reason" />
+          <ReasonField
+            ref={rejectReason}
+            label={t("rejectReason")}
+            name="reason"
+          />
           <button type="submit" disabled={busy} className={OUTLINE}>
             {t("reject")}
           </button>

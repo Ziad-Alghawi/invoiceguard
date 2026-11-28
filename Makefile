@@ -9,11 +9,13 @@ WEB = cd apps/web &&
 # The read-only MCP servers (ADR-017), each its own uv project.
 MCP_SERVERS = apps/mcp-erp apps/mcp-registry apps/mcp-history
 
-# The api tests need INVOICEGUARD_TEST_DATABASE_URL (and INVOICEGUARD_TEST_VALIDATOR_URL for the
-# KoSIT tests); read them from the root .env when there is one.
+# The api tests need INVOICEGUARD_TEST_DATABASE_URL (and INVOICEGUARD_TEST_VALIDATOR_URL and
+# INVOICEGUARD_TEST_VISUALIZATION_URL for the KoSIT tests); read them from the root .env when there
+# is one.
 -include .env
 export INVOICEGUARD_TEST_DATABASE_URL
 export INVOICEGUARD_TEST_VALIDATOR_URL
+export INVOICEGUARD_TEST_VISUALIZATION_URL
 export INVOICEGUARD_EVAL_DATABASE_URL
 export INVOICEGUARD_EVAL_VALIDATOR_URL
 # The login users for `make seed-user` (a reviewer and, optionally, an approver for the four-eyes

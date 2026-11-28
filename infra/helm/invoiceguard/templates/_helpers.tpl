@@ -63,6 +63,11 @@ securityContext:
 {{- printf "http://%s:8080/" (include "invoiceguard.name" (dict "ctx" . "component" "validator")) -}}
 {{- end -}}
 
+{{/* The XRechnung visualization: the validator pod's second port (ADR-029). */}}
+{{- define "invoiceguard.visualizationUrl" -}}
+{{- printf "http://%s:8082/" (include "invoiceguard.name" (dict "ctx" . "component" "validator")) -}}
+{{- end -}}
+
 {{/* The owner's database URL, for the migration hook and the demo reset only (ADR-022). */}}
 {{- define "invoiceguard.ownerDatabaseEnv" -}}
 - name: DATABASE_OWNER_PASSWORD
@@ -83,6 +88,8 @@ securityContext:
   value: {{ .Values.demoMode | quote }}
 - name: INVOICEGUARD_VALIDATOR_URL
   value: {{ include "invoiceguard.validatorUrl" . | quote }}
+- name: INVOICEGUARD_VISUALIZATION_URL
+  value: {{ include "invoiceguard.visualizationUrl" . | quote }}
 {{- with .Values.embeddingModel }}
 - name: INVOICEGUARD_EMBEDDING_MODEL
   value: {{ . | quote }}

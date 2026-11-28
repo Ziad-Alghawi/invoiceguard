@@ -25,6 +25,9 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+            # The XRechnung visualization in the same JVM (ADR-029).
+            - name: visualization
+              containerPort: 8082
           # The JVM loads the XRechnung configuration first.
           startupProbe:
             httpGet:
@@ -67,3 +70,6 @@ spec:
     - name: http
       port: 8080
       targetPort: http
+    - name: visualization
+      port: 8082
+      targetPort: visualization

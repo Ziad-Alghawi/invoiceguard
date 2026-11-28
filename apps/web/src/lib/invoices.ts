@@ -30,6 +30,32 @@ export type Invoice = {
   created_at: string;
 };
 
+/** An invoice in the queue (GET /invoices): the terms a reviewer sorts and picks by. */
+export type QueueItem = Invoice & {
+  supplier: string | null;
+  /** Decimal string such as "5137.23". */
+  gross_total: string | null;
+  currency: string | null;
+  /** ISO date (BT-9). */
+  due_date: string | null;
+};
+
+/** The queue's orders (the API's `sort`): received newest first, or by due date. */
+export const QUEUE_SORTS = ["received", "due_date", "-due_date"] as const;
+
+export type QueueSort = (typeof QUEUE_SORTS)[number];
+
+export function isQueueSort(value: unknown): value is QueueSort {
+  return (
+    typeof value === "string" && QUEUE_SORTS.some((sort) => sort === value)
+  );
+}
+
+/** The due-date column header's next order: soonest first, then latest first, then back. */
+export function nextDueSort(current: QueueSort): QueueSort {
+  return current === "due_date" ? "-due_date" : "due_date";
+}
+
 export type InvoiceField = {
   code: string;
   name: string;
@@ -187,6 +213,49 @@ export function formatDateTime(iso: string, locale: string): string {
     timeStyle: "short",
     timeZone: TIME_ZONE,
   }).format(new Date(iso));
+}
+
+/** An amount in the invoice's currency, in the UI language; the plain number without one. */
+export function formatAmount(
+  value: string,
+  currency: string | null,
+  locale: string,
+): string {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return value;
+  }
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: currency ? "currency" : "decimal",
+      currency: currency ?? undefined,
+      minimumFractionDigits: 2,
+    }).format(number);
+  } catch {
+    // Not an ISO 4217 code: the number and the code as sent.
+    return `${new Intl.NumberFormat(locale, { minimumFractionDigits: 2 }).format(number)} ${currency}`;
+  }
+}
+
+/** A date without time (an ISO date such as BT-9), in the UI language. */
+export function formatDate(isoDate: string, locale: string): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  if (!year || !month || !day) {
+    return isoDate;
+  }
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
+/** Whole days since the invoice was received, as counted in the company's time zone. */
+export function ageInDays(receivedIso: string, now: Date): number {
+  const day = (date: Date) =>
+    new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE }).format(date);
+  const received = Date.parse(day(new Date(receivedIso)));
+  const today = Date.parse(day(now));
+  return Math.max(0, Math.round((today - received) / 86_400_000));
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

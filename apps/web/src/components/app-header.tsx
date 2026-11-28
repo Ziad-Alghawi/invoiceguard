@@ -5,6 +5,7 @@ import { Suspense } from "react";
 
 import { logout, setLocale } from "@/app/actions";
 import { LocaleSwitch } from "@/components/locale-switch";
+import { ThemeSwitch } from "@/components/theme-switch";
 import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/invoices";
 
@@ -34,7 +35,7 @@ async function CurrentUser() {
   );
 }
 
-/** The header of the logged-in pages: home link, the user with their role, language, log out. */
+/** The header of the logged-in pages: home link, the user with their role, language, theme, log out. */
 export function AppHeader() {
   const t = useTranslations("Header");
   return (
@@ -47,6 +48,7 @@ export function AppHeader() {
           <CurrentUser />
         </Suspense>
         <LocaleSwitch setLocale={setLocale} />
+        <ThemeSwitch />
       </div>
     </header>
   );

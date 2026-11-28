@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     # KoSIT validator service (ADR-009). Unset: the KoSIT check is skipped, nothing else changes.
     validator_url: AnyHttpUrl | None = None
     validator_timeout_seconds: float = Field(default=20.0, gt=0)
+    # KoSIT XRechnung visualization, the validator container's second port (ADR-029). Unset: the
+    # readable XRechnung view answers 503, nothing else changes.
+    visualization_url: AnyHttpUrl | None = None
+    visualization_timeout_seconds: float = Field(default=10.0, gt=0)
     # LLM extraction of plain PDFs (ADR-004, ADR-010). No key: PDFs stay `awaiting_extraction`.
     llm_api_key: SecretStr | None = None
     # A LiteLLM model string; its price must be in LiteLLM's price table (ADR-004).

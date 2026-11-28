@@ -41,6 +41,10 @@ exception agent's recorded run (the demo has no model key). Do not upload real i
 | --- | --- | --- |
 | ![Review queue in German with ready and blocked invoices and the reason for each block](docs/images/queue.png) | ![Invoice page with the failed IBAN check, its evidence, the decision panel and the history](docs/images/blocked-iban.png) | ![The agent's finding and its German email draft to the supplier](docs/images/investigation.png) |
 
+| Split view: click a field, see it in the PDF | Readable XRechnung (KoSIT visualization) |
+| --- | --- |
+| ![ZUGFeRD PDF on the left with the payee IBAN marked in yellow, the extracted fields on the right with the IBAN row selected](docs/images/split-view.png) | ![An XRechnung shown with the official KoSIT visualization next to the checks, the clicked IBAN marked](docs/images/xrechnung-view.png) |
+
 ## Features
 
 - **E-invoice reading by code:** XRechnung (UBL and CII) and ZUGFeRD 2.x / Factur-X into EN 16931 terms,
@@ -51,6 +55,11 @@ exception agent's recorded run (the demo has no model key). Do not upload real i
 - **Deterministic checks with evidence:** the official KoSIT validator, VAT math, duplicates, known supplier,
   payee IBAN against verified accounts, purchase-order match, low LLM confidence, and a prompt-injection scan.
   Any failed check blocks the invoice.
+- **Review you can check at a glance:** the invoice page shows the document next to the fields, checks and
+  decision. Click a field and its value is marked in the PDF, found by code in the PDF's text layer (German and
+  English amounts and dates, IBANs with spaces; 98.9 % of the eval fields located, no model). XRechnung is shown
+  with the official KoSIT visualization in a sandboxed frame, with the clicked business term marked. Keyboard
+  shortcuts (j/k/Enter, a/r/Esc/?), a dark mode, and queue columns for supplier, amount, due date and age.
 - **Human review as a hard gate:** each invoice is a LangGraph thread that pauses at review with `interrupt()`.
   Approve or reject with reasons; a blocked invoice is approved only by a four-eyes override. Seeded logins
   (Argon2id, server-side sessions, HttpOnly cookies, lockout per account and a limit per IP address).
@@ -71,7 +80,7 @@ exception agent's recorded run (the demo has no model key). Do not upload real i
 - **German and English UI** (next-intl): German by default, a DE | EN switch, and tests that fail on a missing
   translation.
 - **Run like production:** Helm charts on k3s, delivered by Argo CD from a git tag; images scanned by Trivy
-  and pushed to GHCR; Prometheus metrics with tested alert rules; 99 % API test coverage and 7 Playwright tests
+  and pushed to GHCR; Prometheus metrics with tested alert rules; 99 % API test coverage and 10 Playwright tests
   in CI.
 
 ## Architecture
@@ -258,7 +267,7 @@ working rules, [SECURITY.md](SECURITY.md) how to report a vulnerability.
 
 ## Decisions
 
-Every architectural choice is an ADR in [docs/decisions](docs/decisions/README.md), 27 so far, among them:
+Every architectural choice is an ADR in [docs/decisions](docs/decisions/README.md), 28 so far, among them:
 
 - [ADR-002: Boundary between deterministic code and LLMs](docs/decisions/ADR-002-code-vs-llm-boundary.md)
 - [ADR-003: Human approval is a hard gate](docs/decisions/ADR-003-approval-hard-gate.md)
@@ -285,15 +294,15 @@ Done, one release each:
   Prometheus, model comparison
 - **R5 Polish:** DATEV rows per account, German UI, this README, release 1.0.0
 
-What I would do next, in this order:
+Next: version 2.0, an incoming-invoice desk ([ADR-028](docs/decisions/ADR-028-scope-v2-incoming-invoice-desk.md)),
+one phase at a time:
 
-1. Upgrade LiteLLM once the release has been public for a week (ADR-004), planned for 2026-11-26.
-2. Translate the API's remaining texts (check messages, agent notes, errors) through message codes.
-3. Match purchase-order lines by item ID or order line reference instead of by position.
-4. Close the duplicate-check race with a unique index on seller and normalised invoice number.
-5. Scan-like PDFs (no text layer, image noise) in the eval set, then measure OCR.
-6. Compare an EU-hosted model (Mistral or a local Ollama model) once a server has room for it.
-7. Traces (Langfuse) and an Alertmanager route, both cut from R4 to keep the 4 GB server small.
+- **P1 Review you can trust:** split view with the document next to the fields, click-to-highlight, readable
+  XRechnung, keyboard shortcuts
+- **P2 Every invoice arrives:** mailbox intake with a job queue and worker, archive record from receipt
+- **P3 Tax rules and fraud:** mandatory invoice items and error classes, PDF-vs-XML check, bank change workflow
+- **P4 On time, paid right:** Skonto and due dates, payment proposal list, approval routing, learned supplier rules
+- **P5 Proof and release:** a real DATEV import by a tax advisor, agent facts eval, release 2.0.0
 
 ## Limitations
 
@@ -357,6 +366,9 @@ keine echte Funktionstrennung. Bitte keine echten Rechnungen hochladen.
    vier Augen. Die API setzt diese Regeln durch, nicht die Oberfläche. Ein KI-Agent untersucht gesperrte
    Rechnungen mit nur lesenden Werkzeugen (ERP, Lieferantenregister, Buchungshistorie, Regelwerk) und schreibt
    einen Befund und einen E-Mail-Entwurf an den Lieferanten. Er kann nichts freigeben und nichts ändern.
+   Die Rechnungsseite zeigt das Dokument neben Feldern, Prüfungen und Entscheidung: Ein Klick auf ein Feld markiert
+   den Wert im PDF (per Code im Textlayer gefunden, ohne KI); XRechnungen erscheinen in der offiziellen
+   KoSIT-Visualisierung. Tastenkürzel (j/k/Enter, a/r/Esc/?) und ein dunkles Farbschema.
 5. **Exportieren:** Freigegebene Rechnungen als DATEV-Buchungsstapel (`EXTF`), je gewähltem Konto und Steuersatz
    eine Zeile. Keine zertifizierte DATEV-Schnittstelle: Der erste Import braucht eine Prüfung durch die
    Steuerberatung.

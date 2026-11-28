@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- v2.0 phase P1, "Review you can trust" (ADR-028, ADR-029):
+  - Split view: the invoice PDF (pdf.js 6.5.438) on the left, fields, checks and the decision on the right;
+    stacked on narrow screens.
+  - Click-to-highlight: `GET /invoices/{id}/locations` finds each field value in the PDF's text layer by code
+    (pdfminer.six): German and English amounts and dates, IBANs with spaces, line terms on their printed row,
+    LLM fields through their stored evidence. A value not found shows "not located". 98.9 % of the fields of the
+    demo and eval PDFs are located (`docs/results.md`).
+  - Readable XRechnung: the official KoSIT xrechnung-visualization v2026-10-13, pinned by SHA-256, runs in the
+    validator's JVM on a second port (no new pod, +83 MiB); `GET /invoices/{id}/view` serves it without scripts
+    under a sandbox CSP, shown in a sandboxed iframe with the clicked BT row marked. ZUGFeRD PDFs switch between
+    the PDF and their XML.
+  - Keyboard shortcuts: j/k and Enter in the queue; a (approve, after a confirmation), r (reject reason), Esc
+    (back to the queue) and ? (help) on an invoice; never inside text fields.
+  - Dark-mode switch in the header: system by default, the choice in a cookie, applied before the first paint.
+  - Queue columns supplier, gross amount, due date (BT-9) and age, sortable by due date (`GET /invoices?sort=`).
+
 ### Changed
 - LiteLLM 1.108.1 → 1.110.2 and filelock 3.32.7 → 4.2.2 (ADR-004: each release public for at least a week); the
   filelock entry is out of `.trivyignore`. The exception agent's schema text was reworded, so its recorded replies

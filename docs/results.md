@@ -383,6 +383,27 @@ Not in the top 3 by vector or by text (rank by each; `-`: not in the top 10):
 - r16 (de): Kann eine abgelehnte Rechnung wieder geöffnet werden? 2 / -
 - r20 (de): Die Rechnung nennt keine Bankverbindung, sie wird per Lastschrift bezahlt. 6 / 6
 
+## Field locations in the PDF text layer (P1)
+
+Click-to-highlight finds each stored value in the PDF's text layer by code (ADR-029): German and English number and date forms, IBANs with spaces, line terms on their printed row. Computed from the committed PDFs and the pinned corpus, no model. Located means a match was found; boxes were spot-checked by eye in the browser, not against hand-marked boxes.
+
+- Fields located: **1240 of 1254 (98.9%)**
+
+| PDFs | Invoices | Fields | Located | Share |
+| --- | --- | --- | --- | --- |
+| corpus | 12 | 399 | 386 | 96.7% |
+| demo | 6 | 166 | 166 | 100.0% |
+| generated | 17 | 689 | 688 | 99.9% |
+
+Terms not always located:
+
+| Term | Name | Located |
+| --- | --- | --- |
+| BT-3 | type_code | 33 of 35 |
+| BT-110 | tax_total | 34 of 35 |
+| BT-130 | unit_code | 92 of 101 |
+| BT-146 | net_price | 99 of 101 |
+
 ## Notes on this run
 
 - **Spend and the cut-off at `high`.** The live run cost $1.64 (141 calls; plus $0.03 for an earlier smoke run
